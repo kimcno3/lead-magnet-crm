@@ -16,6 +16,8 @@ import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.PublicOrigin;
+import com.leadmagnet.crm.support.FormTokens;
+import com.leadmagnet.crm.support.MutableClock;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
@@ -41,6 +43,9 @@ class LeadListApiTest {
 
     @Autowired
     PublicPort publicPort;
+
+    @Autowired
+    MutableClock clock;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -74,9 +79,10 @@ class LeadListApiTest {
     }
 
     void submit(String slug, String name, String phone, String lm) {
+        String ft = FormTokens.mature(publicPort, clock, slug);
         Map<String, Object> body = lm == null
-            ? Map.of("fields", Map.of("name", name, "phone", phone), "consent", true)
-            : Map.of("fields", Map.of("name", name, "phone", phone), "consent", true, "lm", lm);
+            ? Map.of("fields", Map.of("name", name, "phone", phone), "consent", true, "ft", ft)
+            : Map.of("fields", Map.of("name", name, "phone", phone), "consent", true, "lm", lm, "ft", ft);
         PublicOrigin.given(publicPort).contentType(ContentType.JSON).body(body)
             .post("/api/public/forms/{slug}/submissions", slug).then().statusCode(201);
     }
@@ -155,7 +161,8 @@ class LeadListApiTest {
             """;
         AdminFixtures.createPublishedFormIn(token, campaign, "form-d", html);
         PublicOrigin.given(publicPort).contentType(ContentType.JSON)
-            .body(Map.of("fields", Map.of("email", "A@B.co", "job", "student"), "consent", true))
+            .body(Map.of("fields", Map.of("email", "A@B.co", "job", "student"), "consent", true,
+                "ft", FormTokens.mature(publicPort, clock, "form-d")))
             .post("/api/public/forms/form-d/submissions").then().statusCode(201);
 
         authed().queryParam("formId", jdbc.queryForObject("SELECT id FROM forms WHERE slug='form-d'", Integer.class))

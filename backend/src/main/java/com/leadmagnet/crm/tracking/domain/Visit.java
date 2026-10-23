@@ -15,6 +15,7 @@ import java.util.UUID;
 /**
  * 공개 폼 페이지 로드 1회 (ADR 0006: 방문 = /f/{slug} 200 응답). 만든 뒤에는 바꾸지 않는다.
  * referrer·user_agent는 요청 헤더 그대로라 길이를 믿을 수 없어 {@value #MAX_HEADER_LENGTH}자로 자른다.
+ * bot은 User-Agent가 봇 패턴인 방문이다(ADR 0019). 기록은 남기되 지표에서는 뺀다(ADR 0005 변경 기록).
  */
 @Entity
 @Table(name = "visits")
@@ -45,6 +46,9 @@ public class Visit {
     @Column(name = "user_agent", updatable = false, columnDefinition = "text")
     private String userAgent;
 
+    @Column(name = "is_bot", nullable = false, updatable = false)
+    private boolean bot;
+
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private Instant occurredAt;
 
@@ -52,20 +56,21 @@ public class Visit {
     }
 
     private Visit(Long formId, Long linkId, AttributionChannel channel, UUID visitorId, String referrer,
-            String userAgent, Instant occurredAt) {
+            String userAgent, boolean bot, Instant occurredAt) {
         this.formId = formId;
         this.linkId = linkId;
         this.channel = channel;
         this.visitorId = visitorId;
         this.referrer = clip(referrer);
         this.userAgent = clip(userAgent);
+        this.bot = bot;
         this.occurredAt = occurredAt;
     }
 
     /** linkId와 channel은 귀속 결과(link 없음 ⇔ direct, DB CHECK)를 그대로 받는다. */
     public static Visit record(Long formId, Long linkId, AttributionChannel channel, UUID visitorId,
-            String referrer, String userAgent, Instant occurredAt) {
-        return new Visit(formId, linkId, channel, visitorId, referrer, userAgent, occurredAt);
+            String referrer, String userAgent, boolean bot, Instant occurredAt) {
+        return new Visit(formId, linkId, channel, visitorId, referrer, userAgent, bot, occurredAt);
     }
 
     private static String clip(String value) {
@@ -101,6 +106,10 @@ public class Visit {
 
     public String getUserAgent() {
         return userAgent;
+    }
+
+    public boolean isBot() {
+        return bot;
     }
 
     public Instant getOccurredAt() {

@@ -146,6 +146,11 @@ class FormContractParserTest {
     }
 
     @Test
+    void honeypot_예약_이름_hp는_필드_이름으로_쓸_수_없다() {
+        assertRejected(page("<input name=\"email\"><input name=\"hp\">"), ErrorCode.TEMPLATE_FIELD_INVALID);
+    }
+
+    @Test
     void 필드가_51개이면_거부하고_50개는_허용한다() {
         assertThat(FormContractParser.parse(page(inputs(49) + "<input name=\"email\">"))).hasSize(50);
         assertRejected(page(inputs(50) + "<input name=\"email\">"), ErrorCode.TEMPLATE_FIELD_INVALID);

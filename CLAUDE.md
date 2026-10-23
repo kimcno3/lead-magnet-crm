@@ -8,10 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # 전체 로컬 실행 (postgres, backend :8080·:8081, admin-web :5173)
-# .env.example을 복사하면서 JWT_SECRET과 개인정보 암호화 키 두 개를 새로 만든다(자리표시 값으로는 기동하지 않는다)
+# .env.example을 복사하면서 JWT_SECRET, 개인정보 암호화 키 두 개, 폼 토큰 키를 새로 만든다(자리표시 값으로는 기동하지 않는다)
 sed -e "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" \
     -e "s|^LEAD_ENC_KEY=.*|LEAD_ENC_KEY=$(openssl rand -base64 32)|" \
-    -e "s|^LEAD_HMAC_KEY=.*|LEAD_HMAC_KEY=$(openssl rand -base64 32)|" .env.example > .env
+    -e "s|^LEAD_HMAC_KEY=.*|LEAD_HMAC_KEY=$(openssl rand -base64 32)|" \
+    -e "s|^FORM_TOKEN_KEY=.*|FORM_TOKEN_KEY=$(openssl rand -base64 32)|" .env.example > .env
 docker compose up --build
 
 # backend (Gradle 툴체인이 JDK 21을 자동으로 받는다. 실행 JDK는 17 이상이면 된다)
@@ -59,6 +60,7 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
   - 게시 스냅샷(ADR 0018): `Form.publish`가 템플릿 `content`·`sha256`을 `forms.published_html`·`published_template_sha256`(V8)에 복사하고, 공개 API는 그것만 쓴다(`PublicFormService`는 `TemplateService`를 쓰지 않는다). 템플릿 새 버전은 `PUT /api/admin/templates/{id}`(`form/application/TemplateVersionService`)이고 draft 폼의 `field_config`만 다시 스냅샷한다. 게시·폼 수정과 새 버전 업로드는 템플릿 행 → 폼 행 순서로 `PESSIMISTIC_WRITE`를 잡는다. 이 순서를 어기면 교착이나 html·필드 불일치가 생긴다.
   - 업로드 검사(ADR 0017): `template/domain/TemplateInspector`(Jsoup, 순수)가 계약 오류와 별개로 경고 `[{code, severity, message, location}]`를 낸다. 업로드를 막지 않고, `TemplateService.inspect`(저장 없음)를 업로드·`POST /api/admin/templates/inspect`·새 버전 업로드가 함께 쓴다. `html_templates.inspection`(V7)이 NULL인 기존 행은 `inspectionOf`가 읽을 때 계산하고 저장하지 않는다. 경고 코드를 바꾸면 `docs/AI_FORM_PROMPT.md` 대응표·TROUBLESHOOTING 3.1절·`admin-web/src/aiFormPrompt.ts`를 함께 맞춘다(테스트가 확인).
   - 지표(ADR 0005): `stats`는 엔티티 없이 `StatsQuery`(NamedParameterJdbcTemplate 네이티브 SQL, 지표 정의를 SQL 주석으로 인용)가 집계한다. 기간은 `stats/domain/DateRange`가 Asia/Seoul 날짜 `[from 00:00, to+1 00:00)`로 바꾸고 형식 오류·`from > to`는 422. 전환 방문자는 방문∩신청 `visitor_id` 교집합(채널별은 같은 채널 안), `visitor_id` NULL 신청은 전환에 넣지 않는다.
+  - 데이터 품질(ADR 0019): 봇 UA 방문은 `visits.is_bot`(V9, `tracking/domain/BotUserAgents`, 패턴은 `app.tracking.bot-user-agents`)으로 남기고 `StatsQuery`의 모든 방문 CTE가 `NOT v.is_bot`으로 뺀다. 제출은 `SubmissionGuardFilter`(403 → 413 → 429 rate limit, `common/web/RateLimiter` IP·`lm_vid` 버킷) → 404·410 → `FormTokenService.verify`(작성 시간 토큰 `ft`, `FORM_TOKEN_KEY`, 2초~24시간, 422 `invalid_form_token`) → honeypot `fields.hp`(201, 저장 안 함) → 필드 검증 순서다. 이 순서를 바꾸지 않는다. 테스트 제출은 `support/FormTokens.mature`로 토큰을 받는다(시계를 되돌려 받으므로 sleep 없음).
   - 운영자 계정은 기동 시 `auth/application/OperatorSeeder`가 `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD`로 만든다(ADR 0009). 로그용 개인정보 마스킹은 `common/PiiMasker`.
   - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. 단 `pii_key_check`는 일부러 넣지 않는다: 업무 데이터가 아니라 컨텍스트 기동 때 한 번 쓰는 키 확인 행이고, 공유 컨텍스트에서 지우면 다음 확인이 다른 키로 행을 새로 만들 수 있어 키 불일치 검사를 무력화한다(`PiiKeyCheckTest`는 행을 지운 뒤 `@AfterEach`에서 원래 키로 되돌린다). `RestAssured.port`는 admin 포트로 두고 public 포트 요청은 `PublicOrigin.given(publicPort)`로 보낸다. Docker가 떠 있어야 backend 테스트가 돈다.
   - 시나리오 테스트(`scenario` 테스트 패키지): `HappyPath`·`Failure`·`Isolation`이 두 포트를 오가며 로그인→업로드→배포→방문→신청→지표를 실제 HTTP로 잇는다. 기능별 테스트를 복제하지 않고 앞 단계 출력이 다음 입력이 되는지만 본다. 공통 도우미는 `support/ScenarioBase`, 방문자 쿠키를 들고 `/l/{code}` 302를 직접 따라가는 `support/PublicVisitor`. 지표는 테스트 주석에 손계산 표를 두고 정확히 비교한다.

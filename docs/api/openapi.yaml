@@ -1376,7 +1376,8 @@ paths:
       tags:
       - 공개 폼
       summary: 공개 폼 조회
-      description: "published 폼의 제목, 동의 문구, 필드 설정, 템플릿 HTML 원문"
+      description: "published 폼의 제목, 동의 문구, 필드 설정, 템플릿 HTML 원문과 작성 시간 토큰 ft(제출에 그대\
+        로 실어 보낸다, ADR 0019)"
       operationId: getPublicForm
       parameters:
       - name: slug
@@ -1414,7 +1415,8 @@ paths:
       summary: 신청 제출
       description: "Content-Type: application/json만 받는다. Origin: null(sandbox 프레임\
         )은 거절한다. name·phone·email 필드는 컬럼으로, 나머지는 payload로 저장한다. 같은 폼의 같은 전화번호·이메일은\
-        \ 409."
+        \ 409. 검사 순서: 403 → 413 → 429 → 400·415 → 404·410 → 422 invalid_form_token\
+        \ → honeypot → 422 validation_failed → 409 (ADR 0019)."
       operationId: submitForm
       parameters:
       - name: slug
@@ -1430,7 +1432,8 @@ paths:
         required: true
       responses:
         "201":
-          description: "접수됨 {status: received}"
+          description: "접수됨 {status: received}. honeypot(fields.hp)이 채워진 제출도 같은 201이\
+            지만 저장하지 않는다"
           content:
             '*/*':
               schema:
@@ -1472,9 +1475,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/SubmissionResponse"
         "422":
-          description: "validation_failed. errors[].code: unknown_field, required,\
-            \ invalid_format, invalid_option, invalid_value, too_long, consent_required,\
-            \ contact_required"
+          description: "invalid_form_token(ft가 없거나 위조·다른 slug·발급 2초 미만·24시간 초과) 또는\
+            \ validation_failed. errors[].code: unknown_field, required, invalid_format,\
+            \ invalid_option, invalid_value, too_long, consent_required, contact_required"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+        "429":
+          description: "too_many_requests. IP 분당 10회·방문자 쿠키 분당 5회(기본값) 초과, Retry-After\
+            \ 헤더(초)"
           content:
             '*/*':
               schema:
@@ -1628,13 +1638,17 @@ components:
         fields:
           type: object
           additionalProperties: {}
-          description: 필드 이름 → 문자열 또는 문자열 배열(checkbox)
+          description: 필드 이름 → 문자열 또는 문자열 배열(checkbox). hp는 honeypot(래퍼가 항상 빈 문자열로
+            보낸다)
         consent:
           type: string
           description: 개인정보 수집·이용 동의. true여야 한다
         lm:
           type: string
           description: "배포 링크 code(/f/{slug}?lm=...). 없으면 direct"
+        ft:
+          type: string
+          description: "작성 시간 토큰. GET /api/public/forms/{slug} 응답의 ft 그대로"
     SubmissionResponse:
       type: object
       properties:
@@ -1950,6 +1964,9 @@ components:
             $ref: "#/components/schemas/FormField"
         html:
           type: string
+        ft:
+          type: string
+          description: 작성 시간 토큰. 제출 본문의 ft로 보낸다. 발급 2초 뒤부터 24시간 동안 유효 (ADR 0019)
     TemplateSummaryResponse:
       type: object
       properties:

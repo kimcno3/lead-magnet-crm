@@ -17,6 +17,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -27,16 +28,22 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *   <li>{@code Origin: null}(sandbox 프레임)은 403 forbidden_origin. Origin이 없거나 실제 출처면 통과</li>
  *   <li>본문이 maxBytes를 넘으면 413 payload_too_large. Content-Length로 먼저 거르고, chunked 본문은
  *       maxBytes + 1 바이트까지만 읽어 판단한다(메모리 상한이 곧 maxBytes)</li>
+ *   <li>IP·방문자 쿠키 rate limit을 넘으면 429 too_many_requests와 Retry-After(초) (ADR 0019)</li>
  * </ul>
+ * 제출 검사 전체 순서(ADR 0019): 403 Origin → 413 크기 → 429 rate limit → (컨트롤러) 400·415 본문 형식 →
+ * 404·410 폼 상태 → 422 invalid_form_token → honeypot(201, 저장 안 함) → 422 validation_failed → 409 중복.
+ * 403·413은 rate limit 토큰을 쓰지 않는다.
  */
 public class SubmissionGuardFilter extends OncePerRequestFilter {
 
     private static final Pattern PATH = Pattern.compile("^/api/public/forms/[^/]+/submissions$");
 
     private final long maxBytes;
+    private final SubmissionRateLimits rateLimits;
 
-    public SubmissionGuardFilter(long maxBytes) {
+    public SubmissionGuardFilter(long maxBytes, SubmissionRateLimits rateLimits) {
         this.maxBytes = maxBytes;
+        this.rateLimits = rateLimits;
     }
 
     @Override
@@ -59,6 +66,12 @@ public class SubmissionGuardFilter extends OncePerRequestFilter {
         byte[] body = request.getInputStream().readNBytes((int) maxBytes + 1);
         if (body.length > maxBytes) {
             ProblemDetails.write(request, response, ErrorCode.PAYLOAD_TOO_LARGE);
+            return;
+        }
+        long retryAfter = rateLimits.check(request);
+        if (retryAfter > 0) {
+            response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(retryAfter));
+            ProblemDetails.write(request, response, ErrorCode.TOO_MANY_REQUESTS);
             return;
         }
         chain.doFilter(new BufferedBodyRequest(request, body), response);

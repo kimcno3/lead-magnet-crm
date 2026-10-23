@@ -98,6 +98,23 @@ class SubmissionValidatorTest {
     }
 
     @Test
+    void honeypot_hp는_unknown_field가_아니고_payload에도_넣지_않는다() {
+        Submission submission = SubmissionValidator.validate(CONFIG, valid("hp", ""), true);
+
+        assertThat(submission.payload()).doesNotContainKey("hp");
+    }
+
+    @Test
+    void honeypot은_비어_있지_않을_때만_채워진_것으로_본다() {
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("hp", "x"))).isTrue();
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("hp", " "))).isTrue();
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("hp", List.of("x")))).isTrue();
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("hp", ""))).isFalse();
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("name", "홍"))).isFalse();
+        assertThat(SubmissionValidator.isHoneypotFilled(null)).isFalse();
+    }
+
+    @Test
     void 필수_필드가_없거나_공백이면_required다() {
         List<FieldError> missing = errorsOf(CONFIG, fields("phone", "01012345678"), true);
         List<FieldError> blank = errorsOf(CONFIG, valid("name", "   "), true);

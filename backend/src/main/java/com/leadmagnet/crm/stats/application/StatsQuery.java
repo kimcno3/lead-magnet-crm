@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
  * 지표 집계 네이티브 SQL (ADR 0005). 지표 정의가 SQL에 그대로 보이도록 지표마다 정의를 주석으로 인용한다.
  * "(:x IS NULL OR col >= :x)" 형태의 선택적 기간 조건은 인덱스를 못 탈 수 있으나 이 규모에서는 허용한다.
  * visits에는 campaign_id가 없어 forms를 거친다. 기간 조건은 occurred_at/created_at >= from AND < to(다음날 00:00).
+ * 방문은 모든 쿼리의 visits_in에서 NOT is_bot으로 봇 방문을 뺀다(ADR 0005 변경 기록). 신청은 봇 표시가 없어 그대로 센다.
  */
 @Component
 class StatsQuery {
@@ -42,6 +43,8 @@ class StatsQuery {
             SELECT f.campaign_id, v.visitor_id
             FROM visits v JOIN forms f ON f.id = v.form_id
             WHERE (CAST(:campaignId AS bigint) IS NULL OR f.campaign_id = :campaignId)
+              -- 봇 방문(is_bot)은 어떤 지표에도 넣지 않는다 (ADR 0005 변경 기록, ADR 0019)
+              AND NOT v.is_bot
               AND (CAST(:from AS timestamptz) IS NULL OR v.occurred_at >= :from)
               AND (CAST(:to AS timestamptz) IS NULL OR v.occurred_at < :to)
         ), leads_in AS (
@@ -96,6 +99,8 @@ class StatsQuery {
             SELECT v.channel, v.visitor_id
             FROM visits v JOIN forms f ON f.id = v.form_id
             WHERE f.campaign_id = :campaignId
+              -- 봇 방문(is_bot)은 어떤 지표에도 넣지 않는다 (ADR 0005 변경 기록, ADR 0019)
+              AND NOT v.is_bot
               AND (CAST(:from AS timestamptz) IS NULL OR v.occurred_at >= :from)
               AND (CAST(:to AS timestamptz) IS NULL OR v.occurred_at < :to)
         ), leads_in AS (
@@ -135,6 +140,8 @@ class StatsQuery {
             JOIN forms f ON f.id = v.form_id
             LEFT JOIN distribution_links dl ON dl.id = v.link_id
             WHERE f.campaign_id = :campaignId
+              -- 봇 방문(is_bot)은 어떤 지표에도 넣지 않는다 (ADR 0005 변경 기록, ADR 0019)
+              AND NOT v.is_bot
               AND (CAST(:from AS timestamptz) IS NULL OR v.occurred_at >= :from)
               AND (CAST(:to AS timestamptz) IS NULL OR v.occurred_at < :to)
         ), leads_in AS (
@@ -253,6 +260,8 @@ class StatsQuery {
             JOIN distribution_links dl ON dl.id = v.link_id
             JOIN forms f ON f.id = v.form_id
             WHERE dl.creator_id = :creatorId
+              -- 봇 방문(is_bot)은 어떤 지표에도 넣지 않는다 (ADR 0005 변경 기록, ADR 0019)
+              AND NOT v.is_bot
               AND (CAST(:from AS timestamptz) IS NULL OR v.occurred_at >= :from)
               AND (CAST(:to AS timestamptz) IS NULL OR v.occurred_at < :to)
         ), leads_in AS (

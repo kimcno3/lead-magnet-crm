@@ -16,6 +16,8 @@ import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.PublicOrigin;
+import com.leadmagnet.crm.support.FormTokens;
+import com.leadmagnet.crm.support.MutableClock;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.time.Instant;
@@ -51,6 +53,9 @@ class AuditFailurePolicyTest {
     PublicPort publicPort;
 
     @Autowired
+    MutableClock clock;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @Autowired
@@ -75,7 +80,8 @@ class AuditFailurePolicyTest {
         campaign = AdminFixtures.createCampaign(token, "봄 캠페인");
         AdminFixtures.createPublishedFormIn(token, campaign, "form-a", HTML);
         PublicOrigin.given(publicPort).contentType(ContentType.JSON)
-            .body(Map.of("fields", Map.of("name", "홍길동", "phone", "010-1234-5678"), "consent", true))
+            .body(Map.of("fields", Map.of("name", "홍길동", "phone", "010-1234-5678"), "consent", true,
+                "ft", FormTokens.mature(publicPort, clock, "form-a")))
             .post("/api/public/forms/form-a/submissions").then().statusCode(201);
         lead = jdbc.queryForObject("SELECT max(id) FROM leads", Long.class);
         doThrow(new DataAccessResourceFailureException("audit store down")).when(auditLogs).saveAndFlush(any());

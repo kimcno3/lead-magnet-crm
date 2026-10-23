@@ -12,6 +12,7 @@
 | backend가 마이그레이션 중 멈추고 로그에 `V5 중단: 암호문·해시가 채워지지 않은 leads 행이 있습니다` | 백필되지 않은 행이 있어 V5가 중단됨. 평문 컬럼을 지우면 그 행의 연락처가 사라지므로 가드가 막은 것(ADR 0015). Flyway는 실패한 V5를 기록하지 않는다 | 14a 버전으로 기동해 백필 완료 후 재시도. 확인 쿼리는 ADR 0015의 게이트 쿼리(0이어야 한다) |
 | backend 로그에 `Migration checksum mismatch for migration version 4` | 리뷰 중 바뀌기 전의 V4 초안을 적용한 로컬 DB(공유 환경에는 없음) | `docker compose down -v`로 로컬 DB를 지우고 다시 띄운다 |
 | 명단의 한 줄이 "복호화 불가", 그 신청의 원문 조회가 500 `internal_error`, 로그에 `leadId=` | 그 행의 암호문이 손상됨(직접 수정, 다른 컬럼 값 복사, 변조) | 해당 신청 id의 행을 확인한다. 로그에는 id만 남고 원문은 남지 않는다. 명단의 다른 줄은 정상으로 보인다 |
+| backend가 바로 종료되고 로그에 `FORM_TOKEN_KEY` | 공개 폼 작성 시간 토큰 서명 키가 없거나 base64 32바이트가 아님(자리표시 값 `change-me` 포함) | `openssl rand -base64 32`로 만들어 `.env`에 넣는다(README의 `sed` 명령이 함께 만든다). 바꾸면 열려 있던 공개 폼 페이지의 토큰만 무효가 된다(새로 고치면 된다, ADR 0019) |
 | backend 로그에 `ADMIN_SEED_EMAIL과 ADMIN_SEED_PASSWORD는 함께 설정해야 합니다` | 둘 중 하나만 설정 | 둘 다 채우거나 둘 다 비운다 |
 | backend 로그에 `ADMIN_SEED_PASSWORD는 12자 이상` | 시드 비밀번호가 짧음 | 12자 이상, UTF-8 72바이트 이하로 바꾼다 |
 | `.env`의 비밀번호를 바꿨는데 로그인이 안 된다 | 시드는 계정이 **없을 때만** 만든다. 이미 있는 계정은 바꾸지 않는다(ADR 0009) | `docker compose down -v`로 DB를 지우고 다시 띄운다(데이터 모두 삭제) |
@@ -102,6 +103,10 @@
 | `forbidden_origin` (403) | `Origin: null`인 요청, 즉 sandbox iframe 안 스크립트가 직접 API를 호출 | 래퍼를 통해 제출한다(업로드 HTML이 직접 fetch하지 않게) |
 | `unsupported_media_type` (415) | JSON이 아닌 제출 | `Content-Type: application/json` |
 | `payload_too_large` (413) | 제출 본문 64KB 초과 | 긴 입력을 줄인다 |
+| `invalid_form_token` (422), "잠시 후 다시 제출해 주세요" | 폼을 연 지 2초가 안 돼 제출했거나, 24시간 넘게 열어 둔 페이지, 또는 래퍼를 거치지 않고 `ft` 없이 API를 부름(ADR 0019) | 래퍼가 토큰을 새로 받아 두므로 잠시 뒤 다시 제출한다. 계속되면 페이지를 새로 고친다. 직접 호출이면 `GET /api/public/forms/{slug}`의 `ft`를 2초 뒤에 실어 보낸다 |
+| `too_many_requests` (429), `Retry-After` 헤더 | 같은 IP에서 분당 10회, 같은 방문자 쿠키로 분당 5회 넘게 제출(ADR 0019). 리버스 프록시 뒤라면 모든 요청이 프록시 IP 하나로 보여 쉽게 걸린다 | `Retry-After` 초만큼 기다린다. 한도는 `app.public.rate-limit.*`로 바꾼다. 프록시 뒤 배포는 `server.forward-headers-strategy`와 신뢰 프록시를 설정한다 |
+| 신청이 "접수되었습니다"인데 명단에 없다 | 숨겨진 honeypot 입력 `hp`가 채워진 제출(봇으로 봄)은 201을 주고 저장하지 않는다. 브라우저 자동 완성이 숨은 칸을 채운 경우일 수 있다 | backend 로그의 `honeypot 제출 무시` 건수를 확인한다(입력값은 남기지 않는다) |
+| 템플릿 업로드가 `template_field_invalid`, "스팸 방지용으로 예약" | 필드 이름 `hp`는 honeypot 예약 이름 | 다른 이름으로 바꾼다 |
 | value 없는 체크박스 값이 `on`으로 저장된다 | 브라우저 기본값 | 정상 동작. 의미 있는 값을 원하면 HTML에 `value`를 준다 |
 
 ## 6. 지표가 예상과 다를 때
@@ -111,6 +116,7 @@
 - **채널별 전환 합계가 캠페인 전체와 다름**: 채널별 전환은 같은 채널 안에서만 센다(ADR 0005).
 - **크리에이터 행을 더해도 캠페인 전체와 다름**: 크리에이터별 전환은 같은 크리에이터 안에서만 센다. 한 사람이 크리에이터 S 링크로 보고 B 링크로 신청하면 캠페인 전체에서는 전환이지만 S·B 어느 행에서도 전환이 아니다(ADR 0014).
 - **크리에이터 링크로 들어온 신청이 직접·자체 링크 행에 있음**: 크리에이터 링크로 방문한 뒤 공개 주소로 다시 들어와 신청하면 신청은 링크 없이(direct) 기록된다(ADR 0005 알려진 한계).
+- **방문이 기대보다 적음(링크를 메신저에 붙였는데 미리보기 방문이 안 잡힘)**: User-Agent가 봇 패턴(facebookexternalhit, kakaotalk-scrap, slackbot, Googlebot, headless, curl 등)이거나 비어 있는 방문은 `visits.is_bot = true`로 남고 모든 지표에서 빠진다(ADR 0005 변경 기록, ADR 0019). 확인: `SELECT is_bot, count(*) FROM visits GROUP BY 1`. 패턴은 `app.tracking.bot-user-agents`로 바꾼다. 신청은 봇 UA여도 센다.
 - **`/l/{code}`로 들어왔는데 방문이 두 번 잡히지 않음**: 방문은 공개 폼이 열릴 때 한 번만 기록한다(ADR 0006).
 - **날짜 경계**: 기간 필터는 서울 시간 자정 기준이다.
 

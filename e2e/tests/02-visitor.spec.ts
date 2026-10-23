@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page } from '@playwright/test'
+import { devices, expect, test, type BrowserContext, type Page } from '@playwright/test'
 import { PUBLIC_URL } from '../lib/env'
 import { readState, step, type SharedState } from '../lib/steps'
 
@@ -15,7 +15,9 @@ const visitors: Record<'A' | 'B' | 'C', { context: BrowserContext; page: Page }>
 test.beforeAll(async ({ browser }) => {
   state = readState()
   for (const name of ['A', 'B', 'C'] as const) {
-    const context = await browser.newContext()
+    // 직접 만든 컨텍스트에는 설정 파일의 use(기기 User-Agent)가 적용되지 않아 headless 브라우저의 기본 UA
+    // ("HeadlessChrome")가 나간다. 서버는 이 UA를 봇 방문으로 보고 지표에서 빼므로(ADR 0019) 사람 브라우저 UA를 준다.
+    const context = await browser.newContext({ userAgent: devices['Desktop Chrome'].userAgent })
     visitors[name] = { context, page: await context.newPage() }
   }
 })
@@ -66,6 +68,9 @@ async function fillAndSubmit(page: Page, frame: ReturnType<Page['frameLocator']>
   await expect(frame.getByText(`(${a.interests.length}개 선택)`)).toBeVisible()
   if (a.marketing) await frame.getByRole('checkbox', { name: /이벤트·혜택 소식 받기/ }).check()
   await page.getByRole('checkbox', { name: /가이드 발송과 상담 안내/ }).check()
+  // 서버는 폼을 받은 지 2초가 안 된 제출을 422 invalid_form_token으로 거절한다(최소 작성 시간, ADR 0019).
+  // 자동 입력은 사람보다 빨라 2초 안에 끝날 수 있으므로 제출 전에 토큰이 익을 만큼 기다린다.
+  await page.waitForTimeout(2_100)
   await frame.getByRole('button', { name: '무료 가이드 받기' }).click()
   await expect(page.locator('#lm-result')).toHaveText('신청이 접수되었습니다. 감사합니다.')
   // 성공하면 래퍼가 lm:result로 알리고 브리지가 폼을 비운다.

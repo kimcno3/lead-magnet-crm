@@ -76,3 +76,8 @@ Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; 
 ### 2026-10-23: `/l/{code}`의 404·410도 HTML 안내
 
 - `/l/{code}`도 브라우저가 여는 주소라 없는 code·draft 폼의 404와 closed 폼의 410을 ProblemDetail JSON 대신 `/f/{slug}`와 같은 정적 HTML 안내(`WrapperPages.notice`)로 답한다. 상태 코드는 그대로다. `/api/public/**`는 계속 ProblemDetail JSON이다.
+
+### 2026-10-24: honeypot 입력과 작성 시간 토큰 (ADR 0019)
+
+- 브리지가 업로드 폼 안에 사람에게 보이지 않는 `<input name="hp">`을 붙이고(화면 밖 위치는 CSSOM `style.cssText`로 준다), 래퍼는 제출 `fields.hp`를 항상 보낸다(사람이면 빈 문자열). 래퍼 검증은 `hp`를 알 수 없는 항목으로 보지 않는다.
+- 래퍼는 `/api/public/forms/{slug}` 응답의 `ft`를 제출 본문 `ft`로 보낸다. 422 `invalid_form_token`이면 안내를 보여 주고 폼을 다시 조회해 토큰만 바꾼다. CSP는 바뀌지 않는다.

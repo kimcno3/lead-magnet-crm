@@ -5,10 +5,11 @@
 필요한 것: Docker (Compose v2)
 
 ```bash
-# .env.example을 복사하면서 JWT_SECRET과 개인정보 암호화 키 두 개를 새로 만든다(자리표시 값으로는 기동하지 않는다)
+# .env.example을 복사하면서 JWT_SECRET, 개인정보 암호화 키 두 개, 폼 토큰 키를 새로 만든다(자리표시 값으로는 기동하지 않는다)
 sed -e "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" \
     -e "s|^LEAD_ENC_KEY=.*|LEAD_ENC_KEY=$(openssl rand -base64 32)|" \
-    -e "s|^LEAD_HMAC_KEY=.*|LEAD_HMAC_KEY=$(openssl rand -base64 32)|" .env.example > .env
+    -e "s|^LEAD_HMAC_KEY=.*|LEAD_HMAC_KEY=$(openssl rand -base64 32)|" \
+    -e "s|^FORM_TOKEN_KEY=.*|FORM_TOKEN_KEY=$(openssl rand -base64 32)|" .env.example > .env
 docker compose up --build
 ```
 
