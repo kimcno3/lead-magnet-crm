@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * 폼 하나의 채널 하나(그리고 크리에이터 하나 또는 없음)에 대응하는 배포 링크. UTM은 생성 시 채널과 폼 slug로 정해진다.
+ * 폼 하나의 채널 하나(그리고 크리에이터 하나 또는 없음)에 대응하는 배포 링크. UTM은 생성 시 채널·폼 slug·크리에이터로 정해진다.
  * 크리에이터는 id로만 참조하고 바꿀 수 없다(이미 쌓인 방문·신청의 크리에이터 귀속이 이 값에서 나온다, ADR 0014).
  */
 @Entity
@@ -18,6 +18,7 @@ import java.time.Instant;
 public class DistributionLink {
 
     static final String UTM_MEDIUM = "social";
+    static final String UTM_CONTENT_CREATOR_PREFIX = "creator-";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,6 +46,9 @@ public class DistributionLink {
     @Column(name = "utm_campaign", updatable = false)
     private String utmCampaign;
 
+    @Column(name = "utm_content", updatable = false)
+    private String utmContent;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -59,6 +63,7 @@ public class DistributionLink {
         this.utmSource = channel.value();
         this.utmMedium = UTM_MEDIUM;
         this.utmCampaign = formSlug;
+        this.utmContent = creatorId == null ? null : UTM_CONTENT_CREATOR_PREFIX + creatorId;
         this.createdAt = now;
     }
 
@@ -104,6 +109,11 @@ public class DistributionLink {
 
     public String getUtmCampaign() {
         return utmCampaign;
+    }
+
+    /** 크리에이터 링크는 {@code creator-{id}}, 자체 링크는 null. */
+    public String getUtmContent() {
+        return utmContent;
     }
 
     public Instant getCreatedAt() {
