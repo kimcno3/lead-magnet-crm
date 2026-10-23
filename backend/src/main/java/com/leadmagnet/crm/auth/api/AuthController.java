@@ -1,15 +1,15 @@
 package com.leadmagnet.crm.auth.api;
 
-import com.leadmagnet.crm.common.web.AuditActors;
+import com.leadmagnet.crm.audit.api.AuditActors;
 import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.auth.application.AuthService;
+import com.leadmagnet.crm.auth.application.IssuedTokens;
 import com.leadmagnet.crm.auth.application.LoginThrottle;
 import com.leadmagnet.crm.auth.application.RefreshTokenReusedException;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
-import com.leadmagnet.crm.common.web.AuditActor;
-import com.leadmagnet.crm.auth.application.IssuedTokens;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;

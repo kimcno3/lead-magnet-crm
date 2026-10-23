@@ -1,9 +1,9 @@
 package com.leadmagnet.crm.campaign.api;
 
+import com.leadmagnet.crm.audit.api.AuditActors;
 import com.leadmagnet.crm.campaign.application.CampaignService;
 import com.leadmagnet.crm.campaign.application.CampaignService.CampaignDetail;
 import com.leadmagnet.crm.campaign.domain.Campaign;
-import com.leadmagnet.crm.common.web.AuditActors;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

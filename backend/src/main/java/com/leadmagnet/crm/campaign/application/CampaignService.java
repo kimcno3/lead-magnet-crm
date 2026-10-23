@@ -1,12 +1,12 @@
 package com.leadmagnet.crm.campaign.application;
 
 import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.campaign.domain.Campaign;
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
-import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.form.domain.FormRepository;
 import java.time.Clock;

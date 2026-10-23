@@ -1,7 +1,7 @@
 package com.leadmagnet.crm.lead.application;
 
 import com.leadmagnet.crm.audit.application.AuditService;
-import com.leadmagnet.crm.common.web.AuditActor;
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;

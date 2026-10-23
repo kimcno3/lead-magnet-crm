@@ -52,8 +52,8 @@ class PublishSnapshotConcurrencyTest {
         <label>메모 <input name="memo"></label></form></body></html>
         """;
 
-    static final com.leadmagnet.crm.common.web.AuditActor ACTOR =
-        new com.leadmagnet.crm.common.web.AuditActor(null, "127.0.0.1", "test");
+    static final com.leadmagnet.crm.audit.domain.AuditActor ACTOR =
+        new com.leadmagnet.crm.audit.domain.AuditActor(null, "127.0.0.1", "test");
 
     @LocalServerPort
     int port;

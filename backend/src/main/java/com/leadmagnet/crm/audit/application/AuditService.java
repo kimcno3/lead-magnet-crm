@@ -1,13 +1,13 @@
 package com.leadmagnet.crm.audit.application;
 
 import com.leadmagnet.crm.audit.domain.AuditAction;
-import com.leadmagnet.crm.common.web.AuditActor;
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.audit.domain.AuditLog;
 import com.leadmagnet.crm.audit.domain.AuditLogRepository;
+import com.leadmagnet.crm.common.DateRange;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.DomainException.FieldError;
-import com.leadmagnet.crm.stats.domain.DateRange;
 import jakarta.persistence.criteria.Predicate;
 import java.time.Clock;
 import java.time.Instant;

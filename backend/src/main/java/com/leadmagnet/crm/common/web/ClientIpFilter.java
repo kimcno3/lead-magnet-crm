@@ -12,7 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * 실제 클라이언트 IP (ADR 0021). 모든 필터보다 먼저 돌아, admin 포트로 들어온 요청의 직전 피어가 신뢰 프록시
  * ({@link TrustedProxies})면 X-Forwarded-For에서 클라이언트 주소를 골라 {@code getRemoteAddr()}·{@code getRemoteHost()}가
- * 그 값을 돌려주게 감싼다. 그래서 감사 IP({@link AuditActors})와 rate limit·로그인 제한이 모두 같은 값을 본다.
+ * 그 값을 돌려주게 감싼다. 그래서 감사 IP({@code AuditActors})와 rate limit·로그인 제한이 모두 같은 값을 본다.
  *
  * <p>public 포트는 앞단 프록시가 없으므로 XFF를 절대 읽지 않는다(피어가 신뢰 프록시 대역이어도). X-Real-IP는 어느 포트에서도
  * 읽지 않는다. Tomcat RemoteIpValve는 엔진 단위라 두 커넥터에 함께 걸리므로 쓰지 않았다.

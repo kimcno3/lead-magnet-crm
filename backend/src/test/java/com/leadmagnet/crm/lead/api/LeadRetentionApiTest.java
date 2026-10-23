@@ -6,9 +6,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
-import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.common.web.PublicPort;
 import com.leadmagnet.crm.lead.application.LeadRetentionService;
 import com.leadmagnet.crm.support.AdminFixtures;

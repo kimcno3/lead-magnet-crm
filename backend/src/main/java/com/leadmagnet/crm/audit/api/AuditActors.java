@@ -1,5 +1,7 @@
-package com.leadmagnet.crm.common.web;
+package com.leadmagnet.crm.audit.api;
 
+import com.leadmagnet.crm.audit.domain.AuditActor;
+import com.leadmagnet.crm.common.web.ClientIpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.jwt.Jwt;
