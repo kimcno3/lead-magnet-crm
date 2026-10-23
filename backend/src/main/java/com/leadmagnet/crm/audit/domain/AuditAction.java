@@ -10,7 +10,8 @@ public enum AuditAction {
     LEAD_EXPORT("lead.export"),
     LEAD_EXPORT_REVEAL("lead.export.reveal"),
     AUTH_LOGIN_SUCCESS("auth.login.success"),
-    AUTH_LOGIN_FAILURE("auth.login.failure");
+    AUTH_LOGIN_FAILURE("auth.login.failure"),
+    RETENTION_ANONYMIZE("retention.anonymize");
 
     private final String value;
 

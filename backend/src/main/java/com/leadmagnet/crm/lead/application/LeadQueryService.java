@@ -84,6 +84,11 @@ public class LeadQueryService {
      * contactUnavailable로 표시한다. 로그에는 신청 id만 남긴다. 원문 조회({@link LeadContactService})는 그대로 실패한다.
      */
     private LeadView toView(Lead l, String formTitle) {
+        if (l.isAnonymized()) {
+            // 파기된 신청은 연락처가 없다(복호화할 것이 없다). payload는 키만 남은 값이다(ADR 0020).
+            return new LeadView(l.getId(), l.getFormId(), formTitle, l.getChannel().value(), null, null, null, false,
+                l.getPayload(), l.getCreatedAt(), l.getAnonymizedAt());
+        }
         LeadContact masked;
         boolean unavailable = false;
         try {
@@ -94,15 +99,17 @@ public class LeadQueryService {
             unavailable = true;
         }
         return new LeadView(l.getId(), l.getFormId(), formTitle, l.getChannel().value(), masked.name(), masked.phone(),
-            masked.email(), unavailable, l.getPayload(), l.getCreatedAt());
+            masked.email(), unavailable, l.getPayload(), l.getCreatedAt(), null);
     }
 
     /**
      * 명단 한 줄. 엔티티를 api 계층에 넘기지 않으려는 읽기용 값이다. name·phone·email은 가린 값이다.
-     * contactUnavailable이면 연락처를 복호화하지 못해 셋 다 null이다.
+     * contactUnavailable이면 연락처를 복호화하지 못해 셋 다 null이다. anonymizedAt이 있으면 보존 기간이 지나 파기된 신청이라
+     * 연락처 셋이 null이고 payload는 키만 남아 있다(ADR 0020).
      */
     public record LeadView(Long id, Long formId, String formTitle, String channel, String name, String phone,
-            String email, boolean contactUnavailable, Map<String, Object> payload, Instant createdAt) {
+            String email, boolean contactUnavailable, Map<String, Object> payload, Instant createdAt,
+            Instant anonymizedAt) {
     }
 
     public record LeadPage(List<LeadView> items, int page, int size, long totalElements, int totalPages) {

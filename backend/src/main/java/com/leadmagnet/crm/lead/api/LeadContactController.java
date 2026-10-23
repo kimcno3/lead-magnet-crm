@@ -38,6 +38,8 @@ public class LeadContactController {
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(responseCode = "404", description = "없는 신청 (not_found)",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
+    @ApiResponse(responseCode = "410", description = "보존 기간이 지나 파기된 신청 (lead_anonymized, ADR 0020)",
+        content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping("/api/admin/leads/{id}/contact")
     public ResponseEntity<LeadContactResponse> contact(@PathVariable long id, @AuthenticationPrincipal Jwt jwt,
             HttpServletRequest request) {

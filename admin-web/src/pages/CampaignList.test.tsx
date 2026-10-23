@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearSession } from '../api/client'
 import type { CampaignSummary } from '../api/types'
@@ -46,5 +46,45 @@ describe('캠페인 목록', () => {
     expect(within(row).getAllByText('-').length).toBeGreaterThanOrEqual(4)
     expect(screen.getByRole('alert')).toHaveTextContent('지표를 불러오지 못했습니다')
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
+  })
+
+  it('새 캠페인은 보존 기간(일)을 함께 보내고 기본값은 365일이다', async () => {
+    const bodies: unknown[] = []
+    mockBackend((url, init) => {
+      if (url.pathname === '/api/admin/campaigns' && init?.method === 'POST') {
+        bodies.push(JSON.parse(String(init.body)))
+        return json({ id: 9 }, 201)
+      }
+      if (url.pathname === '/api/admin/campaigns') return json([])
+      if (url.pathname === '/api/admin/stats/campaigns') return json({ from: null, to: null, campaigns: [] })
+      return undefined
+    })
+    renderPage('/campaigns', <CampaignListPage />)
+    fireEvent.click(await screen.findByRole('button', { name: '새 캠페인' }))
+    const dialog = screen.getByRole('dialog', { name: '새 캠페인' })
+    expect(within(dialog).getByLabelText('보존 기간(일)')).toHaveValue(365)
+    fireEvent.change(within(dialog).getByLabelText('이름'), { target: { value: '봄' } })
+    fireEvent.change(within(dialog).getByLabelText('보존 기간(일)'), { target: { value: '30' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '만들기' }))
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toMatchObject({ name: '봄', retentionDays: 30 })
+  })
+
+  it('보존 기간이 범위를 벗어나면 서버 오류를 그 칸에 보여준다', async () => {
+    mockBackend((url, init) => {
+      if (url.pathname === '/api/admin/campaigns' && init?.method === 'POST') {
+        return json({ code: 'validation_failed', errors: [{ field: 'retentionDays', message: 'retentionDays는 1~3650일이어야 합니다' }] }, 422)
+      }
+      if (url.pathname === '/api/admin/campaigns') return json([])
+      if (url.pathname === '/api/admin/stats/campaigns') return json({ from: null, to: null, campaigns: [] })
+      return undefined
+    })
+    renderPage('/campaigns', <CampaignListPage />)
+    fireEvent.click(await screen.findByRole('button', { name: '새 캠페인' }))
+    const dialog = screen.getByRole('dialog', { name: '새 캠페인' })
+    fireEvent.change(within(dialog).getByLabelText('이름'), { target: { value: '봄' } })
+    fireEvent.change(within(dialog).getByLabelText('보존 기간(일)'), { target: { value: '0' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '만들기' }))
+    expect(await within(dialog).findByText('retentionDays는 1~3650일이어야 합니다')).toBeInTheDocument()
   })
 })

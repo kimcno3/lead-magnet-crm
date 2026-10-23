@@ -12,13 +12,14 @@ import org.springframework.context.annotation.Import;
 @Retention(RetentionPolicy.RUNTIME)
 // 테스트 전용 서명 키와 개인정보 암호화·HMAC 키, 폼 토큰 키. 운영 값은 환경 변수(JWT_SECRET, LEAD_ENC_KEY, LEAD_HMAC_KEY,
 // FORM_TOKEN_KEY)로만 받는다. 제출 rate limit은 테스트가 같은 IP로 많이 제출하므로 크게 둔다(한도 자체는 SubmissionRateLimitTest).
+// 보존 기간 파기 스케줄러는 끄고(수동 실행·서비스로 테스트), 배치는 2건으로 줄여 keyset 페이징을 지나게 한다.
 // admin 커넥터는 RANDOM_PORT(@LocalServerPort), public 커넥터도 임의 포트로 띄우고 실제 포트는 PublicPort 빈에서 읽는다.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {"JWT_SECRET=test-only-jwt-secret-not-for-production-0123456789",
         "LEAD_ENC_KEY=" + IntegrationTest.TEST_ENC_KEY, "LEAD_HMAC_KEY=" + IntegrationTest.TEST_HMAC_KEY,
         "FORM_TOKEN_KEY=" + IntegrationTest.TEST_FORM_TOKEN_KEY,
         "app.public.rate-limit.ip-per-minute=100000", "app.public.rate-limit.visitor-per-minute=100000",
-        "app.ports.public-port=0"})
+        "app.ports.public-port=0", "app.retention.enabled=false", "app.retention.batch-size=2"})
 @Import(TestcontainersConfiguration.class)
 public @interface IntegrationTest {
 

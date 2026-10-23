@@ -171,6 +171,33 @@ class CampaignFormApiTest {
     }
 
     @Test
+    void 보존_기간은_기본_365일이고_생성과_수정에서_1에서_3650일까지_받는다() {
+        int id = createCampaign("c");
+        authed().get("/api/admin/campaigns/{id}", id).then().statusCode(200).body("retentionDays", equalTo(365));
+
+        authed().body(Map.of("retentionDays", 3650)).patch("/api/admin/campaigns/{id}", id)
+            .then().statusCode(200).body("retentionDays", equalTo(3650));
+        authed().body(Map.of("name", "c", "retentionDays", 1)).post("/api/admin/campaigns")
+            .then().statusCode(201).body("retentionDays", equalTo(1));
+        assertThat(jdbc.queryForObject("SELECT retention_days FROM campaigns WHERE id = ?", Integer.class, id))
+            .isEqualTo(3650);
+    }
+
+    @Test
+    void 보존_기간이_범위를_벗어나면_422이고_값은_그대로다() {
+        int id = createCampaign("c");
+
+        for (int days : new int[] {0, 3651, -5}) {
+            authed().body(Map.of("name", "c", "retentionDays", days)).post("/api/admin/campaigns")
+                .then().statusCode(422).body("code", equalTo("validation_failed"))
+                .body("errors[0].field", equalTo("retentionDays"));
+            authed().body(Map.of("retentionDays", days)).patch("/api/admin/campaigns/{id}", id)
+                .then().statusCode(422).body("errors[0].field", equalTo("retentionDays"));
+        }
+        authed().get("/api/admin/campaigns/{id}", id).then().body("retentionDays", equalTo(365));
+    }
+
+    @Test
     void 캠페인을_보관하면_archived가_되고_다시_보관하면_409이다() {
         int id = createCampaign("c");
 

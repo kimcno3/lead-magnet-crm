@@ -1,6 +1,7 @@
 package com.leadmagnet.crm.lead.domain;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -22,11 +23,12 @@ public interface LeadRepository extends JpaRepository<Lead, Long>, JpaSpecificat
     @Modifying
     @Query(nativeQuery = true, value = """
         INSERT INTO leads (form_id, campaign_id, link_id, channel, visitor_id,
-                           name_enc, phone_enc, email_enc, phone_hash, email_hash, payload, consent_at, created_at)
+                           name_enc, phone_enc, email_enc, phone_hash, email_hash, payload, consent_at, created_at,
+                           consent_text, consent_sha256)
         VALUES (:formId, :campaignId, cast(:linkId as bigint), :channel, cast(:visitorId as uuid),
                 cast(:nameEnc as bytea), cast(:phoneEnc as bytea), cast(:emailEnc as bytea),
                 cast(:phoneHash as char(64)), cast(:emailHash as char(64)), cast(:payload as jsonb), :consentAt,
-                :createdAt)
+                :createdAt, :consentText, cast(:consentSha256 as char(64)))
         ON CONFLICT DO NOTHING
         """)
     int insertIfAbsent(@Param("formId") long formId, @Param("campaignId") long campaignId,
@@ -34,7 +36,8 @@ public interface LeadRepository extends JpaRepository<Lead, Long>, JpaSpecificat
             @Param("nameEnc") byte[] nameEnc, @Param("phoneEnc") byte[] phoneEnc, @Param("emailEnc") byte[] emailEnc,
             @Param("phoneHash") String phoneHash, @Param("emailHash") String emailHash,
             @Param("payload") String payloadJson, @Param("consentAt") Instant consentAt,
-            @Param("createdAt") Instant createdAt);
+            @Param("createdAt") Instant createdAt, @Param("consentText") String consentText,
+            @Param("consentSha256") String consentSha256);
 
     /** {@link #insertIfAbsent}를 Lead로 호출한다. 저장됐으면 true, 중복이면 false. */
     default boolean insertIfAbsent(Lead lead, String payloadJson) {
@@ -43,6 +46,40 @@ public interface LeadRepository extends JpaRepository<Lead, Long>, JpaSpecificat
         return insertIfAbsent(lead.getFormId(), lead.getCampaignId(), lead.getLinkId(), lead.getChannel().value(),
             visitor == null ? null : visitor.toString(),
             contact.nameEnc(), contact.phoneEnc(), contact.emailEnc(), contact.phoneHash(), contact.emailHash(),
-            payloadJson, lead.getConsentAt(), lead.getCreatedAt()) == 1;
+            payloadJson, lead.getConsentAt(), lead.getCreatedAt(), lead.getConsentText(), lead.getConsentSha256()) == 1;
     }
+
+    /**
+     * 보존 기간이 지난, 아직 익명화하지 않은 신청 id를 id 순으로 limit건(ADR 0020). keyset으로 afterId 다음부터 읽는다.
+     * 기준: {@code created_at < now - retention_days × 24시간}. 정확히 경계 시각인 신청은 아직 보존한다.
+     */
+    @Query(nativeQuery = true, value = """
+        SELECT l.id
+          FROM leads l
+          JOIN campaigns c ON c.id = l.campaign_id
+         WHERE l.anonymized_at IS NULL
+           AND l.id > :afterId
+           AND l.created_at < cast(:now as timestamptz) - make_interval(hours => c.retention_days * 24)
+         ORDER BY l.id
+         LIMIT :limit
+        """)
+    List<Long> findRetentionDueIds(@Param("now") Instant now, @Param("afterId") long afterId,
+            @Param("limit") int limit);
+
+    /** {@link #findRetentionDueIds}와 같은 조건의 건수(드라이런). */
+    @Query(nativeQuery = true, value = """
+        SELECT count(*)
+          FROM leads l
+          JOIN campaigns c ON c.id = l.campaign_id
+         WHERE l.anonymized_at IS NULL
+           AND l.created_at < cast(:now as timestamptz) - make_interval(hours => c.retention_days * 24)
+        """)
+    long countRetentionDue(@Param("now") Instant now);
+
+    /**
+     * 트랜잭션 범위의 PostgreSQL advisory lock을 기다리지 않고 잡는다. 이미 다른 트랜잭션(다른 인스턴스 포함)이 잡고 있으면
+     * false. 커밋·롤백 때 저절로 풀린다. 파기 배치를 인스턴스 사이에서 하나씩만 돌리는 데 쓴다(ADR 0020).
+     */
+    @Query(nativeQuery = true, value = "SELECT pg_try_advisory_xact_lock(:key)")
+    boolean tryAdvisoryXactLock(@Param("key") long key);
 }

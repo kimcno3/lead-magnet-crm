@@ -145,4 +145,22 @@ test('명단 탭', async () => {
       })
     },
   )
+  await step(
+    {
+      area: AREA,
+      name: '동의 문구 보기',
+      assertion: '이현우 줄의 동의 문구 보기 → 폼을 만들 때 넣은 동의 문구 원문과 64자 sha256, 동의 시각을 대화상자로 보여준다',
+      page,
+    },
+    async (record) => {
+      const rows = page.getByRole('table', { name: '신청자 명단' }).locator('tbody tr')
+      await rows.filter({ hasText: '인스타그램' }).getByRole('button', { name: '동의 문구 보기' }).click()
+      const dialog = page.getByRole('dialog', { name: '동의 문구' })
+      await expect(dialog).toContainText('가이드 발송과 상담 안내를 위해 이름·연락처·이메일을 수집하며, 신청일로부터 1년간 보관합니다.')
+      await expect(dialog.getByText(/^[0-9a-f]{64}$/)).toBeVisible()
+      record({ sha256Shown: true })
+      await dialog.getByRole('button', { name: '닫기' }).click()
+      await expect(dialog).toBeHidden()
+    },
+  )
 })

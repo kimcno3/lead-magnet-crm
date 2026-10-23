@@ -30,8 +30,10 @@ public class CampaignService {
         this.clock = clock;
     }
 
-    public Campaign create(String name, String description, Instant startsAt, Instant endsAt, long operatorId) {
-        return campaigns.save(Campaign.create(name, description, startsAt, endsAt, operatorId, clock.instant()));
+    public Campaign create(String name, String description, Instant startsAt, Instant endsAt, Integer retentionDays,
+            long operatorId) {
+        return campaigns.save(Campaign.create(name, description, startsAt, endsAt, retentionDays, operatorId,
+            clock.instant()));
     }
 
     @Transactional(readOnly = true)
@@ -51,13 +53,13 @@ public class CampaignService {
 
     /** null인 필드는 바꾸지 않는다. status는 "archived"만 받는다. */
     public CampaignDetail update(long id, String name, String description, Instant startsAt, Instant endsAt,
-            String status) {
+            Integer retentionDays, String status) {
         Campaign campaign = find(id);
         if (status != null && !ARCHIVED.equals(status)) {
             throw DomainException.validation("status", "status는 \"archived\"만 지정할 수 있습니다");
         }
         Instant now = clock.instant();
-        campaign.update(name, description, startsAt, endsAt, now);
+        campaign.update(name, description, startsAt, endsAt, retentionDays, now);
         if (status != null) {
             campaign.archive(now);
         }

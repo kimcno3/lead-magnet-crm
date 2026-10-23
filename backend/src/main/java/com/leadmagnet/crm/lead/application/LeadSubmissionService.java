@@ -8,6 +8,7 @@ import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.form.application.FormTokenService;
 import com.leadmagnet.crm.form.application.PublicFormService;
 import com.leadmagnet.crm.form.domain.Form;
+import com.leadmagnet.crm.lead.domain.ConsentEvidence;
 import com.leadmagnet.crm.lead.domain.Lead;
 import com.leadmagnet.crm.lead.domain.LeadRepository;
 import com.leadmagnet.crm.lead.domain.Submission;
@@ -68,7 +69,8 @@ public class LeadSubmissionService {
         Submission submission = SubmissionValidator.validate(form.getFieldConfig(), fields, consent);
         Attribution attribution = links.attribute(form.getId(), lm);
         Lead lead = Lead.receive(form.getId(), form.getCampaignId(), attribution, visitorId, submission,
-            protector.protect(submission.name(), submission.phone(), submission.email()), clock.instant());
+            protector.protect(submission.name(), submission.phone(), submission.email()),
+            ConsentEvidence.of(form.getConsentText()), clock.instant());
         if (!leads.insertIfAbsent(lead, toJson(lead.getPayload()))) {
             log.info("중복 신청 거절: formId={}, phone={}, email={}", form.getId(),
                 PiiMasker.maskPhone(submission.phone()), PiiMasker.maskEmail(submission.email()));

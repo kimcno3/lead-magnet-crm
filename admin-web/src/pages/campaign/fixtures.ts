@@ -7,6 +7,7 @@ export const campaign: Campaign = {
   status: 'active',
   startsAt: '2026-09-30T15:00:00Z',
   endsAt: '2026-10-31T14:59:59Z',
+  retentionDays: 365,
   createdAt: '2026-09-01T00:00:00Z',
   updatedAt: '2026-09-01T00:00:00Z',
   forms: [
@@ -59,6 +60,7 @@ export function leadPage(page: number, totalElements = 45): LeadPage {
         contactUnavailable: false,
         payload: { company: '하늘상사' },
         createdAt: '2026-10-22T15:05:00Z',
+        anonymizedAt: null,
       },
     ],
   }

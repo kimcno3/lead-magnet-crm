@@ -120,6 +120,11 @@ describe('summarizeAuditDetail', () => {
     expect(summarizeAuditDetail({ email: 'o***@example.com' })).toBe('이메일 o***@example.com')
   })
 
+  it('보존 기간 파기는 실행 방식과 건수를 보여준다', () => {
+    expect(summarizeAuditDetail({ trigger: 'scheduled', count: 3 })).toBe('자동 실행(매일 03:00) · 3건')
+    expect(summarizeAuditDetail({ trigger: 'manual', count: 0 })).toBe('수동 실행 · 0건')
+  })
+
   it('비어 있으면 대시, 모르는 키는 그대로', () => {
     expect(summarizeAuditDetail({})).toBe('-')
     expect(summarizeAuditDetail({ extra: 'x' })).toBe('extra: x')

@@ -11,6 +11,7 @@ class AuditActionTest {
     void 값으로_찾고_모르는_값은_비어_있다() {
         assertThat(AuditAction.fromValue("lead.contact.view")).contains(AuditAction.LEAD_CONTACT_VIEW);
         assertThat(AuditAction.fromValue("lead.export.reveal")).contains(AuditAction.LEAD_EXPORT_REVEAL);
+        assertThat(AuditAction.fromValue("retention.anonymize")).contains(AuditAction.RETENTION_ANONYMIZE);
         assertThat(AuditAction.fromValue("LEAD_LIST")).isEqualTo(Optional.empty());
         assertThat(AuditAction.fromValue(null)).isEmpty();
     }

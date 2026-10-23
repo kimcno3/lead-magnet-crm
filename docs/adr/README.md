@@ -23,3 +23,4 @@
 | [0017](0017-template-inspection.md) | 업로드 HTML 검사 리포트 | 승인 |
 | [0018](0018-publish-snapshot.md) | 게시 시 템플릿 스냅샷과 새 버전 업로드 | 승인 |
 | [0019](0019-data-quality-defense.md) | 데이터 품질 방어: 봇 방문 제외, honeypot, 작성 시간 토큰, 제출 rate limit | 승인 |
+| [0020](0020-retention-and-consent-evidence.md) | 보존 기간 파기(익명화)와 동의 문구 증빙 | 승인 |

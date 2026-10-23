@@ -175,4 +175,15 @@ describe('감사 로그', () => {
     resolve(json(page([])))
     expect(await screen.findByText('아직 감사 기록이 없습니다.')).toBeInTheDocument()
   })
+
+  it('행동 필터에 보존 기간 파기가 있다', async () => {
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/audit-logs') return json({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 })
+      if (url.pathname === '/api/admin/campaigns') return json(campaigns)
+      return undefined
+    })
+    renderPage('/audit-logs', <AuditLogListPage />)
+    const select = await screen.findByLabelText('행동')
+    expect(within(select).getByRole('option', { name: '보존 기간 파기' })).toHaveAttribute('value', 'retention.anonymize')
+  })
 })

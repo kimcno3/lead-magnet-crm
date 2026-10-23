@@ -46,6 +46,8 @@ export interface Campaign {
   status: CampaignStatus
   startsAt: string | null
   endsAt: string | null
+  /** 신청 보존 기간(일, 1~3650). 지나면 매일 03:00(KST) 익명화한다 (ADR 0020). */
+  retentionDays: number
   createdAt: string
   updatedAt: string
   forms: FormSummary[]
@@ -56,6 +58,13 @@ export interface CreateCampaignRequest {
   description: string | null
   startsAt: string | null
   endsAt: string | null
+  /** 없으면 365 */
+  retentionDays?: number
+}
+
+/** 없는 필드는 바꾸지 않는다. */
+export interface UpdateCampaignRequest {
+  retentionDays?: number
 }
 
 export interface FormField {
@@ -191,6 +200,16 @@ export interface Lead {
   contactUnavailable: boolean
   payload: Record<string, unknown> | null
   createdAt: string
+  /** 보존 기간이 지나 파기된 시각. 있으면 name·phone·email이 null이고 payload는 키만 남는다 (ADR 0020). */
+  anonymizedAt: string | null
+}
+
+/** 동의 증빙(GET /api/admin/leads/{id}/consent). 문구·sha256은 V10 이전 신청에서 백필하지 못했으면 null (ADR 0020). */
+export interface LeadConsent {
+  consentText: string | null
+  consentSha256: string | null
+  consentAt: string
+  anonymizedAt: string | null
 }
 
 /** 원문 연락처(GET /api/admin/leads/{id}/contact). 명단의 name·phone·email은 가린 값이다 (ADR 0015). */
@@ -301,6 +320,7 @@ export const AUDIT_ACTIONS = [
   'lead.export.reveal',
   'auth.login.success',
   'auth.login.failure',
+  'retention.anonymize',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 

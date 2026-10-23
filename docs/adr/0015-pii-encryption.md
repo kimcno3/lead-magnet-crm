@@ -64,3 +64,7 @@
 - 다시 볼 조건(후속 작업):
   - **키 교체**(ROADMAP "PII 키 교체 절차"): 버전 바이트로 키를 구분하고(버전 → 키 맵), 새 키로 다시 암호화하는 배치를 둔다. HMAC 키 교체는 모든 해시를 다시 계산해야 해서 인덱스를 옮기는 기간 동안 두 해시를 함께 두는 방식이 필요하다. 지금은 키 교체 절차가 없고, `PiiKeyCheck`가 키를 바꾼 채 기동하는 것을 막는다.
   - KMS·시크릿 매니저 연동(봉투 암호화), `payload` 항목 암호화, 보존기한 파기(이슈 #19).
+
+## 변경 기록
+
+- 2026-10-24 (ADR 0020, V10): 보존 기간 파기를 넣었다. 익명화는 `*_enc`와 `*_hash`를 NULL로 하고 payload는 키만 남긴다. `ck_leads_contact`는 `anonymized_at IS NOT NULL OR phone_enc IS NOT NULL OR email_enc IS NOT NULL`로 바뀌었다. 파기된 신청의 원문 API는 410 `lead_anonymized`, 명단은 연락처 없이 `anonymizedAt`을 준다.

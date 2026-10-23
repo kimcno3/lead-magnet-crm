@@ -11,7 +11,8 @@ import { formatDateTime, formatNumber, formatPhone, summarizePayload } from '../
 import { LeadExportMenu } from './LeadExportMenu'
 import { errorText } from '../../errors'
 import { useAsync } from '../../hooks'
-import { CHANNEL_LABELS } from '../../labels'
+import { ANONYMIZED_LABEL, CHANNEL_LABELS } from '../../labels'
+import { ConsentDialog } from './ConsentDialog'
 
 /** 원문 보기 상태. 그 줄에만, 같은 명단 조회(캠페인·페이지·필터) 동안에만 유지한다. */
 type Reveal = { status: 'loading'; token: number } | { status: 'shown'; contact: LeadContact } | { status: 'error'; error: unknown }
@@ -48,6 +49,7 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
   // 원문 요청마다 새 토큰을 준다. 응답은 그 토큰으로 아직 기다리는 중일 때만 반영한다. 그래서 화면을 옮겼다가
   // 같은 조회 조건으로 돌아오거나 가리기를 누른 뒤 늦게 온 응답은 버려진다.
   const nextToken = useRef(0)
+  const [consentLeadId, setConsentLeadId] = useState<number | null>(null)
 
   function setReveal(id: number, reveal: Reveal | null, onlyIfToken?: number) {
     setReveals((prev) => {
@@ -158,7 +160,7 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
                   <th scope="col">채널</th>
                   <th scope="col">폼</th>
                   <th scope="col">추가 항목</th>
-                  <th scope="col">원문</th>
+                  <th scope="col">보기</th>
                 </tr>
               </thead>
               <tbody aria-busy={loading}>
@@ -172,6 +174,7 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
                       reveal={revealed[lead.id]}
                       onReveal={() => reveal(lead.id)}
                       onHide={() => setReveal(lead.id, null)}
+                      onConsent={() => setConsentLeadId(lead.id)}
                     />
                   ))
                 )}
@@ -200,11 +203,45 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
           )}
         </>
       )}
+      {consentLeadId !== null && <ConsentDialog leadId={consentLeadId} onClose={() => setConsentLeadId(null)} />}
     </>
   )
 }
 
-function LeadRow({ lead, reveal, onReveal, onHide }: { lead: Lead; reveal: Reveal | undefined; onReveal: () => void; onHide: () => void }) {
+/** 보존 기간이 지나 파기된 줄. 연락처·추가 항목이 없고 원문·동의 문구 보기를 두지 않는다 (ADR 0020). */
+function AnonymizedRow({ lead }: { lead: Lead }) {
+  return (
+    <tr>
+      <td className="num nowrap">{formatDateTime(lead.createdAt)}</td>
+      <td>
+        <span className="muted" title={`보존 기간이 지나 ${formatDateTime(lead.anonymizedAt)}에 이름·연락처를 파기했습니다`}>
+          {ANONYMIZED_LABEL}
+        </span>
+      </td>
+      <td className="muted">-</td>
+      <td className="muted">-</td>
+      <td className="nowrap">{CHANNEL_LABELS[lead.channel] ?? lead.channel}</td>
+      <td>{lead.formTitle}</td>
+      <td className="muted">-</td>
+      <td />
+    </tr>
+  )
+}
+
+function LeadRow({
+  lead,
+  reveal,
+  onReveal,
+  onHide,
+  onConsent,
+}: {
+  lead: Lead
+  reveal: Reveal | undefined
+  onReveal: () => void
+  onHide: () => void
+  onConsent: () => void
+}) {
+  if (lead.anonymizedAt) return <AnonymizedRow lead={lead} />
   const extra = summarizePayload(lead.payload)
   const shown = reveal?.status === 'shown' ? reveal.contact : null
   const contact = shown ?? lead
@@ -237,6 +274,9 @@ function LeadRow({ lead, reveal, onReveal, onHide }: { lead: Lead; reveal: Revea
             원문 보기
           </Button>
         )}
+        <Button size="sm" variant="ghost" onClick={onConsent}>
+          동의 문구 보기
+        </Button>
         {reveal?.status === 'error' && (
           <p className="small" role="alert">
             {errorText(reveal.error)}

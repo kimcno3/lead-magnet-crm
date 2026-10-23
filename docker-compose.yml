@@ -35,6 +35,7 @@ services:
       ADMIN_ORIGIN: ${ADMIN_ORIGIN:-http://localhost:5173}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8081}
+      RETENTION_ENABLED: ${RETENTION_ENABLED:-true}
     ports:
       - "${ADMIN_PORT:-8080}:8080"
       - "${PUBLIC_PORT:-8081}:8081"

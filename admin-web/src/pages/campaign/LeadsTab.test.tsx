@@ -239,3 +239,62 @@ describe('명단 페이지 경계', () => {
     expect(requestsTo(fetchMock, '/api/admin/campaigns/7/leads').at(-1)!.searchParams.get('page')).toBe('0')
   })
 })
+
+describe('파기와 동의 문구', () => {
+  function anonymizedBackend(consent = () => json({ consentText: '개인정보 수집에 동의합니다', consentSha256: 'ab'.repeat(32), consentAt: '2026-10-22T15:05:00Z', anonymizedAt: null })) {
+    return mockBackend((url) => {
+      if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+      if (url.pathname === '/api/admin/campaigns/7/leads') {
+        const page = leadPage(0, 2)
+        const gone = { ...page.items[0], id: 400, name: null, phone: null, email: null, payload: { company: null }, anonymizedAt: '2026-10-23T18:00:00Z' }
+        return json({ ...page, items: [page.items[0], gone] })
+      }
+      if (url.pathname === '/api/admin/leads/100/consent') return consent()
+      return undefined
+    })
+  }
+
+  it('파기된 줄은 파기됨으로 표시하고 원문·동의 문구 보기를 두지 않는다', async () => {
+    anonymizedBackend()
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    const row = await rowOf('파기됨')
+
+    expect(within(row).queryByRole('button', { name: '원문 보기' })).not.toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: '동의 문구 보기' })).not.toBeInTheDocument()
+    const kept = await rowOf('신*0')
+    expect(within(kept).getByRole('button', { name: '원문 보기' })).toBeInTheDocument()
+    expect(within(kept).getByRole('button', { name: '동의 문구 보기' })).toBeInTheDocument()
+  })
+
+  it('동의 문구 보기는 문구 원문과 sha256, 동의 시각을 대화상자로 보여준다', async () => {
+    const fetchMock = anonymizedBackend()
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    fireEvent.click(within(await rowOf('신*0')).getByRole('button', { name: '동의 문구 보기' }))
+
+    const dialog = await screen.findByRole('dialog', { name: '동의 문구' })
+    expect(await within(dialog).findByText('개인정보 수집에 동의합니다')).toBeInTheDocument()
+    expect(within(dialog).getByText('ab'.repeat(32))).toBeInTheDocument()
+    expect(within(dialog).getByText('2026-10-23 00:05')).toBeInTheDocument()
+    expect(requestsTo(fetchMock, '/api/admin/leads/100/consent')).toHaveLength(1)
+    expect(requestsTo(fetchMock, '/api/admin/leads/100/contact')).toHaveLength(0)
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '닫기' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '동의 문구' })).not.toBeInTheDocument())
+  })
+
+  it('백필하지 못한 신청은 문구가 없다고 알리고 조회 실패는 오류를 보여준다', async () => {
+    anonymizedBackend(() => json({ consentText: null, consentSha256: null, consentAt: '2026-10-22T15:05:00Z', anonymizedAt: null }))
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    fireEvent.click(within(await rowOf('신*0')).getByRole('button', { name: '동의 문구 보기' }))
+    const dialog = await screen.findByRole('dialog', { name: '동의 문구' })
+    expect(await within(dialog).findByText(/저장된 동의 문구가 없습니다/)).toBeInTheDocument()
+  })
+
+  it('동의 문구를 불러오지 못하면 대화상자에 오류를 보여준다', async () => {
+    anonymizedBackend(() => json({ code: 'internal_error', detail: '서버 오류가 발생했습니다' }, 500))
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    fireEvent.click(within(await rowOf('신*0')).getByRole('button', { name: '동의 문구 보기' }))
+    const dialog = await screen.findByRole('dialog', { name: '동의 문구' })
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+  })
+})

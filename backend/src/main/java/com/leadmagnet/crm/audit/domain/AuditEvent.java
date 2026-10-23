@@ -53,6 +53,17 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
             Map.of("email", PiiMasker.maskEmail(email)));
     }
 
+    /**
+     * 보존 기간 파기 한 번(ADR 0020). 실행 단위로 한 줄만 남긴다. trigger는 scheduled 또는 manual, count는 이번 실행이
+     * 익명화한 신청 수다(0일 수 있다). 신청 id는 남기지 않는다(익명화 시각은 행의 anonymized_at에 있다).
+     */
+    public static AuditEvent retentionAnonymize(String trigger, long count) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("trigger", trigger);
+        detail.put("count", count);
+        return new AuditEvent(AuditAction.RETENTION_ANONYMIZE, TARGET_LEAD, null, null, detail);
+    }
+
     private static Map<String, Object> filterDetail(Long formId, String channel) {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("formId", formId);
