@@ -41,7 +41,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ProblemDetail> handleDomain(DomainException e) {
         ErrorCode code = e.getErrorCode();
-        return ResponseEntity.status(code.status()).body(ProblemDetails.of(code, e.getMessage()));
+        ProblemDetail problem = ProblemDetails.of(code, e.getMessage());
+        if (!e.getErrors().isEmpty()) {
+            problem.setProperty("errors", e.getErrors().stream()
+                .map(error -> Map.of("field", error.field(), "message", error.message()))
+                .toList());
+        }
+        return ResponseEntity.status(code.status()).body(problem);
     }
 
     @ExceptionHandler(Exception.class)

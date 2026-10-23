@@ -158,7 +158,8 @@ class TemplateApiTest {
 
     @Test
     void 이름이_100자를_넘으면_422이다() {
-        upload("a.html", FORM, "가".repeat(101)).statusCode(422).body("code", equalTo("validation_failed"));
+        upload("a.html", FORM, "가".repeat(101)).statusCode(422).body("code", equalTo("validation_failed"))
+            .body("errors[0].field", equalTo("name"));
     }
 
     @Test
