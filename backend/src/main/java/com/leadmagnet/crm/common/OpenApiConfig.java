@@ -24,7 +24,7 @@ public class OpenApiConfig {
         return new OpenAPI()
             .info(new Info()
                 .title("리드마그넷 CRM API")
-                .version("0.1.0")
+                .version("0.3.0")
                 .description("""
                     관리자 API(`/api/admin/**`)는 admin 출처(기본 :8080)에서 Bearer access token으로 호출한다.
                     공개 경로(`/f/{slug}`, `/l/{code}`, `/api/public/**`)는 같은 앱이지만 public 출처
