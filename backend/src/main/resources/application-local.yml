@@ -1,0 +1,6 @@
+# 로컬 개발(docker compose 또는 IDE 실행). 값은 루트 .env와 같은 환경 변수를 쓴다.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/leadmagnet}
+    username: ${DB_USERNAME:leadmagnet}
+    password: ${DB_PASSWORD:}
