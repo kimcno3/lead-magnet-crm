@@ -8,7 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # 전체 로컬 실행 (postgres, backend :8080·:8081, admin-web :5173)
-cp .env.example .env
+# .env.example을 복사하면서 JWT_SECRET을 새로 만든다(자리표시 값으로는 기동하지 않는다)
+sed "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" .env.example > .env
 docker compose up --build
 
 # backend (Gradle 툴체인이 JDK 21을 자동으로 받는다. 실행 JDK는 17 이상이면 된다)
@@ -38,7 +39,10 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
   - actuator는 `health`만 노출한다. compose 헬스체크와 admin-web이 이 경로를 쓴다.
   - 프로필: `application.yml`(공통, `ddl-auto: validate`, 기본 프로필 `local`)과 `application-local.yml`(`DB_URL`/`DB_USERNAME`/`DB_PASSWORD`).
   - 스키마는 `src/main/resources/db/migration/V*.sql`(Flyway)이 유일한 원천이다. 상태·채널 값과 링크·채널 일관성은 CHECK 제약으로 DB에서도 막는다.
-  - 운영자 계정은 기동 시 `auth/OperatorSeeder`가 `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD`로 만든다(ADR 0009). 로그용 개인정보 마스킹은 `common/PiiMasker`.
+  - 도메인 패키지는 `domain`(엔티티·리포지토리), `application`(유스케이스 서비스), `api`(컨트롤러·DTO), `config`(보안·웹 설정)로 나눈다.
+  - 인증(ADR 0003): `auth/config/SecurityConfig`에 필터 체인 두 개(admin `/api/admin/**` Bearer JWT, 기본 체인은 헬스·문서·공개 경로 외 denyAll). 토큰 발급·교체는 `auth/application/AuthService`, 키·CORS·쿠키 설정은 `AuthProperties`(`JWT_SECRET` 필수, `ADMIN_ORIGIN`, `COOKIE_SECURE`). 현재 시각은 `Clock` 빈(`common/ClockConfig`)으로 얻는다.
+  - 에러는 `common/error`의 `ErrorCode`·`DomainException`을 던지면 `GlobalExceptionHandler`가 ProblemDetail(`code` 포함)로 바꾼다. Security 401·403도 같은 형식이다.
+  - 운영자 계정은 기동 시 `auth/application/OperatorSeeder`가 `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD`로 만든다(ADR 0009). 로그용 개인정보 마스킹은 `common/PiiMasker`.
   - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. Docker가 떠 있어야 backend 테스트가 돈다.
 - `admin-web/`: React + Vite + TypeScript 관리자 SPA. 운영 시에는 nginx(`admin-web/nginx.conf`), 개발 시에는 Vite가 `/api/admin/`과 `/actuator/health`를 backend admin 포트로 프록시한다. 브라우저 입장에서는 admin-web 출처 하나뿐이어서 refresh 쿠키(SameSite=Strict, Path=/api/admin/auth)가 그대로 동작하고, public 출처(:8081)와는 출처가 다르다.
 - `docker-compose.yml`: postgres → backend → admin-web 순서로 헬스체크를 기다린다. 값은 루트 `.env`에서 읽는다.

@@ -1,4 +1,4 @@
-package com.leadmagnet.crm.auth;
+package com.leadmagnet.crm.auth.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

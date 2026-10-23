@@ -1,0 +1,67 @@
+package com.leadmagnet.crm.common.error;
+
+import org.springframework.http.HttpStatus;
+
+/** 에러 응답의 HTTP 상태와 기계용 코드. ProblemDetail의 type과 확장 속성 code에 쓴다. */
+public enum ErrorCode {
+
+    MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "malformed_request", "요청 형식이 올바르지 않습니다"),
+    VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "validation_failed", "입력값이 올바르지 않습니다"),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "unauthorized", "인증이 필요합니다"),
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "invalid_credentials", "이메일 또는 비밀번호가 올바르지 않습니다"),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "invalid_refresh_token", "다시 로그인해야 합니다"),
+    REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "refresh_token_reused", "이미 사용된 refresh token입니다. 다시 로그인해야 합니다"),
+    FORBIDDEN(HttpStatus.FORBIDDEN, "forbidden", "접근 권한이 없습니다"),
+    NOT_FOUND(HttpStatus.NOT_FOUND, "not_found", "리소스를 찾을 수 없습니다"),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "method_not_allowed", "허용하지 않는 메서드입니다"),
+    NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "not_acceptable", "요청한 응답 형식을 제공할 수 없습니다"),
+    PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "payload_too_large", "요청 본문이 너무 큽니다"),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported_media_type", "지원하지 않는 Content-Type입니다"),
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "서버 오류가 발생했습니다");
+
+    private static final String TYPE_PREFIX = "https://leadmagnet.example/problems/";
+
+    private final HttpStatus status;
+    private final String code;
+    private final String defaultDetail;
+
+    ErrorCode(HttpStatus status, String code, String defaultDetail) {
+        this.status = status;
+        this.code = code;
+        this.defaultDetail = defaultDetail;
+    }
+
+    /**
+     * Spring MVC 표준 예외처럼 ErrorCode 없이 상태만 있는 에러에 붙일 코드.
+     * 전용 코드가 없는 상태는 4xx면 malformed_request, 5xx면 internal_error로 묶는다(상태 값은 그대로 둔다).
+     */
+    public static ErrorCode forStatus(int status) {
+        return switch (status) {
+            case 401 -> UNAUTHORIZED;
+            case 403 -> FORBIDDEN;
+            case 404 -> NOT_FOUND;
+            case 405 -> METHOD_NOT_ALLOWED;
+            case 406 -> NOT_ACCEPTABLE;
+            case 413 -> PAYLOAD_TOO_LARGE;
+            case 415 -> UNSUPPORTED_MEDIA_TYPE;
+            case 422 -> VALIDATION_FAILED;
+            default -> status >= 500 ? INTERNAL_ERROR : MALFORMED_REQUEST;
+        };
+    }
+
+    public HttpStatus status() {
+        return status;
+    }
+
+    public String code() {
+        return code;
+    }
+
+    public String defaultDetail() {
+        return defaultDetail;
+    }
+
+    public String type() {
+        return TYPE_PREFIX + code;
+    }
+}

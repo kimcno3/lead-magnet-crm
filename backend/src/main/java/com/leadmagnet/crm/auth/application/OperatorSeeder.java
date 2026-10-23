@@ -1,5 +1,7 @@
-package com.leadmagnet.crm.auth;
+package com.leadmagnet.crm.auth.application;
 
+import com.leadmagnet.crm.auth.domain.Operator;
+import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.common.PiiMasker;
 import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;

@@ -1,4 +1,4 @@
-package com.leadmagnet.crm.auth;
+package com.leadmagnet.crm.auth.application;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

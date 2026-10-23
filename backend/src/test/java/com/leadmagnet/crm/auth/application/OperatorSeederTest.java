@@ -1,10 +1,12 @@
-package com.leadmagnet.crm.auth;
+package com.leadmagnet.crm.auth.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.leadmagnet.crm.auth.OperatorSeeder.InvalidSeedConfigurationException;
-import com.leadmagnet.crm.auth.OperatorSeeder.SeedResult;
+import com.leadmagnet.crm.auth.application.OperatorSeeder.InvalidSeedConfigurationException;
+import com.leadmagnet.crm.auth.application.OperatorSeeder.SeedResult;
+import com.leadmagnet.crm.auth.domain.Operator;
+import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
