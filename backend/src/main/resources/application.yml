@@ -58,6 +58,11 @@ app:
   # 설정하면 기본 목록을 대신한다. 예: app.tracking.bot-user-agents[0]=googlebot (ADR 0019)
   tracking:
     bot-user-agents: []
+  retention:
+    # 보존 기간 파기 스케줄러(매일 03:00 Asia/Seoul). false면 끈다(수동 실행 API는 그대로 쓸 수 있다). 배치 크기는 한 트랜잭션에
+    # 익명화할 최대 신청 수 (ADR 0020)
+    enabled: ${RETENTION_ENABLED:true}
+    batch-size: 500
   template:
     # 업로드 HTML 최대 바이트(512KB). multipart 한도(1MB)와의 사이 크기는 애플리케이션이 413으로 막는다 (ADR 0004)
     max-bytes: 524288

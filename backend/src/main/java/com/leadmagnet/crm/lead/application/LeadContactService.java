@@ -27,10 +27,16 @@ public class LeadContactService {
         this.audit = audit;
     }
 
-    /** 없는 신청은 404(기록 없음). 복호화에 실패하면 예외가 그대로 올라가 기록도 롤백된다. */
+    /**
+     * 없는 신청은 404, 보존 기간이 지나 파기된 신청은 410 lead_anonymized(둘 다 기록 없음, 보여 준 것이 없다).
+     * 복호화에 실패하면 예외가 그대로 올라가 기록도 롤백된다.
+     */
     @Transactional
     public LeadContact reveal(long leadId, AuditActor actor) {
         Lead lead = leads.findById(leadId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        if (lead.isAnonymized()) {
+            throw new DomainException(ErrorCode.LEAD_ANONYMIZED);
+        }
         LeadContact contact = protector.reveal(lead);
         audit.recordRequired(actor, AuditEvent.contactView(lead.getId(), lead.getCampaignId()));
         return contact;

@@ -3,10 +3,12 @@ package com.leadmagnet.crm.campaign.api;
 import com.leadmagnet.crm.campaign.application.CampaignService;
 import com.leadmagnet.crm.campaign.application.CampaignService.CampaignDetail;
 import com.leadmagnet.crm.campaign.domain.Campaign;
+import com.leadmagnet.crm.common.web.AuditActors;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +33,9 @@ public class CampaignController {
         this.campaignService = campaignService;
     }
 
-    @Operation(operationId = "createCampaign", summary = "캠페인 생성", security = @SecurityRequirement(name = "bearer"))
+    @Operation(operationId = "createCampaign", summary = "캠페인 생성",
+        description = "retentionDays는 신청 보존 기간(일, 1~3650, 기본 365). 지나면 매일 03:00(KST) 익명화한다 (ADR 0020).",
+        security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "201", description = "생성됨. Location에 상세 경로")
     @ApiResponse(responseCode = "401", description = "unauthorized")
     @ApiResponse(responseCode = "422", description = "validation_failed")
@@ -39,7 +43,7 @@ public class CampaignController {
     public ResponseEntity<CampaignResponse> create(@RequestBody CreateCampaignRequest request,
             @AuthenticationPrincipal Jwt jwt) {
         Campaign created = campaignService.create(request.name(), request.description(), request.startsAt(),
-            request.endsAt(), Long.parseLong(jwt.getSubject()));
+            request.endsAt(), request.retentionDays(), Long.parseLong(jwt.getSubject()));
         return ResponseEntity.created(URI.create("/api/admin/campaigns/" + created.getId()))
             .body(CampaignResponse.from(created, List.of()));
     }
@@ -62,7 +66,7 @@ public class CampaignController {
         return toResponse(campaignService.get(id));
     }
 
-    @Operation(operationId = "updateCampaign", summary = "캠페인 수정·보관", description = "없는 필드는 그대로 둔다. status는 \"archived\"만 받는다.",
+    @Operation(operationId = "updateCampaign", summary = "캠페인 수정·보관", description = "없는 필드는 그대로 둔다. status는 \"archived\"만 받는다. retentionDays는 1~3650이고, 바뀌면 감사 로그(campaign.retention.update, 이전·새 값)에 남는다 (ADR 0020).",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "수정됨")
     @ApiResponse(responseCode = "401", description = "unauthorized")
@@ -70,9 +74,10 @@ public class CampaignController {
     @ApiResponse(responseCode = "409", description = "campaign_already_archived")
     @ApiResponse(responseCode = "422", description = "validation_failed")
     @PatchMapping("/{id}")
-    public CampaignResponse update(@PathVariable long id, @RequestBody UpdateCampaignRequest request) {
+    public CampaignResponse update(@PathVariable long id, @RequestBody UpdateCampaignRequest request,
+            @AuthenticationPrincipal Jwt jwt, HttpServletRequest httpRequest) {
         return toResponse(campaignService.update(id, request.name(), request.description(), request.startsAt(),
-            request.endsAt(), request.status()));
+            request.endsAt(), request.retentionDays(), request.status(), AuditActors.of(jwt, httpRequest)));
     }
 
     private static CampaignResponse toResponse(CampaignDetail detail) {

@@ -38,6 +38,7 @@ public enum ErrorCode {
     CREATOR_ARCHIVED(HttpStatus.CONFLICT, "creator_archived", "보관된 크리에이터로는 새 링크를 만들 수 없습니다"),
     DUPLICATE_SUBMISSION(HttpStatus.CONFLICT, "duplicate_submission", "이미 신청한 연락처입니다"),
     GONE(HttpStatus.GONE, "gone", "마감되어 더 이상 사용할 수 없습니다"),
+    LEAD_ANONYMIZED(HttpStatus.GONE, "lead_anonymized", "보존 기간이 지나 연락처를 파기한 신청입니다"),
     TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "too_many_requests", "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "서버 오류가 발생했습니다");
 

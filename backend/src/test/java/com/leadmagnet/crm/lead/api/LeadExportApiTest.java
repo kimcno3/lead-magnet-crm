@@ -48,7 +48,7 @@ class LeadExportApiTest {
         <input name="memo"></form>
         """;
     static final String BOM = "﻿";
-    static final String HEADER = "신청일,이름,전화번호,이메일,채널,크리에이터,폼,추가 항목";
+    static final String HEADER = "신청일,이름,전화번호,이메일,채널,크리에이터,폼,추가 항목,파기";
 
     @LocalServerPort
     int adminPort;
@@ -132,7 +132,7 @@ class LeadExportApiTest {
         assertThat(lines.get(0)).isEqualTo(HEADER);
         assertThat(lines.get(1)).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},.*")
             .contains(",홍*동,010-****-5678,h***@example.com,direct,,봄 특강 신청,")
-            .endsWith(",\"{\"\"memo\"\":\"\"오전, 가능\"\"}\"");
+            .endsWith(",\"{\"\"memo\"\":\"\"오전, 가능\"\"}\",");
         assertThat(lines.get(2)).contains(",김*수,010-****-3333,,direct,,봄 특강 신청,");
         assertThat(csv).doesNotContain("홍길동", "01012345678", "hong@example.com");
 
@@ -171,7 +171,7 @@ class LeadExportApiTest {
         assertThat(lines.get(2)).contains(",'+cmd,");
         assertThat(lines.get(3)).contains(",'-1,");
         // payload JSON 칸은 {로 시작해 수식이 아니다
-        assertThat(lines.get(1)).endsWith(",\"{\"\"memo\"\":\"\"@SUM(A1)\"\"}\"");
+        assertThat(lines.get(1)).endsWith(",\"{\"\"memo\"\":\"\"@SUM(A1)\"\"}\",");
     }
 
     @Test

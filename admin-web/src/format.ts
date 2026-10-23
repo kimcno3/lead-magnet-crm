@@ -1,7 +1,7 @@
 // 화면에 보이는 숫자·날짜·전화번호 포맷. 날짜는 모두 Asia/Seoul 기준이다.
 
 import { CHANNELS, type Channel } from './api/types'
-import { CHANNEL_LABELS } from './labels'
+import { CHANNEL_LABELS, RETENTION_TRIGGER_LABELS } from './labels'
 
 const TIME_ZONE = 'Asia/Seoul'
 const numberFormat = new Intl.NumberFormat('ko-KR')
@@ -120,6 +120,23 @@ export function summarizeAuditDetail(detail: Record<string, unknown>): string {
         break
       case 'email':
         parts.push(`이메일 ${String(value)}`)
+        break
+      case 'trigger':
+        parts.push(RETENTION_TRIGGER_LABELS[String(value)] ?? String(value))
+        break
+      case 'completed':
+        if (value === false) parts.push('실패로 중단')
+        break
+      case 'interrupted':
+        if (value === true) parts.push('다른 실행이 처리 중이라 멈춤')
+        break
+      case 'error':
+        parts.push(`오류 ${String(value)}`)
+        break
+      case 'oldRetentionDays':
+        parts.push(`보존 ${String(value)}일 → ${String(detail.newRetentionDays)}일`)
+        break
+      case 'newRetentionDays':
         break
       default:
         parts.push(`${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`)

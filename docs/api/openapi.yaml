@@ -17,6 +17,8 @@ tags:
   description: 캠페인별 신청 명단 (ADR 0008)
 - name: HTML 템플릿
   description: AI가 만든 단일 HTML 폼 업로드와 조회 (ADR 0004)
+- name: 보존 기간
+  description: 보존 기간이 지난 신청 익명화 (ADR 0020)
 - name: 인증
   description: 운영자 로그인과 토큰 교체 (ADR 0003)
 - name: 크리에이터
@@ -228,6 +230,8 @@ paths:
       tags:
       - 캠페인
       summary: 캠페인 생성
+      description: "retentionDays는 신청 보존 기간(일, 1~3650, 기본 365). 지나면 매일 03:00(KST)\
+        \ 익명화한다 (ADR 0020)."
       operationId: createCampaign
       requestBody:
         content:
@@ -382,10 +386,11 @@ paths:
       - 명단
       summary: 명단 CSV 다운로드
       description: "UTF-8 BOM으로 시작하는 RFC 4180 CSV. 열은 신청일(Asia/Seoul), 이름, 전화번호, 이\
-        메일, 채널, 크리에이터, 폼, 추가 항목(payload JSON)이고 신청 순이다. 기본은 가린 값, reveal=true면 원문\
-        (전화번호는 숫자만)이다. =, +, -, @, 탭, CR로 시작하는 값에는 작은따옴표를 붙인다. 복호화하지 못한 행은 연락처 칸에\
-        \ \"복호화 불가\". 다운로드는 감사 로그(lead.export, 원문은 lead.export.reveal)에 건수와 함께 남고\
-        , 기록에 실패하면 내용을 주지 않고 500이다(ADR 0016)."
+        메일, 채널, 크리에이터, 폼, 추가 항목(payload JSON), 파기이고 신청 순이다. 보존 기간이 지나 파기된 신청은 연락처·\
+        추가 항목 칸이 비고 파기 칸이 \"파기됨\"이다(ADR 0020). 기본은 가린 값, reveal=true면 원문(전화번호는 숫자만\
+        )이다. =, +, -, @, 탭, CR로 시작하는 값에는 작은따옴표를 붙인다. 복호화하지 못한 행은 연락처 칸에 \"복호화 불가\"\
+        . 다운로드는 감사 로그(lead.export, 원문은 lead.export.reveal)에 건수와 함께 남고, 기록에 실패하면 내용\
+        을 주지 않고 500이다(ADR 0016)."
       operationId: exportLeadsCsv
       parameters:
       - name: campaignId
@@ -637,7 +642,8 @@ paths:
       tags:
       - 캠페인
       summary: 캠페인 수정·보관
-      description: 없는 필드는 그대로 둔다. status는 "archived"만 받는다.
+      description: "없는 필드는 그대로 둔다. status는 \"archived\"만 받는다. retentionDays는 1~3650이\
+        고, 바뀌면 감사 로그(campaign.retention.update, 이전·새 값)에 남는다 (ADR 0020)."
       operationId: updateCampaign
       parameters:
       - name: id
@@ -1067,6 +1073,43 @@ paths:
                 $ref: "#/components/schemas/FormResponse"
       security:
       - bearer: []
+  /api/admin/leads/{id}/consent:
+    get:
+      tags:
+      - 명단
+      summary: 신청자 동의 문구 증빙
+      description: "신청 시점 폼의 동의 문구 원문, 그 sha256(UTF-8 바이트, 소문자 hex), 동의 시각을 준다 (ADR\
+        \ 0020). 신청자 개인정보가 아니어서 원문 연락처 API와 따로 두고 감사 로그에 남기지 않는다. 파기된 신청도 증빙은 남아 있\
+        다. V10 이전 신청은 그때 폼의 문구로 백필한 값이고, 백필하지 못했으면 null이다."
+      operationId: getLeadConsent
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: 동의 증빙
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LeadConsentResponse"
+        "401":
+          description: unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: 없는 신청 (not_found)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+      security:
+      - bearer: []
   /api/admin/leads/{id}/contact:
     get:
       tags:
@@ -1098,6 +1141,51 @@ paths:
                 $ref: "#/components/schemas/ProblemDetail"
         "404":
           description: 없는 신청 (not_found)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "410":
+          description: "보존 기간이 지나 파기된 신청 (lead_anonymized, ADR 0020)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+      security:
+      - bearer: []
+  /api/admin/retention/run:
+    post:
+      tags:
+      - 보존 기간
+      summary: 보존 기간 파기 수동 실행
+      description: "매일 03:00(Asia/Seoul) 스케줄러와 같은 작업을 지금 실행한다. 캠페인의 retentionDays\
+        \ × 24시간이 지난 신청의 이름·연락처(암호문·해시)를 지우고 payload는 키만 남긴다. 행과 지표에 쓰는 값은 남는다. 실행\
+        은 감사 로그(retention.anonymize, 건수)에 남는다. 다른 인스턴스가 배치를 처리 중이면 그 실행에 맡기고 이번 실행\
+        이 처리한 건수와 interrupted=true를 준다. 배치가 실패하면 그때까지의 건수를 completed=false로 기록한 뒤\
+        \ 500이다(앞 배치의 파기는 되돌리지 않는다). dryRun=true면 아무것도 바꾸지 않고 대상 건수만 준다(기록 없음)."
+      operationId: runRetention
+      parameters:
+      - name: dryRun
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: 익명화한(dryRun이면 대상) 신청 수
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RetentionRunResponse"
+        "500":
+          description: 배치 실패 (internal_error). 그때까지의 건수는 감사 로그에 completed=false로 남는다
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "401":
+          description: unauthorized
           content:
             application/problem+json:
               schema:
@@ -1700,6 +1788,43 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InspectionWarning"
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type:
+          - string
+          - "null"
+        status:
+          type: integer
+          format: int32
+        detail:
+          type:
+          - string
+          - "null"
+        instance:
+          type:
+          - string
+          - "null"
+          format: uri
+        properties:
+          type:
+          - object
+          - "null"
+          additionalProperties: {}
+    RetentionRunResponse:
+      type: object
+      properties:
+        anonymized:
+          type: integer
+          format: int64
+        dryRun:
+          type: boolean
+        interrupted:
+          type: boolean
     CreateLinkRequest:
       type: object
       properties:
@@ -1781,6 +1906,9 @@ components:
         endsAt:
           type: string
           format: date-time
+        retentionDays:
+          type: integer
+          format: int32
     CampaignResponse:
       type: object
       properties:
@@ -1799,6 +1927,9 @@ components:
         endsAt:
           type: string
           format: date-time
+        retentionDays:
+          type: integer
+          format: int32
         createdAt:
           type: string
           format: date-time
@@ -1947,6 +2078,9 @@ components:
         endsAt:
           type: string
           format: date-time
+        retentionDays:
+          type: integer
+          format: int32
         status:
           type: string
     PublicFormResponse:
@@ -2057,33 +2191,6 @@ components:
           format: int64
         conversionRate:
           type: number
-    ProblemDetail:
-      type: object
-      properties:
-        type:
-          type: string
-          format: uri
-        title:
-          type:
-          - string
-          - "null"
-        status:
-          type: integer
-          format: int32
-        detail:
-          type:
-          - string
-          - "null"
-        instance:
-          type:
-          - string
-          - "null"
-          format: uri
-        properties:
-          type:
-          - object
-          - "null"
-          additionalProperties: {}
     LeadContactResponse:
       type: object
       properties:
@@ -2093,6 +2200,19 @@ components:
           type: string
         email:
           type: string
+    LeadConsentResponse:
+      type: object
+      properties:
+        consentText:
+          type: string
+        consentSha256:
+          type: string
+        consentAt:
+          type: string
+          format: date-time
+        anonymizedAt:
+          type: string
+          format: date-time
     CreatorCampaignStatsResponse:
       type: object
       properties:
@@ -2281,6 +2401,9 @@ components:
           type: object
           additionalProperties: {}
         createdAt:
+          type: string
+          format: date-time
+        anonymizedAt:
           type: string
           format: date-time
     MeResponse:

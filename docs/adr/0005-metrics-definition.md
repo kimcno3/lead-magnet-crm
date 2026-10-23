@@ -48,3 +48,4 @@
 ## 변경 기록
 
 - 2026-10-24 (ADR 0019, `V9__visit_bot_flag.sql`): 방문 지표(방문·방문자·전환 방문자)는 봇 방문을 뺀다. User-Agent가 봇 패턴인 방문은 `visits.is_bot = true`로 기록되고, `StatsQuery`의 모든 방문 CTE가 `AND NOT v.is_bot`으로 거른다(캠페인·캠페인 목록, 채널, 크리에이터, 크리에이터 × 채널, 크리에이터의 캠페인별). 위 표의 "방문"은 "기간 내 사람 방문(`NOT is_bot`) `visits` 행 수"로, "방문자"·"전환 방문자"도 사람 방문 기준으로 읽는다. 신청에는 봇 표시가 없어 그대로 센다. 그래서 봇 UA로만 방문하고 신청한 `visitor_id`는 `leads`에는 들어가지만 `convertedVisitors`에는 들어가지 않는다. V9 이전 방문은 모두 사람 방문(false)으로 남는다.
+- 2026-10-24 (ADR 0020, `V10__retention_and_consent.sql`): 보존 기간이 지난 신청은 행을 지우지 않고 연락처·payload 값만 지운다(익명화). 지표에 쓰는 `form_id`·`campaign_id`·`link_id`·`channel`·`visitor_id`·`created_at`은 남으므로 위 정의와 숫자는 파기 전후로 같다. 파기 뒤 같은 사람이 다시 신청하면 별개의 신청으로 센다.

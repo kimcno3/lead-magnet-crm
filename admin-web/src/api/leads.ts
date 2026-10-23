@@ -1,5 +1,5 @@
 import { apiDownload, apiRequest, saveDownload } from './client'
-import type { Channel, LeadContact, LeadPage } from './types'
+import type { Channel, LeadConsent, LeadContact, LeadPage } from './types'
 
 export const LEAD_PAGE_SIZE = 20
 
@@ -18,6 +18,11 @@ export function listLeads(campaignId: number, q: LeadQuery): Promise<LeadPage> {
 /** 한 신청자의 원문 연락처. 화면에 잠깐 보여 주는 용도로만 쓰고 저장하지 않는다. */
 export function getLeadContact(leadId: number): Promise<LeadContact> {
   return apiRequest(`/api/admin/leads/${leadId}/contact`)
+}
+
+/** 한 신청의 동의 문구 증빙. 개인정보가 아니어서 감사 기록 없이 열린다 (ADR 0020). */
+export function getLeadConsent(leadId: number): Promise<LeadConsent> {
+  return apiRequest(`/api/admin/leads/${leadId}/consent`)
 }
 
 /**

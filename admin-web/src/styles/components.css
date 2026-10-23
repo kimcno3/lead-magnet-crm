@@ -1068,3 +1068,24 @@
   color: var(--text-muted);
   font-size: var(--fs-small);
 }
+
+/* ---------- 이름·값 목록(동의 문구 대화상자) ---------- */
+.detail-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.detail-grid dt {
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+}
+
+.detail-grid dd {
+  margin: 0;
+}
+
+.pre-wrap {
+  white-space: pre-wrap;
+}

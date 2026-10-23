@@ -50,14 +50,16 @@ import org.springframework.transaction.annotation.Transactional;
  *       (배치마다 COUNT 없음). 신청은 바뀌거나 지워지지 않으므로, maxId보다 작은 id의 신청이 그 사이에 늦게 커밋되는
  *       경우(동시 신청)가 아니면 기록한 건수와 내려주는 행 수가 같다.</li>
  * </ol>
- * 기본은 가린 값이고 reveal이면 원문이다. 복호화하지 못한 행은 연락처 칸에 "복호화 불가"를 적고 로그에는 신청 id만 남긴다.
+ * 기본은 가린 값이고 reveal이면 원문이다. 보존 기간이 지나 파기된 신청은 연락처·추가 항목 칸이 비고 "파기" 칸에 "파기됨"이다. 복호화하지 못한 행은 연락처 칸에 "복호화 불가"를 적고 로그에는 신청 id만 남긴다.
  */
 @Service
 public class LeadExportService {
 
     static final int BATCH_SIZE = 500;
     static final String UNAVAILABLE = "복호화 불가";
-    static final List<String> HEADER = List.of("신청일", "이름", "전화번호", "이메일", "채널", "크리에이터", "폼", "추가 항목");
+    static final String ANONYMIZED = "파기됨";
+    static final List<String> HEADER = List.of("신청일", "이름", "전화번호", "이메일", "채널", "크리에이터", "폼", "추가 항목",
+        "파기");
 
     private static final Logger log = LoggerFactory.getLogger(LeadExportService.class);
     private static final DateTimeFormatter FILE_STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
@@ -144,21 +146,11 @@ public class LeadExportService {
     }
 
     private List<String> row(Lead lead, boolean reveal, Lookups lookups) {
-        String name;
-        String phone;
-        String email;
-        try {
-            LeadContact contact = protector.reveal(lead);
-            LeadContact shown = reveal ? contact : contact.masked();
-            name = shown.name();
-            phone = shown.phone();
-            email = shown.email();
-        } catch (PiiCryptoException e) {
-            log.warn("신청 연락처를 복호화하지 못해 CSV에 복호화 불가로 적음: leadId={}", lead.getId());
-            name = UNAVAILABLE;
-            phone = UNAVAILABLE;
-            email = UNAVAILABLE;
-        }
+        // 파기된 신청은 연락처·추가 항목을 비우고 마지막 칸에 표시한다(ADR 0020).
+        LeadContact shown = lead.isAnonymized() ? new LeadContact(null, null, null) : contactCells(lead, reveal);
+        String name = shown.name();
+        String phone = shown.phone();
+        String email = shown.email();
         String creator = lead.getLinkId() == null ? null : lookups.creatorByLink().get(lead.getLinkId());
         List<String> cells = new ArrayList<>();
         cells.add(CREATED_AT.format(lead.getCreatedAt()));
@@ -168,8 +160,19 @@ public class LeadExportService {
         cells.add(lead.getChannel().value());
         cells.add(creator);
         cells.add(lookups.formTitles().get(lead.getFormId()));
-        cells.add(payloadJson(lead.getPayload()));
+        cells.add(lead.isAnonymized() ? null : payloadJson(lead.getPayload()));
+        cells.add(lead.isAnonymized() ? ANONYMIZED : null);
         return cells;
+    }
+
+    private LeadContact contactCells(Lead lead, boolean reveal) {
+        try {
+            LeadContact contact = protector.reveal(lead);
+            return reveal ? contact : contact.masked();
+        } catch (PiiCryptoException e) {
+            log.warn("신청 연락처를 복호화하지 못해 CSV에 복호화 불가로 적음: leadId={}", lead.getId());
+            return new LeadContact(UNAVAILABLE, UNAVAILABLE, UNAVAILABLE);
+        }
     }
 
     private Lookups lookups(long campaignId) {
