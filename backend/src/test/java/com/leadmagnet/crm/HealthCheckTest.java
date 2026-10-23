@@ -34,10 +34,10 @@ class HealthCheckTest {
     }
 
     @Test
-    void 노출하지_않은_actuator_엔드포인트는_404다() {
+    void 노출하지_않은_actuator_엔드포인트는_인증_없이_막힌다() {
         given()
             .when().get("/actuator/env")
-            .then().statusCode(404);
+            .then().statusCode(401);
     }
 
     @Test

@@ -22,10 +22,22 @@ app:
   ports:
     admin: ${ADMIN_PORT:8080}
     public-port: ${PUBLIC_PORT:8081}
+  auth:
+    # 필수. 없으면 기동이 실패한다. UTF-8 32바이트 이상 (ADR 0003)
+    jwt-secret: ${JWT_SECRET}
+    admin-origin: ${ADMIN_ORIGIN:http://localhost:5173}
+    cookie-secure: ${COOKIE_SECURE:false}
   seed:
     operator:
       email: ${ADMIN_SEED_EMAIL:}
       password: ${ADMIN_SEED_PASSWORD:}
+
+# OpenAPI 문서. admin 포트 전용 제한은 이슈 #7(OriginGuardFilter)에서 붙인다.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
 
 management:
   endpoints:
