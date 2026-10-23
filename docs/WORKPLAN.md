@@ -65,7 +65,7 @@ v0.2.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다. 위�
 | 8 | 크리에이터별 `utm_content` | 낮음 | 광고 도구에서 크리에이터를 구분하는 값. 귀속 자체는 `link_id`로 이미 된다 |
 | 9 | 계층 정리: `DateRange`를 common으로, `template` ↔ `form` 순환, `AuditActor` 위치 | 낮음 | 동작은 맞지만 패키지 의존 방향이 어긋나 있다 |
 
-완료 표시: `visits.link_id`·`leads.link_id` 인덱스는 이 PR에서 끝냈다(V11, 완료). 1번(로그인 시도 제한)과 2번(nginx 뒤 실제 IP)은 #51에서 함께 끝냈다(PR #57, [ADR 0021](adr/0021-login-throttle-and-trusted-proxy.md)). 3번(payload의 연락처 모양 항목)은 #52에서 끝냈다(PR #58, `extra_contact_field` 경고 + 명단·마스킹 CSV 마스킹, [ADR 0015](adr/0015-pii-encryption.md) 변경 기록). 7번(Playwright E2E의 CI 통합)은 #54에서 끝냈다(`.github/workflows/e2e.yml`, 결과는 CI 아티팩트 `e2e-results`).
+완료 표시: `visits.link_id`·`leads.link_id` 인덱스는 이 PR에서 끝냈다(V11, 완료). 1번(로그인 시도 제한)과 2번(nginx 뒤 실제 IP)은 #51에서 함께 끝냈다(PR #57, [ADR 0021](adr/0021-login-throttle-and-trusted-proxy.md)). 3번(payload의 연락처 모양 항목)은 #52에서 끝냈다(PR #58, `extra_contact_field` 경고 + 명단·마스킹 CSV 마스킹, [ADR 0015](adr/0015-pii-encryption.md) 변경 기록). 7번(Playwright E2E의 CI 통합)은 #54에서 끝냈다(PR #59, `.github/workflows/e2e.yml`, 결과는 CI 아티팩트 `e2e-results`).
 
 ## 알려진 한계와 후속 개선 (리뷰에서 나온 것)
 
