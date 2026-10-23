@@ -23,6 +23,8 @@ server:
   port: ${app.ports.admin}
 
 app:
+  # 배포 링크 URL의 앞부분 ({public-base-url}/l/{code}, ADR 0006)
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8081}
   ports:
     admin: ${ADMIN_PORT:8080}
     public-port: ${PUBLIC_PORT:8081}
