@@ -1,6 +1,45 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 리드마그넷 CRM 운영 시스템. 운영자가 AI로 만든 단일 HTML 폼을 등록해 캠페인·공개 폼·채널별 배포 링크를 만들고, 신청을 CRM 명단으로 모아 성과를 본다. 전체 계획과 결정 이유는 [docs/PLAN.md](docs/PLAN.md)에 있다.
+
+## Commands
+
+```bash
+# 전체 로컬 실행 (postgres, backend :8080·:8081, admin-web :5173)
+cp .env.example .env
+docker compose up --build
+
+# backend (Gradle 툴체인이 JDK 21을 자동으로 받는다. 실행 JDK는 17 이상이면 된다)
+cd backend
+./gradlew build                                   # 컴파일 + 테스트 (CI와 동일)
+./gradlew test --tests 'com.leadmagnet.crm.HealthCheckTest'          # 테스트 클래스 하나
+./gradlew test --tests 'com.leadmagnet.crm.HealthCheckTest.헬스체크는_UP을_반환한다'  # 메서드 하나
+./gradlew bootRun
+
+# admin-web
+cd admin-web
+npm ci
+npm run dev          # :5173, /api/admin·/actuator/health를 localhost:8080으로 프록시 (BACKEND_ADMIN_URL로 변경)
+npm run lint         # oxlint --deny-warnings
+npm run typecheck
+npm test             # vitest run (jsdom)
+npx vitest run src/App.test.tsx   # 파일 하나
+npm run build
+```
+
+CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend `./gradlew build`, admin-web lint·typecheck·test·build를 돌린다.
+
+## 구조
+
+- `backend/`: Spring Boot 3.5 단일 앱. 루트 패키지 `com.leadmagnet.crm`, 그 아래 도메인 패키지.
+  - 출처별 포트는 `app.ports.admin`/`app.ports.public-port`(`common/PortsProperties`, 환경 변수 `ADMIN_PORT`/`PUBLIC_PORT`). 기본 커넥터는 admin 포트에 뜬다. public 커넥터(:8081)와 OriginGuardFilter는 이슈 #7에서 붙이므로 그전에는 8081이 열려 있지 않다.
+  - actuator는 `health`만 노출한다. compose 헬스체크와 admin-web이 이 경로를 쓴다.
+- `admin-web/`: React + Vite + TypeScript 관리자 SPA. 운영 시에는 nginx(`admin-web/nginx.conf`), 개발 시에는 Vite가 `/api/admin/`과 `/actuator/health`를 backend admin 포트로 프록시한다. 브라우저 입장에서는 admin-web 출처 하나뿐이어서 refresh 쿠키(SameSite=Strict, Path=/api/admin/auth)가 그대로 동작하고, public 출처(:8081)와는 출처가 다르다.
+- `docker-compose.yml`: postgres → backend → admin-web 순서로 헬스체크를 기다린다. 값은 루트 `.env`에서 읽는다.
+- `docs/`: `PLAN.md`(과제 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `ROADMAP.md`(범위 밖), `adr/`.
+- `scripts/bootstrap-github.sh`: 라벨·마일스톤·이슈를 gh api로 만든다. 여러 번 실행해도 안전하다.
 
 ## 보안 불변식 (위반 금지)
 
