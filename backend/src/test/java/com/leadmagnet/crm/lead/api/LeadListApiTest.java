@@ -3,6 +3,7 @@ package com.leadmagnet.crm.lead.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -170,6 +171,29 @@ class LeadListApiTest {
             .body("items[0].email", equalTo("a***@b.co")).body("items[0].phone", equalTo(null))
             .body("items[0].name", equalTo(null))
             .body("items[0].payload.job", equalTo("student"));
+    }
+
+    @Test
+    void payload의_연락처_모양_항목은_명단에서_가려지고_나머지는_그대로다() {
+        String html = """
+            <form><input name="phone" type="tel"><input name="alt_phone" type="tel">
+            <input name="backup_email" type="email"><input name="mobile_text"><input name="memo">
+            <input name="hotel"></form>
+            """;
+        AdminFixtures.createPublishedFormIn(token, campaign, "form-e", html);
+        PublicOrigin.given(publicPort).contentType(ContentType.JSON)
+            .body(Map.of("fields", Map.of("phone", "010-1111-2222", "alt_phone", "010-9999-8888",
+                    "backup_email", "Secret@Example.com", "mobile_text", "010-3333-4444", "memo", "오전", "hotel", "롯데"),
+                "consent", true, "ft", FormTokens.mature(publicPort, clock, "form-e")))
+            .post("/api/public/forms/form-e/submissions").then().statusCode(201);
+
+        authed().queryParam("formId", jdbc.queryForObject("SELECT id FROM forms WHERE slug='form-e'", Integer.class))
+            .get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
+            .body("items[0].payload.alt_phone", equalTo("010-****-8888"))
+            .body("items[0].payload.backup_email", equalTo("s***@example.com"))
+            .body("items[0].payload.mobile_text", equalTo("010-****-4444"))
+            .body("items[0].payload.memo", equalTo("오전")).body("items[0].payload.hotel", equalTo("롯데"))
+            .body(not(containsString("01099998888"))).body(not(containsString("secret@example.com")));
     }
 
     @Test

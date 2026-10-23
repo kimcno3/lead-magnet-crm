@@ -20,6 +20,7 @@
 | `large_inline_image` | warning | 위 위치의 `data:` URI 길이 합계가 200KB 초과 |
 | `missing_label` | warning | 라벨 없는 필드(`label for`, 감싼 `label`, `aria-label`, `aria-labelledby` 중 어느 것도 없음; hidden·버튼 제외, 같은 name은 첫 입력 기준) |
 | `contact_not_required` | warning | 연락처 입력(`phone`·`email`, 선택지 타입 제외)이 있는데 그중 `required`가 하나도 없음 |
+| `extra_contact_field` | warning | `phone`·`email` 이외 이름의 입력 중 `type=tel`·`type=email`이거나, 텍스트 계열 입력(text·tel·email·number)의 이름 토큰(`_`·`-`·camelCase로 나눔, 대소문자 무시)이 `phone`·`tel`·`mobile`·`hp`·`cell`·`email`·`mail`·`연락처`·`전화` 중 하나(ADR 0015 변경 기록). 체크박스·select·textarea와 `hotel`처럼 토큰이 아닌 부분 일치는 제외, 같은 name은 한 번 |
 | `form_action_external` | info | form `action`이 외부 URL (래퍼가 제출을 받아 무시됨) |
 | `fetch_in_script` | info | 인라인 스크립트의 `fetch(`, `XMLHttpRequest`, `sendBeacon`, `WebSocket`, `EventSource` 토큰 (토큰당 한 건) |
 | `consent_in_html` | info | 이름이 `agree|consent|privacy`이거나 라벨에 `동의|개인정보|약관`이 있는 체크박스 |

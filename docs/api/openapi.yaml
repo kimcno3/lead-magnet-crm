@@ -1130,7 +1130,8 @@ paths:
       - 명단
       summary: 신청자 원문 연락처
       description: "명단은 가린 값만 준다. 원문 이름·전화번호(숫자만)·이메일은 이 엔드포인트로 한 건씩 본다 (ADR 0015).\
-        \ 응답은 캐시하지 않는다(Cache-Control: no-store). 열람은 감사 로그(lead.contact.view)에 남고\
+        \ phone·email 이외 이름의 전화·이메일 입력(payload)은 extraContacts(필드 이름 → 원문)로 함께 준다\
+        . 응답은 캐시하지 않는다(Cache-Control: no-store). 열람은 감사 로그(lead.contact.view)에 남고\
         , 기록에 실패하면 원문을 주지 않고 500이다(ADR 0016)."
       operationId: getLeadContact
       parameters:
@@ -2214,6 +2215,10 @@ components:
           type: string
         email:
           type: string
+        extraContacts:
+          type: object
+          additionalProperties:
+            type: string
     LeadConsentResponse:
       type: object
       properties:

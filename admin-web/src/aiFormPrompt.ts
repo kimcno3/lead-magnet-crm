@@ -9,6 +9,7 @@ export const AI_FORM_PROMPT = `신청(리드 수집) 폼을 단일 HTML 파일 �
 - <form>은 문서 전체에 정확히 하나만 둬. form에 action 속성은 쓰지 마. 제출 버튼은 form 안의 <button type="submit">.
 - 모든 입력에 name 속성을 붙여. name은 영문자로 시작하고 영문·숫자·밑줄만 쓴 50자 이하, 입력은 최대 50개.
 - 이름은 name="name", 전화번호는 name="phone"(type="tel"), 이메일은 name="email"(type="email")로 해. phone과 email 중 하나 이상은 반드시 넣고, 그중 최소 하나에는 required 속성을 붙여.
+- 연락처 입력은 name="phone" 하나, name="email" 하나만 둬. 보조 전화번호나 보조 이메일처럼 type="tel"·type="email" 입력이나 이름에 phone, tel, mobile, hp, email, mail이 들어간 입력을 더 만들지 마.
 - 여러 개 중 고르는 입력은 select, radio, checkbox를 써. radio·checkbox 묶음은 같은 name을 공유하고 각각 value를 줘.
 - 모든 입력에 <label for="id">를 연결하거나 입력을 <label>로 감싸. placeholder만 있는 입력은 안 돼.
 - type="file", type="password" 입력은 쓰지 마.

@@ -57,6 +57,7 @@
 | `large_inline_image` | 경고 | `data:` URI 합계가 200KB를 넘는다. 템플릿 용량 한도(512KB)에 가까워지고 폼이 느리게 열린다 | 이미지를 줄이거나(압축, 작은 해상도) 뺀다 |
 | `missing_label` | 경고 | 라벨이 없는 입력이다. 화면 읽기 도구가 읽지 못하고 필드 라벨이 `name`이나 placeholder로 대체된다 | `<label for="id">`를 연결하거나 입력을 `<label>`로 감싼다 |
 | `contact_not_required` | 경고 | `phone`·`email` 중 `required`인 것이 없다. 방문자가 연락처 없이 제출하면 신청이 거절된다 | 연락처 입력 하나 이상에 `required`를 붙인다 |
+| `extra_contact_field` | 경고 | `phone`·`email`이 아닌 이름으로 전화·이메일처럼 보이는 입력이다(`type="tel"`·`type="email"`, 또는 이름에 `phone`·`tel`·`mobile`·`hp`·`cell`·`email`·`mail`이 `_`·`-` 단위로 들어간 텍스트·숫자 입력). 암호화되지 않는 추가 항목(payload)에 저장된다. 명단과 마스킹 CSV에서는 가려지고 원문은 원문 열람·원문 CSV에만 나온다 | 연락처는 `name="phone"`·`name="email"` 하나씩만 둔다. `phone_model`·`cell_count`처럼 연락처가 아닌 텍스트 입력도 이름 때문에 걸려 명단에서 `****`로 보일 수 있다(원문 보기에서는 원문이 나온다). 이름을 바꾸면 사라진다. 보조 연락처가 꼭 필요하면 그대로 올려도 되지만 저장 값이 DB에 평문으로 남는다 |
 | `form_action_external` | 참고 | form `action`이 외부 주소다. 공개 폼은 래퍼가 제출을 받으므로 `action`은 쓰지 않는다 | 지워도 된다. 그대로 두어도 동작은 같다 |
 | `fetch_in_script` | 참고 | 스크립트에 `fetch`·`XMLHttpRequest`·`sendBeacon`·`WebSocket`·`EventSource`가 있다. 공개 폼은 `connect-src 'self'`라 외부로 나가지 못하고 신청 제출은 래퍼가 대신 보낸다 | 그 호출에 기대는 동작(외부 API로 우편번호 조회 등)은 빼거나 입력으로 바꾼다. 단순 검사 토큰 스캔이라 주석·문자열 속 단어도 잡힌다 |
 | `consent_in_html` | 참고 | 동의 체크박스로 보이는 입력이다. 개인정보 수집 동의는 폼을 만들 때 입력하는 동의 문구로 래퍼가 따로 받는다 | 개인정보 동의용이면 지운다(이름에 `agree`·`consent`·`privacy`, 라벨에 동의·개인정보·약관이 있으면 감지한다). 마케팅 수신 같은 선택 항목이면 그대로 둬도 된다(일반 선택 값으로 저장된다) |
