@@ -43,14 +43,7 @@ paths:
       tags:
       - 감사 로그
       summary: 감사 로그
-<<<<<<< HEAD
       description: "최신순. action은 AuditAction의 값 중 하나(허용 값은 파라미터 스키마의 enum). from·\
-=======
-      description: "최신순. action은 lead.list, lead.contact.view, lead.export, lead.export.reveal,\
-        \ auth.login.success, auth.login.failure, auth.login.locked, retention.anonymize,\
-        \ campaign.retention.update, auth.refresh.reused, auth.logout, form.publish,\
-        \ form.close, template.version.upload, creator.archive, pii.reencrypt. from·\
->>>>>>> dabd72e (feat(lead): 개인정보 재암호화 배치와 POST /api/admin/pii/reencrypt)
         to는 Asia/Seoul 날짜(yyyy-MM-dd, 양 끝 포함). page는 0부터, size는 1~100(기본 20). 이 조회\
         \ 자체는 기록하지 않는다."
       operationId: listAuditLogs
@@ -76,6 +69,7 @@ paths:
           - form.close
           - template.version.upload
           - creator.archive
+          - pii.reencrypt
       - name: operatorId
         in: query
         required: false
