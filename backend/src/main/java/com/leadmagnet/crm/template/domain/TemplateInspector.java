@@ -359,7 +359,7 @@ public final class TemplateInspector {
                 contactNames.add(name);
                 contactRequired |= controls.stream().anyMatch(c -> c.hasAttr("required"));
             }
-            if (ContactLikeField.isExtra(name, firstType)) {
+            if (ContactLikeField.extraKindOf(name, firstType) != null) {
                 out.add(EXTRA_CONTACT_FIELD, Severity.WARNING,
                     "phone·email이 아닌 이름으로 전화번호·이메일처럼 보이는 입력입니다. 이 값은 암호화되지 않는 추가 항목(payload)에 저장됩니다. "
                         + "명단과 마스킹 CSV에서는 가려 보이지만, 연락처는 name=\"phone\"·name=\"email\" 하나씩만 쓰는 것이 안전합니다.",

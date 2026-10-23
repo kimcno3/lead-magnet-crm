@@ -3,6 +3,7 @@ package com.leadmagnet.crm.template.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.leadmagnet.crm.template.domain.ContactLikeField.Kind;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ContactLikeFieldTest {
@@ -22,8 +23,24 @@ class ContactLikeFieldTest {
         assertThat(ContactLikeField.kindOf("cellNumber", "text")).isEqualTo(Kind.PHONE);
         assertThat(ContactLikeField.kindOf("work_mail", "text")).isEqualTo(Kind.EMAIL);
         assertThat(ContactLikeField.kindOf("Email2", "text")).isEqualTo(Kind.EMAIL);
-        assertThat(ContactLikeField.kindOf("연락처", "text")).isEqualTo(Kind.PHONE);
-        assertThat(ContactLikeField.kindOf("전화번호", "text")).isEqualTo(Kind.PHONE);
+    }
+
+    @Test
+    void 합성어와_접두어_토큰도_연락처다() {
+        for (String name : List.of("telephone", "cellphone", "mobilephone", "phonenumber", "phoneno", "phone_model",
+            "mobileNo", "phone2")) {
+            assertThat(ContactLikeField.kindOf(name, "text")).as(name).isEqualTo(Kind.PHONE);
+        }
+        for (String name : List.of("emailaddress", "mailaddress", "useremail", "email_backup", "emailAddr")) {
+            assertThat(ContactLikeField.kindOf(name, "text")).as(name).isEqualTo(Kind.EMAIL);
+        }
+    }
+
+    @Test
+    void 부분_문자열만_겹치는_이름은_연락처가_아니다() {
+        for (String name : List.of("telegram", "mailbox_size", "hotel", "headphone", "microphone", "intel", "hpv")) {
+            assertThat(ContactLikeField.kindOf(name, "text")).as(name).isNull();
+        }
     }
 
     @Test
@@ -38,8 +55,8 @@ class ContactLikeFieldTest {
 
     @Test
     void 예약_이름은_추가_연락처가_아니다() {
-        assertThat(ContactLikeField.isExtra("phone", "tel")).isFalse();
-        assertThat(ContactLikeField.isExtra("email", "email")).isFalse();
-        assertThat(ContactLikeField.isExtra("phone2", "tel")).isTrue();
+        assertThat(ContactLikeField.extraKindOf("phone", "tel")).isNull();
+        assertThat(ContactLikeField.extraKindOf("email", "text")).isNull();
+        assertThat(ContactLikeField.extraKindOf("phone2", "tel")).isEqualTo(Kind.PHONE);
     }
 }

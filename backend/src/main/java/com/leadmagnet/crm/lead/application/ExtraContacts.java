@@ -52,15 +52,12 @@ final class ExtraContacts {
 
     private static Map<String, String> types(List<FormField> config) {
         return config == null ? Map.of()
-            : config.stream().collect(Collectors.toMap(FormField::name, FormField::type, (a, b) -> a));
+            : config.stream().filter(f -> f.name() != null && f.type() != null)
+                .collect(Collectors.toMap(FormField::name, FormField::type, (a, b) -> a));
     }
 
     private static Kind kindOf(String key, Map<String, String> types) {
-        if ("phone".equals(key) || "email".equals(key)) {
-            // 예약 이름은 컬럼으로 가므로 payload에 있다면 선택지 타입이라 연락처 값이 아니다.
-            return null;
-        }
-        return ContactLikeField.kindOf(key, types.getOrDefault(key, ""));
+        return ContactLikeField.extraKindOf(key, types.getOrDefault(key, ""));
     }
 
     private static Object maskValue(Kind kind, Object value) {

@@ -213,6 +213,27 @@ class LeadRetentionApiTest {
     }
 
     @Test
+    void 익명화된_신청의_tel_추가_항목은_명단과_CSV에서_값_없이_키만_남는다() {
+        String html = """
+            <form><input name="phone" type="tel"><input name="alt_phone" type="tel"></form>
+            """;
+        AdminFixtures.createPublishedFormIn(token, campaign, "form-c", html);
+        long id = submit("form-c", Map.of("phone", "010-1111-0001", "alt_phone", "010-9999-8888"));
+        createdAt(id, now().minus(Duration.ofDays(31)));
+        runManually();
+
+        authed().get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
+            .body("items[0].anonymizedAt", notNullValue()).body("items[0].payload.alt_phone", nullValue())
+            .body("items[0].payload", org.hamcrest.Matchers.hasKey("alt_phone"))
+            .body(org.hamcrest.Matchers.not(containsString("8888")));
+        for (String path : List.of("/api/admin/campaigns/{id}/leads.csv", "/api/admin/campaigns/{id}/leads.csv?reveal=true")) {
+            String csv = new String(authed().get(path, campaign).then().statusCode(200).extract().asByteArray(),
+                java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(csv).contains("파기됨").doesNotContain("8888", "alt_phone");
+        }
+    }
+
+    @Test
     void 다시_실행해도_추가로_익명화하지_않고_처음_시각을_유지한다() {
         long id = submit("form-a", "010-1111-0001");
         createdAt(id, now().minus(Duration.ofDays(31)));

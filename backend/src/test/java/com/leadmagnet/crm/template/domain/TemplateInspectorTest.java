@@ -342,6 +342,12 @@ class TemplateInspectorTest {
             assertThat(codes(page("", labeled("text", name)))).as(name).contains("extra_contact_field");
         }
         assertThat(codes(page("", labeled("number", "phone2")))).contains("extra_contact_field");
+        for (String name : List.of("telephone", "phonenumber", "useremail", "emailaddress")) {
+            assertThat(codes(page("", labeled("text", name)))).as(name).contains("extra_contact_field");
+        }
+        for (String name : List.of("telegram", "mailbox_size", "headphone")) {
+            assertThat(codes(page("", labeled("text", name)))).as(name).doesNotContain("extra_contact_field");
+        }
     }
 
     @Test
