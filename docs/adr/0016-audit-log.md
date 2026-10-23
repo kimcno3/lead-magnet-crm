@@ -77,7 +77,7 @@ ADR 0015로 명단은 가린 값만 보이고 원문은 `GET /api/admin/leads/{i
   | `template.version.upload` | 필수 | template | `templateId`, `version`(올린 뒤), `affectedDraftForms` |
   | `creator.archive` | 필수 | creator | `creatorId` |
 
-  - `auth.refresh.reused`: 재사용을 감지해 패밀리를 폐기한 뒤 남긴다. 폐기는 `noRollbackFor`로 이미 커밋되었으므로 `AuthController.refresh`가 `RefreshTokenReusedException`(운영자 id 보유, `DomainException` 하위)을 잡아 트랜잭션 밖에서 `recordBestEffort`하고 같은 예외를 다시 던진다. 기록이 실패해도 응답은 401 `refresh_token_reused`이고 폐기는 유지된다. 모르는 토큰(`invalid_refresh_token`)은 운영자를 알 수 없어 남기지 않는다.
-  - `auth.logout`: `AuthService.logout`이 쿠키가 운영자로 확인될 때만 그 id를 돌려주고, 컨트롤러가 최선 노력으로 남긴다. 쿠키가 없거나 모르는 토큰이면 아무것도 쓰지 않고 응답은 그대로 204다.
+  - `auth.refresh.reused`: 재사용을 감지해 패밀리를 폐기한 뒤 남긴다. 폐기는 `noRollbackFor`로 이미 커밋되었으므로 `AuthController.refresh`가 `RefreshTokenReusedException`(운영자 id 보유, `DomainException` 하위)을 잡아 트랜잭션 밖에서 `recordBestEffort`하고 같은 예외를 다시 던진다. 기록이 실패해도 응답은 401 `refresh_token_reused`이고 폐기는 유지된다. 모르는 토큰(`invalid_refresh_token`)은 운영자를 알 수 없어 남기지 않는다. 이미 폐기된 패밀리의 토큰을 다시 보내는 반복 재생은 폐기한 토큰이 0개이므로 남기지 않는다(`/refresh`에 시도 제한이 없어 재생마다 행이 쌓이는 것을 막는다).
+  - `auth.logout`: `AuthService.logout`이 쿠키가 운영자로 확인되고 살아 있는 토큰을 실제로 폐기했을 때만 그 id를 돌려주고(이미 로그아웃·폐기된 쿠키는 기록하지 않는다), 컨트롤러가 최선 노력으로 남긴다. 쿠키가 없거나 모르는 토큰이면 아무것도 쓰지 않고 응답은 그대로 204다.
   - 폼 게시·마감, 템플릿 새 버전, 크리에이터 보관은 공개 콘텐츠나 공개 폼에 영향을 주는 상태 변경이라 같은 트랜잭션에서 `recordRequired`한다. 기록이 실패하면 변경도 롤백되고 500 `internal_error`다. 실제로 전이가 일어난 경우만 남기고(검증·409 실패, 내용만 수정은 제외) 잠금 순서(템플릿 → 폼)는 바꾸지 않는다.
   - detail에는 id, slug(공개 주소의 일부), 버전, 건수만 넣는다. 크리에이터 이름·핸들, 토큰 값, 이메일은 넣지 않는다. 서비스 시그니처에 `AuditActor`가 추가되어 form·creator → audit 의존이 생겼다(auth·lead·campaign과 같은 방향).

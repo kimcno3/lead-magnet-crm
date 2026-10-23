@@ -104,8 +104,10 @@ public class AuthController {
             return withRefreshCookie(authService.refresh(refreshToken));
         } catch (RefreshTokenReusedException e) {
             // 패밀리 폐기는 noRollbackFor로 이미 커밋되었다. 기록은 그 뒤 트랜잭션 밖에서 남기고 실패해도 401은 그대로다(ADR 0016).
-            audit.recordBestEffort(AuditActors.anonymous(httpRequest).withOperator(e.getOperatorId()),
-                AuditEvent.refreshReused(e.getOperatorId()));
+            if (e.revokedLiveTokens()) {
+                audit.recordBestEffort(AuditActors.anonymous(httpRequest).withOperator(e.getOperatorId()),
+                    AuditEvent.refreshReused(e.getOperatorId()));
+            }
             throw e;
         }
     }

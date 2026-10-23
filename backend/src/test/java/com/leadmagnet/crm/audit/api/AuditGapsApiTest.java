@@ -116,6 +116,18 @@ class AuditGapsApiTest {
     }
 
     @Test
+    void 이미_폐기된_패밀리의_토큰을_다시_보내면_401이지만_재사용_기록은_한_번만_남는다() {
+        String a = login().getCookie(COOKIE);
+        refresh(a).then().statusCode(200);
+        refresh(a).then().statusCode(401).body("code", equalTo("refresh_token_reused"));
+
+        refresh(a).then().statusCode(401).body("code", equalTo("refresh_token_reused"));
+        refresh(a).then().statusCode(401).body("code", equalTo("refresh_token_reused"));
+
+        assertThat(count("auth.refresh.reused")).isEqualTo(1);
+    }
+
+    @Test
     void 모르는_refresh_토큰은_재사용_기록을_남기지_않는다() {
         refresh("unknown-token").then().statusCode(401).body("code", equalTo("invalid_refresh_token"));
 
@@ -147,6 +159,16 @@ class AuditGapsApiTest {
         assertThat(log.get("target_type")).isEqualTo("operator");
         assertThat(log.get("target_id")).isEqualTo(operatorId);
         assertThat((String) log.get("detail")).isEqualTo("{}");
+    }
+
+    @Test
+    void 이미_로그아웃한_쿠키로_다시_로그아웃하면_204이고_두_번째는_기록하지_않는다() {
+        String cookie = login().getCookie(COOKIE);
+        RestAssured.given().cookie(COOKIE, cookie).post("/api/admin/auth/logout").then().statusCode(204);
+
+        RestAssured.given().cookie(COOKIE, cookie).post("/api/admin/auth/logout").then().statusCode(204);
+
+        assertThat(count("auth.logout")).isEqualTo(1);
     }
 
     @Test

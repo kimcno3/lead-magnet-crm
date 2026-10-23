@@ -81,7 +81,7 @@ public class AuthService {
             int revoked = refreshTokens.revokeFamily(current.getFamilyId(), now);
             log.warn("refresh token 재사용 감지: 운영자 {} 패밀리 {} 의 토큰 {}개 폐기",
                 current.getOperatorId(), current.getFamilyId(), revoked);
-            throw new RefreshTokenReusedException(current.getOperatorId());
+            throw new RefreshTokenReusedException(current.getOperatorId(), revoked > 0);
         }
         if (current.isExpired(now)) {
             throw new DomainException(ErrorCode.INVALID_REFRESH_TOKEN);
@@ -93,14 +93,14 @@ public class AuthService {
     }
 
     /**
-     * 토큰이 없거나 모르는 토큰이어도 조용히 끝낸다. 토큰이 운영자로 확인되면 그 id를 돌려준다(감사 기록용, 없으면 비어 있다).
+     * 토큰이 없거나 모르는 토큰이어도 조용히 끝낸다. 살아 있는 토큰을 실제로 폐기했을 때만(이미 끝난 세션이 아니면) 운영자 id를
+     * 돌려준다(감사 기록용, 없으면 비어 있다).
      */
     @Transactional
     public Optional<Long> logout(String rawRefreshToken) {
-        return findForUpdate(rawRefreshToken).map(token -> {
-            refreshTokens.revokeFamily(token.getFamilyId(), clock.instant());
-            return token.getOperatorId();
-        });
+        return findForUpdate(rawRefreshToken)
+            .filter(token -> refreshTokens.revokeFamily(token.getFamilyId(), clock.instant()) > 0)
+            .map(RefreshToken::getOperatorId);
     }
 
     @Transactional(readOnly = true)
