@@ -110,3 +110,7 @@ honeypot을 필드 검증보다 앞에 둔 이유: 봇이 엉터리 값을 보�
   - 서버 재시작 시 버킷이 비워진다(한도가 처음부터 다시 시작한다).
 - 로그인 시도 제한(ADR 0016 결과 절이 #18로 미룬 것)은 이번 범위(공개 신청 제출)에서 뺐다. ROADMAP에 남기며, 넣을 때는 이 ADR의 `RateLimiter`를 쓰고 ADR 0016의 기록 방식(제한이 걸린 시점에 한 번 + 거절 건수 요약)을 따른다.
 - 다시 볼 조건: 리버스 프록시 뒤 배포(신뢰 프록시와 `getRemoteAddr()`), 서버 여러 대(공유 저장소 기반 제한), 봇 스팸이 늘면 토큰 일회용화나 CAPTCHA.
+
+## 변경 기록
+
+- 2026-10-24 (ADR 0021): IP 출처를 정했다. 제출은 public 포트로만 들어오고 public 포트는 앞단 프록시가 없으므로 `X-Forwarded-For`·`X-Real-IP`를 읽지 않는다. 그래서 IP 한도의 키는 계속 직전 피어 주소(`getRemoteAddr()`)이고, "X-Forwarded-For를 읽지 않는다" 절이 제안한 `server.forward-headers-strategy`·`server.tomcat.remoteip.*`는 쓰지 않는다(RemoteIpValve는 두 커넥터에 함께 걸려 공개 포트에서도 헤더를 믿게 된다). admin 포트에서만 신뢰 프록시의 XFF를 읽는 `common/web/ClientIpFilter`를 두었다. 공개 포트에서 위조 헤더로 IP 한도를 우회하지 못하는 것은 `SubmissionRateLimitTest`가 확인한다. 로그인 시도 제한(결과 절)은 ADR 0021에서 넣었다. `RateLimiter`의 LRU는 `common/web/BoundedLruMap`으로, 거절 건수 로그는 `common/web/RejectionTally`로 빼서 로그인 제한과 함께 쓴다(동작 변화 없음). 로그인 제한은 토큰 버킷이 아니라 슬라이딩 윈도다(이유는 ADR 0021).

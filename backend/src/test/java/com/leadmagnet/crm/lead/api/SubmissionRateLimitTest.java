@@ -145,6 +145,18 @@ class SubmissionRateLimitTest {
     }
 
     @Test
+    void public_포트는_신뢰_프록시_대역에서_와도_위조한_XFF와_X_Real_IP를_무시해_IP_한도를_우회할_수_없다() {
+        // 이 컨텍스트도 루프백을 신뢰 프록시로 둔다(@IntegrationTest). admin 포트였다면 요청마다 다른 IP로 셌을 것이다.
+        for (int i = 0; i < 4; i++) {
+            json(null).header("X-Forwarded-For", "203.0.113." + i).header("X-Real-IP", "203.0.113." + i)
+                .body(body()).post(PATH, "spring-2026").then().statusCode(201);
+        }
+
+        json(null).header("X-Forwarded-For", "198.51.100.9").header("X-Real-IP", "198.51.100.9")
+            .body(body()).post(PATH, "spring-2026").then().statusCode(429).body("code", equalTo("too_many_requests"));
+    }
+
+    @Test
     void Retry_After만큼_지나면_다시_받는다() {
         String visitor = UUID.randomUUID().toString();
         submit(visitor).then().statusCode(201);
