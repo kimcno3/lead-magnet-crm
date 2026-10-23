@@ -243,15 +243,15 @@
 }
 
 .btn-danger {
-  background: var(--danger);
+  background: transparent;
   border-color: var(--danger);
   color: var(--danger-text);
+  font-weight: 600;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: var(--danger);
+  background: var(--danger-soft);
   color: var(--danger-text);
-  filter: brightness(0.92);
 }
 
 .btn-ghost {
@@ -306,6 +306,7 @@
 .field select[aria-invalid='true'],
 .field textarea[aria-invalid='true'] {
   border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
 }
 
 .field input:focus-visible,
@@ -326,6 +327,7 @@
 .form-error {
   color: var(--danger);
   font-size: var(--fs-small);
+  font-weight: 600;
 }
 
 .form-error {
@@ -509,9 +511,9 @@
 
 .badge-published,
 .badge-active {
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-color: transparent;
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .badge-draft,
@@ -523,8 +525,9 @@
 
 .badge-closed {
   color: var(--closed);
-  background: var(--danger-soft);
-  border-color: transparent;
+  background: transparent;
+  border-color: var(--border-strong);
+  border-style: dashed;
 }
 
 /* ---------- 상태 ---------- */
@@ -544,10 +547,11 @@
   gap: 6px;
   margin: 0 0 16px;
   padding: 10px 12px;
-  border: 1px solid var(--danger);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--danger);
   border-radius: var(--radius);
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--text);
 }
 
 .error-guide {
@@ -802,7 +806,7 @@
 }
 
 .dialog::backdrop {
-  background: rgb(28 27 25 / 0.4);
+  background: rgb(0 0 0 / 0.45);
 }
 
 .dialog-head {
