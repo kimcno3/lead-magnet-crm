@@ -18,3 +18,4 @@
 | [0012](0012-branch-environment.md) | 브랜치·환경 전략 | 승인 |
 | [0013](0013-campaign-form-status.md) | 캠페인·폼 상태 모델 | 승인 |
 | [0014](0014-creator-attribution.md) | 크리에이터 귀속 | 승인 |
+| [0015](0015-pii-encryption.md) | 개인정보 암호화 | 승인 |
