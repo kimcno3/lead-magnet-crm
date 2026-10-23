@@ -43,9 +43,21 @@ app:
     # 필수. 신청자 개인정보 암호화 키와 중복 판정 HMAC 키. 각각 base64로 인코딩한 32바이트, 서로 달라야 한다 (ADR 0015)
     enc-key: ${LEAD_ENC_KEY}
     hmac-key: ${LEAD_HMAC_KEY}
+  form-token:
+    # 필수. 공개 폼 작성 시간 토큰(ft) HMAC-SHA256 서명 키. base64로 인코딩한 32바이트 (ADR 0019)
+    key: ${FORM_TOKEN_KEY}
   public:
     # 신청 제출 본문 최대 바이트(64KB). 넘으면 413 (lead/config/SubmissionGuardFilter)
     max-submission-bytes: 65536
+    # 신청 제출 rate limit(인메모리 토큰 버킷, 인스턴스별). 넘으면 429 + Retry-After (ADR 0019)
+    rate-limit:
+      ip-per-minute: 10
+      visitor-per-minute: 5
+      max-keys: 10000
+  # 봇 방문 User-Agent 패턴(대소문자 무시 부분 문자열). 비우면 tracking/domain/BotUserAgents.DEFAULT_PATTERNS.
+  # 설정하면 기본 목록을 대신한다. 예: app.tracking.bot-user-agents[0]=googlebot (ADR 0019)
+  tracking:
+    bot-user-agents: []
   template:
     # 업로드 HTML 최대 바이트(512KB). multipart 한도(1MB)와의 사이 크기는 애플리케이션이 413으로 막는다 (ADR 0004)
     max-bytes: 524288

@@ -165,6 +165,11 @@ class CreatorStatsApiTest {
             form, linkId(form, channel, creator), channel, visitor, kst(kstTime));
     }
 
+    void botVisit(int form, String channel, Integer creator, UUID visitor, String kstTime) {
+        jdbc.update("INSERT INTO visits (form_id, link_id, channel, visitor_id, is_bot, occurred_at) "
+            + "VALUES (?, ?, ?, ?, true, ?)", form, linkId(form, channel, creator), channel, visitor, kst(kstTime));
+    }
+
     void lead(int form, int campaignId, String channel, Integer creator, UUID visitor, String kstTime) {
         jdbc.update("INSERT INTO leads (form_id, campaign_id, link_id, channel, visitor_id, phone_enc, phone_hash, "
             + "consent_at, created_at) VALUES (?, ?, ?, ?, ?, '\\x01'::bytea, ?, now(), ?)", form, campaignId, linkId(form, channel, creator),
@@ -225,6 +230,32 @@ class CreatorStatsApiTest {
             .body("creators[3].channels.visits", equalTo(List.of(1, 0, 0, 0, 1)))
             .body("creators[3].channels.leads", equalTo(List.of(0, 0, 0, 0, 2)))
             .body("creators[3].channels.convertedVisitors", equalTo(List.of(0, 0, 0, 0, 0)));
+    }
+
+    @Test
+    void 봇_방문은_크리에이터별_크리에이터_채널별_크리에이터_캠페인별_지표에_들어가지_않는다() {
+        seedBase();
+        // 링크 미리보기 크롤러가 S·B·직접 링크를 열었다. V2(S youtube 방문)와 V5(B 방문)의 봇 방문도 있다.
+        botVisit(a1, "instagram", sky, V8, "2026-03-10T08:00:00");
+        botVisit(a1, "instagram", sky, V2, "2026-03-10T08:10:00");
+        botVisit(a1, "instagram", sea, V3, "2026-03-10T08:20:00");
+        botVisit(a1, "instagram", null, V8, "2026-03-10T08:30:00");
+        botVisit(a2, "direct", null, V7, "2026-03-10T08:40:00");
+
+        // 봇 V2의 instagram 방문이 세지면 S instagram 전환이 2가 되고, 봇 V3의 B 방문이 세지면 B 전환이 2가 된다.
+        authed().get("/api/admin/campaigns/{id}/stats/creators", campaign).then().statusCode(200)
+            .body("creators.visits", equalTo(List.of(4, 2, 0, 2)))
+            .body("creators.visitors", equalTo(List.of(3, 2, 0, 2)))
+            .body("creators.convertedVisitors", equalTo(List.of(2, 1, 0, 1)))
+            .body("creators[0].channels.visits", equalTo(List.of(2, 1, 1, 0)))
+            .body("creators[0].channels.convertedVisitors", equalTo(List.of(1, 0, 0, 0)))
+            .body("creators[1].channels.convertedVisitors", equalTo(List.of(1, 0, 0, 0)))
+            .body("creators[3].channels.visits", equalTo(List.of(1, 0, 0, 0, 1)));
+        authed().get("/api/admin/creators/{id}/stats", sky).then().statusCode(200)
+            .body("campaigns[0].visits", equalTo(4)).body("campaigns[0].visitors", equalTo(3))
+            .body("campaigns[0].convertedVisitors", equalTo(2));
+        authed().get("/api/admin/creators/{id}/stats", sea).then().statusCode(200)
+            .body("campaigns[0].visits", equalTo(2)).body("campaigns[0].convertedVisitors", equalTo(1));
     }
 
     @Test

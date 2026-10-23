@@ -7,6 +7,7 @@ public enum ErrorCode {
 
     MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "malformed_request", "요청 형식이 올바르지 않습니다"),
     VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "validation_failed", "입력값이 올바르지 않습니다"),
+    INVALID_FORM_TOKEN(HttpStatus.UNPROCESSABLE_ENTITY, "invalid_form_token", "잠시 후 다시 제출해 주세요"),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "unauthorized", "인증이 필요합니다"),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "invalid_credentials", "이메일 또는 비밀번호가 올바르지 않습니다"),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "invalid_refresh_token", "다시 로그인해야 합니다"),
@@ -37,6 +38,7 @@ public enum ErrorCode {
     CREATOR_ARCHIVED(HttpStatus.CONFLICT, "creator_archived", "보관된 크리에이터로는 새 링크를 만들 수 없습니다"),
     DUPLICATE_SUBMISSION(HttpStatus.CONFLICT, "duplicate_submission", "이미 신청한 연락처입니다"),
     GONE(HttpStatus.GONE, "gone", "마감되어 더 이상 사용할 수 없습니다"),
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "too_many_requests", "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "서버 오류가 발생했습니다");
 
     private static final String TYPE_PREFIX = "https://leadmagnet.example/problems/";
@@ -65,6 +67,7 @@ public enum ErrorCode {
             case 413 -> PAYLOAD_TOO_LARGE;
             case 415 -> UNSUPPORTED_MEDIA_TYPE;
             case 422 -> VALIDATION_FAILED;
+            case 429 -> TOO_MANY_REQUESTS;
             default -> status >= 500 ? INTERNAL_ERROR : MALFORMED_REQUEST;
         };
     }

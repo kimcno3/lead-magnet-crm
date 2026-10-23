@@ -18,10 +18,12 @@ public final class PublicVisitor {
     public static final String COOKIE = "lm_vid";
 
     private final PublicPort port;
+    private final MutableClock clock;
     private String visitorId;
 
-    public PublicVisitor(PublicPort port) {
+    public PublicVisitor(PublicPort port, MutableClock clock) {
         this.port = port;
+        this.clock = clock;
     }
 
     /** 이 방문자의 쿠키가 실린 public 포트 요청. */
@@ -59,7 +61,7 @@ public final class PublicVisitor {
         return page;
     }
 
-    /** 래퍼가 하듯 JSON으로 제출한다. Origin은 공개 출처로 맞춘다. */
+    /** 래퍼가 하듯 폼 토큰(ft)을 받아 JSON으로 제출한다. Origin은 공개 출처로 맞춘다. */
     public Response submit(String slug, Map<String, Object> fields, boolean consent, String lm) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("fields", fields);
@@ -67,6 +69,7 @@ public final class PublicVisitor {
         if (lm != null) {
             body.put("lm", lm);
         }
+        body.put("ft", FormTokens.mature(port, clock, slug));
         return request().contentType(ContentType.JSON).header("Origin", "http://localhost:" + port.get())
             .body(body).post("/api/public/forms/{slug}/submissions", slug);
     }

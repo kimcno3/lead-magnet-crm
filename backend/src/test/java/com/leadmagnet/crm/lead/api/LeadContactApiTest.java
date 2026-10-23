@@ -13,6 +13,8 @@ import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.PublicOrigin;
+import com.leadmagnet.crm.support.FormTokens;
+import com.leadmagnet.crm.support.MutableClock;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
@@ -44,6 +46,9 @@ class LeadContactApiTest {
     PublicPort publicPort;
 
     @Autowired
+    MutableClock clock;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @Autowired
@@ -70,7 +75,8 @@ class LeadContactApiTest {
     }
 
     long submit(Map<String, Object> fields) {
-        PublicOrigin.given(publicPort).contentType(ContentType.JSON).body(Map.of("fields", fields, "consent", true))
+        PublicOrigin.given(publicPort).contentType(ContentType.JSON)
+            .body(Map.of("fields", fields, "consent", true, "ft", FormTokens.mature(publicPort, clock, "form-a")))
             .post("/api/public/forms/form-a/submissions").then().statusCode(201);
         return jdbc.queryForObject("SELECT max(id) FROM leads", Long.class);
     }

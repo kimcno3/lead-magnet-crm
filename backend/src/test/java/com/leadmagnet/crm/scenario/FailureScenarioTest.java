@@ -6,7 +6,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 
 import com.leadmagnet.crm.support.IntegrationTest;
-import com.leadmagnet.crm.support.MutableClock;
 import com.leadmagnet.crm.support.PublicVisitor;
 import com.leadmagnet.crm.support.ScenarioBase;
 import io.restassured.RestAssured;
@@ -18,7 +17,6 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 흐름 한가운데서 일어나는 실패. 기능별 테스트와 겹치는 것은 "이미 만든 데이터가 실패 뒤에도 멀쩡한가"를 본다.
@@ -29,9 +27,6 @@ class FailureScenarioTest extends ScenarioBase {
 
     static final String SLUG = "spring-2026";
     static final String PROBLEM = "application/problem+json";
-
-    @Autowired
-    MutableClock clock;
 
     String token;
     int campaign;

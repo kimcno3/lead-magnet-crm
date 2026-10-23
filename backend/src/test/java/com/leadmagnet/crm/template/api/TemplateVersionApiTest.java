@@ -15,6 +15,8 @@ import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.PublicOrigin;
+import com.leadmagnet.crm.support.FormTokens;
+import com.leadmagnet.crm.support.MutableClock;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
@@ -56,6 +58,9 @@ public class TemplateVersionApiTest {
 
     @Autowired
     PublicPort publicPort;
+
+    @Autowired
+    MutableClock clock;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -251,7 +256,8 @@ public class TemplateVersionApiTest {
 
     private io.restassured.response.Response submit(String slug, Map<String, Object> fields) {
         return PublicOrigin.given(publicPort).contentType(ContentType.JSON)
-            .body(Map.of("fields", fields, "consent", true)).post("/api/public/forms/{slug}/submissions", slug);
+            .body(Map.of("fields", fields, "consent", true, "ft", FormTokens.mature(publicPort, clock, slug)))
+            .post("/api/public/forms/{slug}/submissions", slug);
     }
 
     private int templateIdOf(int form) {

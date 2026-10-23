@@ -13,10 +13,13 @@ import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.common.crypto.PiiCipher;
 import com.leadmagnet.crm.common.crypto.PiiHasher;
 import com.leadmagnet.crm.common.web.PublicPort;
+import com.leadmagnet.crm.form.domain.FormToken;
 import com.leadmagnet.crm.support.AdminFixtures;
 import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
+import com.leadmagnet.crm.support.FormTokens;
 import com.leadmagnet.crm.support.IntegrationTest;
+import com.leadmagnet.crm.support.MutableClock;
 import com.leadmagnet.crm.support.PublicOrigin;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -24,6 +27,7 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +37,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -71,6 +76,9 @@ class LeadSubmissionApiTest {
     PublicPort publicPort;
 
     @Autowired
+    MutableClock clock;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @Autowired
@@ -87,6 +95,13 @@ class LeadSubmissionApiTest {
 
     String token;
     int formId;
+    /** slug → 바로 쓸 수 있는 작성 시간 토큰. 테스트마다 새로 받는다(테스트 인스턴스가 새로 만들어진다). */
+    final Map<String, String> formTokens = new HashMap<>();
+
+    @AfterEach
+    void resetClock() {
+        clock.reset();
+    }
 
     @BeforeEach
     void setUp() {
@@ -105,13 +120,24 @@ class LeadSubmissionApiTest {
         return map;
     }
 
-    static Map<String, Object> body(Map<String, Object> fields, Object consent, String lm) {
+    /** 폼이 공개 중이 아니면 null(404·410은 토큰 확인 전에 나온다). */
+    String ft(String slug) {
+        return formTokens.computeIfAbsent(slug, s -> FormTokens.mature(publicPort, clock, s));
+    }
+
+    /** spring-2026에 보낼 본문(작성 시간 토큰 포함). */
+    Map<String, Object> body(Map<String, Object> fields, Object consent, String lm) {
+        return body("spring-2026", fields, consent, lm);
+    }
+
+    Map<String, Object> body(String slug, Map<String, Object> fields, Object consent, String lm) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("fields", fields);
         map.put("consent", consent);
         if (lm != null) {
             map.put("lm", lm);
         }
+        map.put("ft", ft(slug));
         return map;
     }
 
@@ -120,7 +146,7 @@ class LeadSubmissionApiTest {
     }
 
     Response submit(String slug, Map<String, Object> fields) {
-        return json().body(body(fields, true, null)).post(PATH, slug);
+        return json().body(body(slug, fields, true, null)).post(PATH, slug);
     }
 
     List<Map<String, Object>> leads() {
@@ -251,7 +277,7 @@ class LeadSubmissionApiTest {
             json().body(body(fields("name", "홍", "phone", PHONE), consent, null)).post(PATH, "spring-2026")
                 .then().statusCode(422).body("errors.find { it.field == 'consent' }.code", equalTo("consent_required"));
         }
-        json().body(Map.of("fields", fields("name", "홍", "phone", PHONE))).post(PATH, "spring-2026")
+        json().body(Map.of("fields", fields("name", "홍", "phone", PHONE), "ft", ft("spring-2026"))).post(PATH, "spring-2026")
             .then().statusCode(422).body("errors.code", hasItem("consent_required"));
 
         assertThat(leads()).isEmpty();
@@ -343,6 +369,8 @@ class LeadSubmissionApiTest {
     @Test
     void 같은_연락처를_동시에_제출하면_하나만_저장되고_나머지는_409다() throws Exception {
         int threads = 6;
+        // 토큰은 미리 받아 둔다(받을 때 시계를 잠깐 되돌리므로 동시 제출 중에 받지 않는다).
+        ft("spring-2026");
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService pool = Executors.newFixedThreadPool(threads);
         try {
@@ -515,5 +543,105 @@ class LeadSubmissionApiTest {
         assertThat(output.getAll())
             .doesNotContain(PHONE).doesNotContain(PHONE_DIGITS).doesNotContain("010-7777-6666").doesNotContain("01077776666")
             .doesNotContain("secret.person@example.com").doesNotContain("other@example.com");
+    }
+
+    // ── 작성 시간 토큰(ft)과 honeypot (ADR 0019) ──
+
+    @Test
+    void 폼_토큰이_없거나_위조됐거나_다른_slug의_것이면_422_invalid_form_token이고_저장하지_않는다() {
+        AdminFixtures.createPublishedForm(token, "autumn-2026", HTML);
+        Map<String, Object> valid = fields("name", "홍", "phone", PHONE);
+        String otherKey = new FormToken(new byte[32]).issue("spring-2026", Instant.now().minusSeconds(10));
+        Map<String, Object> noToken = new LinkedHashMap<>(Map.of("fields", valid, "consent", true));
+
+        json().body(noToken).post(PATH, "spring-2026").then().statusCode(422)
+            .contentType(containsString("application/problem+json"))
+            .body("code", equalTo("invalid_form_token")).body("detail", containsString("다시 제출해 주세요"))
+            .body("errors", nullValue());
+        for (String bad : new String[] {"", "garbage!", "Zm9vfGJhcnxiYXo", otherKey, ft("autumn-2026")}) {
+            Map<String, Object> body = new LinkedHashMap<>(noToken);
+            body.put("ft", bad);
+            json().body(body).post(PATH, "spring-2026").then().statusCode(422).body("code", equalTo("invalid_form_token"));
+        }
+
+        assertThat(leads()).isEmpty();
+    }
+
+    @Test
+    void 받은_지_2초가_안_된_토큰은_422이고_2초가_지나면_같은_토큰으로_신청할_수_있다() {
+        String fresh = PublicOrigin.given(publicPort).get("/api/public/forms/spring-2026").then().statusCode(200)
+            .extract().path("ft");
+        Map<String, Object> body = new LinkedHashMap<>(Map.of("fields", fields("name", "홍", "phone", PHONE),
+            "consent", true, "ft", fresh));
+
+        json().body(body).post(PATH, "spring-2026").then().statusCode(422).body("code", equalTo("invalid_form_token"));
+        assertThat(leads()).isEmpty();
+
+        clock.advance(FormToken.MIN_AGE);
+        json().body(body).post(PATH, "spring-2026").then().statusCode(201);
+        assertThat(leads()).hasSize(1);
+    }
+
+    @Test
+    void 받은_지_24시간이_지난_토큰은_422다() {
+        Map<String, Object> body = body(fields("name", "홍", "phone", PHONE), true, null);
+
+        clock.advance(FormToken.MAX_AGE.plusSeconds(1));
+        json().body(body).post(PATH, "spring-2026").then().statusCode(422).body("code", equalTo("invalid_form_token"));
+
+        assertThat(leads()).isEmpty();
+    }
+
+    @Test
+    void 토큰_확인은_필드_검증보다_먼저다() {
+        json().body(Map.of("fields", fields("role", "admin"), "consent", false)).post(PATH, "spring-2026")
+            .then().statusCode(422).body("code", equalTo("invalid_form_token")).body("errors", nullValue());
+    }
+
+    @Test
+    void honeypot이_채워지면_201_received를_주지만_저장하지_않고_로그에는_건수만_남긴다(CapturedOutput output) {
+        submit("spring-2026", fields("name", "봇이름", "phone", PHONE, "email", "bot.person@example.com",
+            "_lm_trap", "http://spam.example"))
+            .then().statusCode(201).body("status", equalTo("received")).body("size()", equalTo(1));
+        // honeypot은 필드 검증보다 먼저라, 형식이 틀린 입력이어도 봇에게는 같은 201이다
+        submit("spring-2026", fields("role", "x", "_lm_trap", "y")).then().statusCode(201);
+
+        assertThat(leads()).isEmpty();
+        assertThat(output.getAll()).contains("honeypot 제출 무시")
+            .doesNotContain("봇이름").doesNotContain(PHONE).doesNotContain(PHONE_DIGITS)
+            .doesNotContain("bot.person@example.com").doesNotContain("spam.example");
+    }
+
+    @Test
+    void 빈_honeypot은_정상_신청이고_payload에_남기지_않는다() {
+        submit("spring-2026", fields("name", "홍", "phone", PHONE, "memo", "안녕", "_lm_trap", "")).then().statusCode(201);
+
+        assertThat(leads()).hasSize(1);
+        assertThat(jdbc.queryForList("SELECT jsonb_object_keys(payload) FROM leads", String.class))
+            .containsExactly("memo");
+    }
+
+    @Test
+    void 템플릿의_hp_필드는_보통_필드라_값이_있어도_저장한다() {
+        // "hp"(핸드폰)는 운영자가 흔히 쓸 만한 이름이다. honeypot(_lm_trap)과 겹치지 않아 신청이 버려지지 않는다.
+        AdminFixtures.createPublishedForm(token, "hp-form", """
+            <!doctype html><html><body><form>
+            <label>전화 <input type="tel" name="phone" required></label>
+            <label>핸드폰 <input name="hp"></label>
+            <button>신청</button></form></body></html>
+            """);
+
+        submit("hp-form", fields("phone", PHONE, "hp", "010-9999-8888", "_lm_trap", "")).then().statusCode(201);
+
+        assertThat(leads()).hasSize(1);
+        assertThat(jdbc.queryForObject("SELECT payload->>'hp' FROM leads", String.class)).isEqualTo("010-9999-8888");
+    }
+
+    @Test
+    void 봇_User_Agent여도_제출은_막지_않는다() {
+        json().header("User-Agent", "curl/8.4.0").body(body(fields("name", "홍", "phone", PHONE), true, null))
+            .post(PATH, "spring-2026").then().statusCode(201);
+
+        assertThat(leads()).hasSize(1);
     }
 }

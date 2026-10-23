@@ -14,6 +14,8 @@ import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.PublicOrigin;
+import com.leadmagnet.crm.support.FormTokens;
+import com.leadmagnet.crm.support.MutableClock;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -55,6 +57,9 @@ class LeadExportApiTest {
     PublicPort publicPort;
 
     @Autowired
+    MutableClock clock;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @Autowired
@@ -85,7 +90,8 @@ class LeadExportApiTest {
     }
 
     long submit(Map<String, Object> fields, String lm) {
-        Map<String, Object> body = new HashMap<>(Map.of("fields", fields, "consent", true));
+        Map<String, Object> body = new HashMap<>(Map.of("fields", fields, "consent", true,
+            "ft", FormTokens.mature(publicPort, clock, "form-a")));
         if (lm != null) {
             body.put("lm", lm);
         }

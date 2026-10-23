@@ -115,6 +115,12 @@ class StatsApiTest {
             form, linkId(form, channel), channel, visitor, Timestamp.from(kst(kstTime).toInstant()));
     }
 
+    void botVisit(int form, String channel, UUID visitor, String kstTime) {
+        jdbc.update("INSERT INTO visits (form_id, link_id, channel, visitor_id, is_bot, occurred_at) "
+            + "VALUES (?, ?, ?, ?, true, ?)",
+            form, linkId(form, channel), channel, visitor, Timestamp.from(kst(kstTime).toInstant()));
+    }
+
     void lead(int form, int campaignId, String channel, UUID visitor, String kstTime) {
         jdbc.update("INSERT INTO leads (form_id, campaign_id, link_id, channel, visitor_id, phone_enc, phone_hash, "
             + "consent_at, created_at) VALUES (?, ?, ?, ?, ?, '\\x01'::bytea, ?, now(), ?)", form, campaignId, linkId(form, channel), channel,
@@ -139,6 +145,31 @@ class StatsApiTest {
             .body("campaignId", equalTo(campaign)).body("from", nullValue()).body("to", nullValue())
             .body("visits", equalTo(5)).body("visitors", equalTo(3)).body("leads", equalTo(2))
             .body("convertedVisitors", equalTo(2)).body("conversionRate", is(0.6667f));
+    }
+
+    @Test
+    void 봇_방문은_캠페인_캠페인_목록_채널_지표_어디에도_들어가지_않는다() {
+        seedBase();
+        // 봇 V9: instagram·direct로 방문(지표 제외)하고 instagram으로 신청까지 했다(신청은 센다, 전환은 아니다).
+        // 기존 방문자 V1의 봇 방문(링크 미리보기 등)도 방문 수를 늘리지 않는다.
+        UUID v9 = UUID.fromString("00000000-0000-4000-8000-000000000009");
+        botVisit(a1, "instagram", v9, "2026-03-10T09:00:00");
+        botVisit(a2, "direct", v9, "2026-03-10T09:05:00");
+        botVisit(a1, "x", V1, "2026-03-10T09:10:00");
+        lead(a1, campaign, "instagram", v9, "2026-03-10T09:20:00");
+
+        // 캠페인: visits 5, visitors 3, leads 3(V9 신청 포함), converted {V1,V2}=2, rate 2/3
+        authed().get("/api/admin/campaigns/{id}/stats", campaign).then().statusCode(200)
+            .body("visits", equalTo(5)).body("visitors", equalTo(3)).body("leads", equalTo(3))
+            .body("convertedVisitors", equalTo(2)).body("conversionRate", is(0.6667f));
+        authed().get("/api/admin/stats/campaigns").then().statusCode(200)
+            .body("campaigns[0].visits", equalTo(5)).body("campaigns[0].visitors", equalTo(3))
+            .body("campaigns[0].convertedVisitors", equalTo(2));
+        authed().get("/api/admin/campaigns/{id}/stats/channels", campaign).then().statusCode(200)
+            .body("channels.visits", equalTo(List.of(2, 2, 0, 0, 1)))
+            .body("channels.visitors", equalTo(List.of(1, 1, 0, 0, 1)))
+            .body("channels.leads", equalTo(List.of(2, 1, 0, 0, 0)))
+            .body("channels.convertedVisitors", equalTo(List.of(1, 1, 0, 0, 0)));
     }
 
     @Test

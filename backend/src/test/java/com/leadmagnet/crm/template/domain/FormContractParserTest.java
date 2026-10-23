@@ -146,6 +146,13 @@ class FormContractParserTest {
     }
 
     @Test
+    void hp는_보통_필드_이름으로_쓸_수_있고_밑줄로_시작하는_honeypot_이름은_쓸_수_없다() {
+        assertThat(FormContractParser.parse(page("<input name=\"email\"><input name=\"hp\">")))
+            .extracting(FormField::name).containsExactly("email", "hp");
+        assertRejected(page("<input name=\"email\"><input name=\"_lm_trap\">"), ErrorCode.TEMPLATE_FIELD_INVALID);
+    }
+
+    @Test
     void 필드가_51개이면_거부하고_50개는_허용한다() {
         assertThat(FormContractParser.parse(page(inputs(49) + "<input name=\"email\">"))).hasSize(50);
         assertRejected(page(inputs(50) + "<input name=\"email\">"), ErrorCode.TEMPLATE_FIELD_INVALID);

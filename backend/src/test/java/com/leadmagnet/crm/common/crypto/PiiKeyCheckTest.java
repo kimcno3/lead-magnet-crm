@@ -125,6 +125,7 @@ class PiiKeyCheckTest {
                 "DB_PASSWORD=" + postgres.getPassword(),
                 "JWT_SECRET=test-only-jwt-secret-not-for-production-0123456789",
                 "LEAD_ENC_KEY=" + otherKey, "LEAD_HMAC_KEY=" + IntegrationTest.TEST_HMAC_KEY,
+                "FORM_TOKEN_KEY=" + IntegrationTest.TEST_FORM_TOKEN_KEY,
                 "ADMIN_PORT=0", "PUBLIC_PORT=0", "spring.main.banner-mode=off")
             .listeners((ApplicationListener<WebServerInitializedEvent>) e -> webServerStarted.set(true));
 
