@@ -3,6 +3,7 @@ package com.leadmagnet.crm.form.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.leadmagnet.crm.common.crypto.PiiCryptoProperties;
+import java.util.Base64;
 import com.leadmagnet.crm.form.domain.FormToken;
 import com.leadmagnet.crm.support.IntegrationTest;
 import org.junit.jupiter.api.Test;
@@ -39,5 +40,18 @@ class FormTokenConfigTest {
                     .hasMessageNotContaining(same);
             });
         }
+    }
+
+    @Test
+    void 이전_개인정보_키와_같아도_기동이_실패한다() {
+        String previous = Base64.getEncoder().encodeToString(new byte[] {
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+            31, 99});
+        runner.withPropertyValues("app.pii.enc-key-id=2", "app.pii.enc-previous-keys=1:" + previous,
+            "app.form-token.key=" + previous).run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure()).rootCause()
+                    .hasMessageContaining("FORM_TOKEN_KEY는").hasMessageNotContaining(previous);
+            });
     }
 }

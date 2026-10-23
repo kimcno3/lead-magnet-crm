@@ -120,6 +120,15 @@ describe('summarizeAuditDetail', () => {
     expect(summarizeAuditDetail({ email: 'o***@example.com' })).toBe('이메일 o***@example.com')
   })
 
+  it('개인정보 재암호화는 건수와 남은 건수, 풀 수 없는 건수를 보여준다', () => {
+    expect(summarizeAuditDetail({ count: 3, unreadable: 0, remaining: 0, completed: true, interrupted: false })).toBe(
+      '3건 · 남은 0건',
+    )
+    expect(summarizeAuditDetail({ count: 2, unreadable: 1, remaining: 2, completed: true, interrupted: false })).toBe(
+      '2건 · 풀 수 없음 1건 · 남은 2건',
+    )
+  })
+
   it('보존 기간 파기는 실행 방식과 건수를 보여준다', () => {
     expect(summarizeAuditDetail({ trigger: 'scheduled', count: 3 })).toBe('자동 실행(매일 03:00) · 3건')
     expect(summarizeAuditDetail({ trigger: 'manual', count: 0, completed: true, interrupted: false })).toBe('수동 실행 · 0건')

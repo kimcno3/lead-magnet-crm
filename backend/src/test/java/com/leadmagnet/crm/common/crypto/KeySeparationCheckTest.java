@@ -70,6 +70,22 @@ class KeySeparationCheckTest {
     }
 
     @Test
+    void JWT_SECRET이_이전_암호화_키나_이전_HMAC_키와_같아도_기동이_실패한다() {
+        String previous = PiiCryptoPropertiesTest.PREV1_B64;
+        String hmacPrevious = PiiCryptoPropertiesTest.HMAC_PREV_B64;
+        for (String same : new String[] {previous, hmacPrevious}) {
+            runner(same, IntegrationTest.TEST_ENC_KEY, IntegrationTest.TEST_HMAC_KEY, IntegrationTest.TEST_FORM_TOKEN_KEY)
+                .withPropertyValues("app.pii.enc-key-id=2", "app.pii.enc-previous-keys=1:" + previous,
+                    "app.pii.hmac-previous-key=" + hmacPrevious)
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure()).rootCause()
+                        .hasMessageContaining(MESSAGE).hasMessageNotContaining(same);
+                });
+        }
+    }
+
+    @Test
     void JWT_SECRET의_UTF8_바이트가_키_바이트와_같아도_기동이_실패한다() {
         // 32자 ASCII 문자열. 그 바이트를 그대로 base64로 인코딩한 값을 개인정보 키로 쓰는 경우.
         String raw = "0123456789abcdefghijklmnopqrstuv";

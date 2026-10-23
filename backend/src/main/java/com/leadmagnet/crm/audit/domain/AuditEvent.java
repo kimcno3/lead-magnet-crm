@@ -91,6 +91,25 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
         return new AuditEvent(AuditAction.RETENTION_ANONYMIZE, TARGET_LEAD, null, null, detail);
     }
 
+    /**
+     * 개인정보 재암호화 한 번(ADR 0022). 실행 단위로 한 줄. count는 이번 실행이 현재 키로 다시 암호화해 커밋한 신청 수,
+     * unreadable은 어느 키로도 풀지 못해 건너뛴 신청 수, remaining은 실행 뒤 이전 키로 남은 행 수(표식 행 포함, 0이면 이전
+     * 키를 지워도 된다). completed·interrupted·error는 {@link #retentionAnonymize}와 같은 뜻이다. 신청 id는 남기지 않는다.
+     */
+    public static AuditEvent piiReencrypt(long count, long unreadable, long remaining, boolean completed,
+            boolean interrupted, String error) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("count", count);
+        detail.put("unreadable", unreadable);
+        detail.put("remaining", remaining);
+        detail.put("completed", completed);
+        detail.put("interrupted", interrupted);
+        if (error != null) {
+            detail.put("error", error);
+        }
+        return new AuditEvent(AuditAction.PII_REENCRYPT, TARGET_LEAD, null, null, detail);
+    }
+
     /** 캠페인 보존 기간 변경(ADR 0020). 줄이면 다음 파기 실행에서 바로 파기되므로 누가 언제 바꿨는지 남긴다. */
     public static AuditEvent campaignRetentionUpdate(long campaignId, int oldRetentionDays, int newRetentionDays) {
         Map<String, Object> detail = new LinkedHashMap<>();

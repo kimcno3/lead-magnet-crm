@@ -25,3 +25,4 @@
 | [0019](0019-data-quality-defense.md) | 데이터 품질 방어: 봇 방문 제외, honeypot, 작성 시간 토큰, 제출 rate limit | 승인 |
 | [0020](0020-retention-and-consent-evidence.md) | 보존 기간 파기(익명화)와 동의 문구 증빙 | 승인 |
 | [0021](0021-login-throttle-and-trusted-proxy.md) | 로그인 시도 제한과 신뢰 프록시 뒤 실제 IP | 승인 |
+| [0022](0022-pii-key-rotation.md) | 개인정보 키 교체 | 승인 |
