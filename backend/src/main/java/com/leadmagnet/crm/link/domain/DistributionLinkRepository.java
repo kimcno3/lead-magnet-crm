@@ -8,7 +8,9 @@ public interface DistributionLinkRepository extends JpaRepository<DistributionLi
 
     Optional<DistributionLink> findByCode(String code);
 
-    boolean existsByFormIdAndChannel(Long formId, Channel channel);
+    boolean existsByFormIdAndChannelAndCreatorIdIsNull(Long formId, Channel channel);
+
+    boolean existsByFormIdAndChannelAndCreatorId(Long formId, Channel channel, Long creatorId);
 
     List<DistributionLink> findAllByFormId(Long formId);
 }

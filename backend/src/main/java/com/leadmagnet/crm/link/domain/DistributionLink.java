@@ -9,7 +9,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
-/** 폼 하나의 채널 하나에 대응하는 배포 링크. UTM은 생성 시 채널과 폼 slug로 정해진다. */
+/**
+ * 폼 하나의 채널 하나(그리고 크리에이터 하나 또는 없음)에 대응하는 배포 링크. UTM은 생성 시 채널과 폼 slug로 정해진다.
+ * 크리에이터는 id로만 참조하고 바꿀 수 없다(이미 쌓인 방문·신청의 크리에이터 귀속이 이 값에서 나온다, ADR 0014).
+ */
 @Entity
 @Table(name = "distribution_links")
 public class DistributionLink {
@@ -26,6 +29,9 @@ public class DistributionLink {
     @Convert(converter = ChannelConverter.class)
     @Column(nullable = false, updatable = false, length = 20)
     private Channel channel;
+
+    @Column(name = "creator_id", updatable = false)
+    private Long creatorId;
 
     @Column(nullable = false, updatable = false, length = 16)
     private String code;
@@ -45,9 +51,10 @@ public class DistributionLink {
     protected DistributionLink() {
     }
 
-    private DistributionLink(Long formId, Channel channel, String code, String formSlug, Instant now) {
+    private DistributionLink(Long formId, Channel channel, Long creatorId, String code, String formSlug, Instant now) {
         this.formId = formId;
         this.channel = channel;
+        this.creatorId = creatorId;
         this.code = code;
         this.utmSource = channel.value();
         this.utmMedium = UTM_MEDIUM;
@@ -55,8 +62,15 @@ public class DistributionLink {
         this.createdAt = now;
     }
 
+    /** 크리에이터 없는 링크(운영자 자체 링크). */
     public static DistributionLink create(Long formId, Channel channel, String code, String formSlug, Instant now) {
-        return new DistributionLink(formId, channel, code, formSlug, now);
+        return create(formId, channel, null, code, formSlug, now);
+    }
+
+    /** creatorId가 null이면 크리에이터 없는 링크다. */
+    public static DistributionLink create(Long formId, Channel channel, Long creatorId, String code, String formSlug,
+            Instant now) {
+        return new DistributionLink(formId, channel, creatorId, code, formSlug, now);
     }
 
     public Long getId() {
@@ -69,6 +83,11 @@ public class DistributionLink {
 
     public Channel getChannel() {
         return channel;
+    }
+
+    /** 크리에이터 없는 링크면 null. */
+    public Long getCreatorId() {
+        return creatorId;
     }
 
     public String getCode() {

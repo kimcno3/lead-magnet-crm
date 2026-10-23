@@ -5,6 +5,7 @@ import type { DistributionLink, Form } from '../../api/types'
 import { json, mockBackend } from '../../test/http'
 import { renderPage } from '../../test/render'
 import { CampaignDetailPage } from '../CampaignDetail'
+import { sea, sky } from '../creator/fixtures'
 import { campaign } from './fixtures'
 
 beforeEach(() => clearSession())
@@ -29,21 +30,32 @@ const igLink: DistributionLink = {
   channel: 'instagram',
   code: 'Ab12Cd34',
   url: 'https://go.example.com/l/Ab12Cd34',
+  creator: null,
   utmSource: 'instagram',
   utmMedium: 'social',
   utmCampaign: 'fall-seminar',
   createdAt: '2026-10-01T00:00:00Z',
 }
 
-function backend() {
-  const links: DistributionLink[] = [igLink]
+const skyIgLink: DistributionLink = {
+  ...igLink,
+  id: 5,
+  creator: { id: 3, name: '김하늘' },
+  code: 'Sky00001',
+  url: 'https://go.example.com/l/Sky00001',
+}
+
+function backend(initial: DistributionLink[] = [igLink]) {
+  const links: DistributionLink[] = [...initial]
   const fetchMock = mockBackend((url, init) => {
     if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+    if (url.pathname === '/api/admin/creators') return json([sky, sea])
     if (url.pathname === '/api/admin/forms/11') return json(form)
     if (url.pathname === '/api/admin/forms/11/links') {
       if (init?.method === 'POST') {
-        const channel = JSON.parse(String(init.body)).channel
-        const created = { ...igLink, id: 2, channel, code: 'Zz99', url: 'https://go.example.com/l/Zz99', utmSource: channel }
+        const { channel, creatorId } = JSON.parse(String(init.body))
+        const creator = creatorId ? { id: creatorId, name: [sky, sea].find((c) => c.id === creatorId)!.name } : null
+        const created = { ...igLink, id: 2 + links.length, channel, creator, code: 'Zz99', url: 'https://go.example.com/l/Zz99', utmSource: channel }
         links.push(created)
         return json(created, 201)
       }
@@ -105,6 +117,89 @@ describe('폼 탭', () => {
   })
 })
 
+function postBodies(fetchMock: ReturnType<typeof mockBackend>) {
+  return fetchMock.mock.calls
+    .filter((c) => String(c[0]) === '/api/admin/forms/11/links' && (c[1] as RequestInit | undefined)?.method === 'POST')
+    .map((c) => JSON.parse(String((c[1] as RequestInit).body)))
+}
+
+describe('크리에이터 링크', () => {
+  it('자체 링크 표에는 크리에이터 없는 링크만 나오고 크리에이터 링크는 크리에이터 표에 나온다', async () => {
+    backend([skyIgLink])
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    const own = await screen.findByRole('table', { name: '채널별 배포 링크' })
+    const igRow = (await within(own).findByText('인스타그램')).closest('tr')!
+    expect(await within(igRow).findByRole('button', { name: '링크 만들기' })).toBeEnabled()
+
+    const table = await screen.findByRole('table', { name: '크리에이터별 배포 링크' })
+    const header = within(table).getAllByRole('columnheader').map((h) => h.textContent)
+    expect(header).toEqual(['크리에이터', '인스타그램', 'X', '유튜브', '스레드'])
+    const row = (await within(table).findByText('김하늘')).closest('tr')!
+    expect(within(row).getByText('Sky00001')).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: '김하늘 X 링크 만들기' })).toBeEnabled()
+  })
+
+  it('크리에이터를 골라 추가하고 칸의 만들기를 누르면 channel과 creatorId로 만든다', async () => {
+    const fetchMock = backend([])
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    const select = await screen.findByRole('combobox', { name: '크리에이터' })
+    // 보관된 크리에이터는 고를 수 없다
+    expect(within(select).queryByRole('option', { name: '박바다' })).not.toBeInTheDocument()
+    fireEvent.change(select, { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: '표에 추가' }))
+
+    const table = await screen.findByRole('table', { name: '크리에이터별 배포 링크' })
+    fireEvent.click(within(table).getByRole('button', { name: '김하늘 유튜브 링크 만들기' }))
+
+    await waitFor(() => expect(postBodies(fetchMock)).toEqual([{ channel: 'youtube', creatorId: 3 }]))
+    expect(await within(table).findByText('Zz99')).toBeInTheDocument()
+  })
+
+  it('보관된 크리에이터의 행은 이미 만든 링크만 보여주고 새로 만들 수 없다', async () => {
+    backend([{ ...skyIgLink, creator: { id: 4, name: '박바다' } }])
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    const table = await screen.findByRole('table', { name: '크리에이터별 배포 링크' })
+    const row = (await within(table).findByText('박바다')).closest('tr')!
+    expect(within(row).getByText('보관됨')).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: '박바다 X 링크 만들기' })).toBeDisabled()
+  })
+
+  it('크리에이터 목록을 불러오는 동안 로딩 자리를 보여준다', async () => {
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+      if (url.pathname === '/api/admin/forms/11') return json(form)
+      if (url.pathname === '/api/admin/forms/11/links') return json([igLink])
+      if (url.pathname === '/api/admin/creators') return new Promise<Response>(() => {})
+      return undefined
+    })
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    const loading = await screen.findByText('크리에이터 목록을 불러오는 중')
+    expect(loading.closest('[aria-busy="true"]')).not.toBeNull()
+    expect(loading.closest('[aria-busy="true"]')!.querySelector('.skeleton')).not.toBeNull()
+    expect(screen.queryByRole('combobox', { name: '크리에이터' })).not.toBeInTheDocument()
+  })
+
+  it('크리에이터 링크 영역의 이름은 한 번만 붙는다', async () => {
+    backend([skyIgLink])
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    await screen.findByRole('table', { name: '크리에이터별 배포 링크' })
+    expect(screen.getAllByRole('region', { name: '크리에이터별 배포 링크' })).toHaveLength(1)
+  })
+
+  it('등록한 크리에이터가 없으면 크리에이터 메뉴로 안내한다', async () => {
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+      if (url.pathname === '/api/admin/forms/11') return json(form)
+      if (url.pathname === '/api/admin/forms/11/links') return json([igLink])
+      if (url.pathname === '/api/admin/creators') return json([])
+      return undefined
+    })
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    expect(await screen.findByRole('link', { name: '크리에이터 메뉴' })).toHaveAttribute('href', '/creators')
+    expect(screen.queryByRole('table', { name: '크리에이터별 배포 링크' })).not.toBeInTheDocument()
+  })
+})
+
 describe('필드 설정 편집(draft)', () => {
   const draft: Form = {
     ...form,
@@ -124,6 +219,7 @@ describe('필드 설정 편집(draft)', () => {
       if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
       if (url.pathname === '/api/admin/forms/12') return init?.method === 'PATCH' ? json(draft) : json(draft)
       if (url.pathname === '/api/admin/forms/12/links') return json([])
+      if (url.pathname === '/api/admin/creators') return json([])
       return undefined
     })
   }

@@ -908,3 +908,16 @@
   padding: 0;
   list-style: none;
 }
+
+/* ---------- 크리에이터별 성과: 펼친 채널 행 ---------- */
+.table tbody tr.sub-row th,
+.table tbody tr.sub-row td {
+  border-top: 0;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+}
+
+.table tbody tr.sub-row th {
+  padding-left: 40px;
+  font-weight: 400;
+}

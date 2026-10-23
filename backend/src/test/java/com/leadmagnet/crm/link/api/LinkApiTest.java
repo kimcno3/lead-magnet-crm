@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 
 import com.leadmagnet.crm.auth.domain.Operator;
@@ -121,6 +122,86 @@ class LinkApiTest {
     }
 
     @Test
+    void 크리에이터를_고르면_링크_응답에_크리에이터_id와_이름이_붙는다() {
+        int creator = createCreator("김하늘");
+
+        authed().body(Map.of("channel", "instagram", "creatorId", creator)).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(201)
+            .body("channel", equalTo("instagram"))
+            .body("creator.id", equalTo(creator)).body("creator.name", equalTo("김하늘"));
+        assertThat(jdbc.queryForObject("SELECT creator_id FROM distribution_links WHERE form_id = ?", Long.class, formId))
+            .isEqualTo(creator);
+    }
+
+    @Test
+    void 크리에이터_없는_링크는_creator가_null이다() {
+        authed().body(Map.of("channel", "x")).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(201).body("creator", nullValue());
+    }
+
+    @Test
+    void 같은_폼_채널_크리에이터는_409이고_다른_크리에이터나_크리에이터_없음은_허용한다() {
+        int sky = createCreator("김하늘");
+        int sea = createCreator("박바다");
+
+        authed().body(Map.of("channel", "instagram", "creatorId", sky)).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(201);
+        authed().body(Map.of("channel", "instagram", "creatorId", sky)).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(409).body("code", equalTo("link_exists"));
+        authed().body(Map.of("channel", "instagram", "creatorId", sea)).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(201);
+        authed().body(Map.of("channel", "instagram")).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(201);
+        authed().body(Map.of("channel", "instagram")).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(409).body("code", equalTo("link_exists"));
+        authed().body(Map.of("channel", "youtube", "creatorId", sky)).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(201);
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM distribution_links WHERE form_id = ?", Integer.class, formId))
+            .isEqualTo(4);
+    }
+
+    @Test
+    void 보관된_크리에이터로는_새_링크를_만들_수_없다_이미_만든_링크는_남는다() {
+        int creator = createCreator("김하늘");
+        authed().body(Map.of("channel", "x", "creatorId", creator)).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(201);
+        authed().body(Map.of("status", "archived")).patch("/api/admin/creators/{id}", creator).then().statusCode(200);
+
+        authed().body(Map.of("channel", "youtube", "creatorId", creator)).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(409).body("code", equalTo("creator_archived"));
+        authed().get("/api/admin/forms/{id}/links", formId).then().statusCode(200)
+            .body("$", hasSize(1)).body("[0].creator.name", equalTo("김하늘"));
+    }
+
+    @Test
+    void 없는_크리에이터는_404다() {
+        authed().body(Map.of("channel", "x", "creatorId", 9999)).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(404).body("code", equalTo("not_found"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM distribution_links", Integer.class)).isZero();
+    }
+
+    @Test
+    void 목록은_크리에이터_없는_링크_먼저_그다음_크리에이터_등록순이고_그_안에서는_채널_순서다() {
+        int sky = createCreator("김하늘");
+        int sea = createCreator("박바다");
+        List<Map<String, Object>> requests = List.of(
+            Map.of("channel", "youtube", "creatorId", sea),
+            Map.of("channel", "threads", "creatorId", sky),
+            Map.of("channel", "x"),
+            Map.of("channel", "instagram", "creatorId", sky),
+            Map.of("channel", "instagram"));
+        for (Map<String, Object> body : requests) {
+            authed().body(body).post("/api/admin/forms/{id}/links", formId).then().statusCode(201);
+        }
+
+        authed().get("/api/admin/forms/{id}/links", formId).then().statusCode(200)
+            .body("channel", equalTo(List.of("instagram", "x", "instagram", "threads", "youtube")))
+            .body("[0].creator", nullValue()).body("[1].creator", nullValue())
+            .body("creator.name", equalTo(List.of("김하늘", "김하늘", "박바다")));
+    }
+
+    @Test
     void closed_폼에는_링크를_만들_수_없다_published_폼에는_만들_수_있다() {
         authed().body(Map.of("status", "published")).patch("/api/admin/forms/{id}", formId).then().statusCode(200);
         authed().body(Map.of("channel", "x")).post("/api/admin/forms/{id}/links", formId).then().statusCode(201);
@@ -213,6 +294,11 @@ class LinkApiTest {
     private String createLink(String channel) {
         return authed().body(Map.of("channel", channel)).post("/api/admin/forms/{id}/links", formId)
             .then().statusCode(201).extract().path("code");
+    }
+
+    private int createCreator(String name) {
+        return authed().body(Map.of("name", name)).post("/api/admin/creators").then().statusCode(201)
+            .extract().path("id");
     }
 
     private RequestSpecification authed() {

@@ -1,4 +1,4 @@
-import type { Campaign, ChannelStats, CampaignStats, LeadPage } from '../../api/types'
+import type { Campaign, ChannelStats, CampaignStats, CreatorStats, LeadPage } from '../../api/types'
 
 export const campaign: Campaign = {
   id: 7,
@@ -60,4 +60,34 @@ export function leadPage(page: number, totalElements = 45): LeadPage {
       },
     ],
   }
+}
+
+const linkChannels = (instagram: typeof zero) => [
+  { channel: 'instagram' as const, ...instagram },
+  { channel: 'x' as const, ...zero },
+  { channel: 'youtube' as const, ...zero },
+  { channel: 'threads' as const, ...zero },
+]
+
+export const creatorStats: CreatorStats = {
+  campaignId: 7,
+  from: null,
+  to: null,
+  creators: [
+    {
+      creator: { id: 3, name: '김하늘', status: 'active' },
+      visits: 800, visitors: 3, leads: 2, convertedVisitors: 2, conversionRate: 0.6667,
+      channels: linkChannels({ visits: 800, visitors: 3, leads: 2, convertedVisitors: 2, conversionRate: 0.6667 }),
+    },
+    {
+      creator: { id: 4, name: '박바다', status: 'archived' },
+      visits: 100, visitors: 2, leads: 1, convertedVisitors: 1, conversionRate: 0.5,
+      channels: linkChannels({ visits: 100, visitors: 2, leads: 1, convertedVisitors: 1, conversionRate: 0.5 }),
+    },
+    {
+      creator: null,
+      visits: 620, visitors: 1, leads: 0, convertedVisitors: 0, conversionRate: 0,
+      channels: [...linkChannels(zero), { channel: 'direct', visits: 600, visitors: 1, leads: 0, convertedVisitors: 0, conversionRate: 0 }],
+    },
+  ],
 }

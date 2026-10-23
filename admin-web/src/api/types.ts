@@ -1,6 +1,7 @@
 // 백엔드 DTO(record)와 같은 모양. Instant는 ISO 문자열로 온다.
 
 export type CampaignStatus = 'active' | 'archived'
+export type CreatorStatus = 'active' | 'archived'
 export type FormStatus = 'draft' | 'published' | 'closed'
 export type LinkChannel = 'instagram' | 'x' | 'youtube' | 'threads'
 export type Channel = LinkChannel | 'direct'
@@ -99,9 +100,16 @@ export interface UpdateFormRequest {
   status?: 'published' | 'closed'
 }
 
+export interface CreatorRef {
+  id: number
+  name: string
+}
+
 export interface DistributionLink {
   id: number
   channel: LinkChannel
+  /** 크리에이터 없는(운영자 자체) 링크면 null */
+  creator: CreatorRef | null
   code: string
   url: string
   utmSource: string
@@ -176,6 +184,50 @@ export interface ChannelStats {
   from: string | null
   to: string | null
   channels: (Metrics & { channel: Channel })[]
+}
+
+export interface Creator {
+  id: number
+  name: string
+  handle: string | null
+  memo: string | null
+  status: CreatorStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateCreatorRequest {
+  name: string
+  handle: string | null
+  memo: string | null
+}
+
+/** 없는 필드는 바꾸지 않는다. handle·memo에 빈 문자열을 주면 지운다. */
+export interface UpdateCreatorRequest {
+  name?: string
+  handle?: string
+  memo?: string
+  status?: 'archived'
+}
+
+export interface CreatorStats {
+  campaignId: number
+  from: string | null
+  to: string | null
+  /** creator가 null인 행은 "직접·자체 링크"(크리에이터 없는 링크 + direct) */
+  creators: (Metrics & {
+    creator: (CreatorRef & { status: CreatorStatus }) | null
+    channels: (Metrics & { channel: Channel })[]
+  })[]
+}
+
+export interface CreatorCampaignStats {
+  creatorId: number
+  name: string
+  status: CreatorStatus
+  from: string | null
+  to: string | null
+  campaigns: (Metrics & { campaignId: number; name: string; status: CampaignStatus })[]
 }
 
 export interface FieldError {
