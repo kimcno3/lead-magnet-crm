@@ -1,5 +1,8 @@
 // 화면에 보이는 숫자·날짜·전화번호 포맷. 날짜는 모두 Asia/Seoul 기준이다.
 
+import { CHANNELS, type Channel } from './api/types'
+import { CHANNEL_LABELS } from './labels'
+
 const TIME_ZONE = 'Asia/Seoul'
 const numberFormat = new Intl.NumberFormat('ko-KR')
 const percentFormat = new Intl.NumberFormat('ko-KR', {
@@ -90,4 +93,37 @@ export function summarizePayload(payload: Maybe<Record<string, unknown>>): strin
   return entries
     .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
     .join(' / ')
+}
+
+/** 감사 로그 detail을 한 줄로 (ADR 0016). 모르는 키는 key: value로 보여준다. reveal은 행동 이름에 이미 드러나 생략한다. */
+export function summarizeAuditDetail(detail: Record<string, unknown>): string {
+  const parts: string[] = []
+  for (const [key, value] of Object.entries(detail)) {
+    if (value === null || value === undefined) continue
+    switch (key) {
+      case 'formId':
+        parts.push(`폼 #${String(value)}`)
+        break
+      case 'channel':
+        parts.push((CHANNELS as readonly string[]).includes(String(value)) ? CHANNEL_LABELS[value as Channel] : String(value))
+        break
+      case 'page':
+        parts.push(`${Number(value) + 1}페이지`)
+        break
+      case 'size':
+        parts.push(`페이지당 ${String(value)}건`)
+        break
+      case 'count':
+        parts.push(`${formatNumber(Number(value))}건`)
+        break
+      case 'reveal':
+        break
+      case 'email':
+        parts.push(`이메일 ${String(value)}`)
+        break
+      default:
+        parts.push(`${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`)
+    }
+  }
+  return parts.length > 0 ? parts.join(' · ') : '-'
 }

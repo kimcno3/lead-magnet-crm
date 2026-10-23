@@ -134,8 +134,8 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
   return qs ? `${path}?${qs}` : path
 }
 
-function send(url: string, options: RequestOptions, token: string | null): Promise<Response> {
-  const headers = new Headers({ Accept: 'application/json' })
+function send(url: string, options: RequestOptions, token: string | null, accept: string): Promise<Response> {
+  const headers = new Headers({ Accept: accept })
   if (token) headers.set('Authorization', `Bearer ${token}`)
   let body: BodyInit | undefined
   if (options.formData) {
@@ -153,10 +153,11 @@ function send(url: string, options: RequestOptions, token: string | null): Promi
   })
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+/** 토큰을 붙여 보내고, 401이면 refresh 후 한 번 다시 보낸다. 실패 응답은 ApiError로 던진다. */
+async function authorizedFetch(path: string, options: RequestOptions, accept: string): Promise<Response> {
   const url = buildUrl(path, options.query)
   const usedToken = accessToken
-  let res = await send(url, options, usedToken)
+  let res = await send(url, options, usedToken, accept)
 
   if (res.status === 401) {
     // 다른 요청이 이미 토큰을 바꿨으면 refresh 없이 새 토큰으로 다시 보낸다.
@@ -167,7 +168,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       expireSession()
       throw new ApiError(401, problem)
     }
-    res = await send(url, options, accessToken)
+    res = await send(url, options, accessToken, accept)
     if (res.status === 401) {
       const problem = await readProblem(res)
       expireSession()
@@ -176,7 +177,45 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!res.ok) throw new ApiError(res.status, await readProblem(res))
+  return res
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const res = await authorizedFetch(path, options, 'application/json')
   if (res.status === 204) return undefined as T
   const type = res.headers.get('Content-Type') ?? ''
   return (type.includes('json') ? await res.json() : await res.text()) as T
+}
+
+export interface Download {
+  blob: Blob
+  /** Content-Disposition의 filename. 없으면 null. */
+  filename: string | null
+}
+
+/**
+ * 파일 응답을 Blob으로 받는다. access token이 메모리에만 있어 <a href> 링크로는 인증을 실을 수 없으므로
+ * 이 함수로 받은 뒤 saveDownload로 저장한다. 오류 응답은 ProblemDetail로 읽는다.
+ */
+export async function apiDownload(path: string, options: Pick<RequestOptions, 'query' | 'signal'> = {}): Promise<Download> {
+  const res = await authorizedFetch(path, options, 'text/csv, application/problem+json')
+  return { blob: await res.blob(), filename: filenameOf(res.headers.get('Content-Disposition')) }
+}
+
+function filenameOf(disposition: string | null): string | null {
+  const match = disposition?.match(/filename="?([^";]+)"?/i)
+  return match ? match[1] : null
+}
+
+/** Blob을 object URL로 바꿔 내려받게 한다. 브라우저가 내려받기를 시작한 뒤(다음 틱) URL을 해제한다. */
+export function saveDownload({ blob, filename }: Download, fallbackName: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename ?? fallbackName
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }

@@ -8,6 +8,7 @@ import { ErrorMessage } from '../../components/ErrorMessage'
 import { Field } from '../../components/Field'
 import { SkeletonRows, TableWrap } from '../../components/Table'
 import { formatDateTime, formatNumber, formatPhone, summarizePayload } from '../../format'
+import { LeadExportMenu } from './LeadExportMenu'
 import { errorText } from '../../errors'
 import { useAsync } from '../../hooks'
 import { CHANNEL_LABELS } from '../../labels'
@@ -107,6 +108,7 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
             총 <span className="num">{formatNumber(data.totalElements)}</span>명
           </p>
         )}
+        <LeadExportMenu campaignId={campaign.id} formId={formId} channel={channel} />
       </div>
 
       <ErrorMessage error={error} onRetry={reload} />

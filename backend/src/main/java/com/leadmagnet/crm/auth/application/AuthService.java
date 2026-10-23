@@ -1,5 +1,9 @@
 package com.leadmagnet.crm.auth.application;
 
+import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditAction;
+import com.leadmagnet.crm.audit.domain.AuditActor;
+import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.auth.domain.RefreshToken;
@@ -13,6 +17,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -40,30 +45,42 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AccessTokenIssuer accessTokenIssuer;
     private final Clock clock;
+    private final AuditService audit;
     private final SecureRandom random = new SecureRandom();
     // 없는 이메일에도 같은 비용의 비교를 하기 위한 해시. 응답 시간으로 계정 존재를 알 수 없게 한다.
     private final String dummyPasswordHash;
 
     public AuthService(OperatorRepository operators, RefreshTokenRepository refreshTokens,
-                       PasswordEncoder passwordEncoder, AccessTokenIssuer accessTokenIssuer, Clock clock) {
+                       PasswordEncoder passwordEncoder, AccessTokenIssuer accessTokenIssuer, Clock clock,
+                       AuditService audit) {
         this.operators = operators;
         this.refreshTokens = refreshTokens;
         this.passwordEncoder = passwordEncoder;
         this.accessTokenIssuer = accessTokenIssuer;
         this.clock = clock;
+        this.audit = audit;
         this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
+    /**
+     * 성공·실패를 감사 로그에 남긴다(ADR 0016). actor는 운영자를 모르는 요청 정보이고, 실패 기록은 운영자를 특정하지 않고 가린 이메일만 둔다.
+     * 감사 기록이 실패해도 로그인 결과는 바뀌지 않는다(별도 트랜잭션, 실패 시 로그만).
+     */
     @Transactional
-    public IssuedTokens login(String email, String password) {
+    public IssuedTokens login(String email, String password, AuditActor actor) {
         Optional<Operator> found = operators.findByEmail(Operator.normalizeEmail(email));
         if (!passwordMatches(password, found.map(Operator::getPasswordHash).orElse(dummyPasswordHash))
                 || found.isEmpty()) {
-            log.info("운영자 로그인 실패: {}", PiiMasker.maskEmail(email.trim()));
+            String masked = PiiMasker.maskEmail(email.trim());
+            log.info("운영자 로그인 실패: {}", masked);
+            audit.recordBestEffort(actor, new AuditEvent(AuditAction.AUTH_LOGIN_FAILURE,
+                AuditEvent.TARGET_OPERATOR, null, null, Map.of("email", masked)));
             throw new DomainException(ErrorCode.INVALID_CREDENTIALS);
         }
         Operator operator = found.get();
         log.info("운영자 {} 로그인", operator.getId());
+        audit.recordBestEffort(actor.withOperator(operator.getId()), new AuditEvent(AuditAction.AUTH_LOGIN_SUCCESS,
+            AuditEvent.TARGET_OPERATOR, operator.getId(), null, Map.of()));
         return issue(operator, UUID.randomUUID());
     }
 

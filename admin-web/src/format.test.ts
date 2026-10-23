@@ -8,6 +8,7 @@ import {
   formatPeriod,
   formatPhone,
   seoulDateToInstant,
+  summarizeAuditDetail,
   summarizePayload,
 } from './format'
 
@@ -107,5 +108,20 @@ describe('summarizePayload', () => {
   it('비어 있으면 대시', () => {
     expect(summarizePayload({})).toBe('-')
     expect(summarizePayload(null)).toBe('-')
+  })
+})
+
+describe('summarizeAuditDetail', () => {
+  it('필터·페이지·건수·가린 이메일을 한 줄로 보여주고 빈 필터는 뺀다', () => {
+    expect(summarizeAuditDetail({ formId: 11, channel: 'instagram', page: 0, size: 20 })).toBe(
+      '폼 #11 · 인스타그램 · 1페이지 · 페이지당 20건',
+    )
+    expect(summarizeAuditDetail({ formId: null, channel: null, reveal: true, count: 1234 })).toBe('1,234건')
+    expect(summarizeAuditDetail({ email: 'o***@example.com' })).toBe('이메일 o***@example.com')
+  })
+
+  it('비어 있으면 대시, 모르는 키는 그대로', () => {
+    expect(summarizeAuditDetail({})).toBe('-')
+    expect(summarizeAuditDetail({ extra: 'x' })).toBe('extra: x')
   })
 })
