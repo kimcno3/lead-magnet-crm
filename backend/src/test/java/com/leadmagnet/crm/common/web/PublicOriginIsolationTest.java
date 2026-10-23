@@ -39,7 +39,7 @@ class PublicOriginIsolationTest {
     static final String PASSWORD = "correct-horse-battery";
     static final String PROBLEM_JSON = "application/problem+json";
     static final String CSP = "default-src 'none'; script-src 'self' 'unsafe-inline'; "
-        + "style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' data: https:; "
+        + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; "
         + "connect-src 'self'; frame-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
 
     @LocalServerPort
