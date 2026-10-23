@@ -2,19 +2,26 @@ package com.leadmagnet.crm.auth.application;
 
 import com.leadmagnet.crm.auth.config.LoginThrottleProperties;
 import com.leadmagnet.crm.auth.domain.Operator;
+import com.leadmagnet.crm.common.crypto.PiiHasher;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.common.error.TooManyRequestsException;
 import com.leadmagnet.crm.common.web.RejectionTally;
-import com.leadmagnet.crm.common.web.SlidingWindowLimiter;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * 로그인 시도 제한 (ADR 0021). 실패 수를 세 가지 키의 슬라이딩 윈도로 센다(인메모리, 인스턴스별).
+ * 로그인 시도 제한 (ADR 0021). 실패 수를 세 가지 키의 슬라이딩 윈도로 센다. 기록은 PostgreSQL {@code login_failures}(V13)에
+ * 두므로 같은 DB를 쓰는 서버 여러 대가 한 카운터를 나눠 쓰고 재시작해도 잠금이 남는다.
  * <ul>
  *   <li>(정규화한 이메일, 클라이언트 IP) 쌍: 기본 5회. 보통 여기서 잠긴다. 공격자가 운영자 이메일로 틀려도 그 공격자 IP에서만
  *       잠기므로 운영자는 다른 곳에서 로그인할 수 있다(이메일만으로 잠그면 이메일을 아는 사람 누구나 운영자를 막을 수 있다)</li>
@@ -26,6 +33,11 @@ import org.springframework.stereotype.Component;
  * 성공하면 그 쌍의 기록을 지우고, 이메일 전체·IP에서는 그 시도의 자리만 돌려준다(성공으로 분산 대입 기록을 지우지 않는다).
  * 거절은 요청마다 기록하지 않고 1분 단위 건수 한 줄만 남긴다({@link RejectionTally}). 이메일·IP·비밀번호는 로그에 없다.
  * 시도마다 {@link #begin}으로 자리를 먼저 잡고 결과에 따라 {@link Attempt}의 메서드 하나를 부른다.
+ *
+ * <p>테이블에는 원문 대신 {@code HMAC(LEAD_HMAC_KEY, "login-throttle:{범위}:{값}")}만 둔다. 접두어로 신청 중복 판정 해시와
+ * 값이 겹치지 않게 하고, 키 있는 해시라 DB만 유출돼서는 IP 공간(약 43억 개)을 전수 대입해 되찾을 수 없다.
+ * 동시성: 자리 잡기(세 키를 세고 한 행씩 넣기)는 한 트랜잭션에서 세 키의 advisory lock을 잡은 뒤 한다
+ * ({@link LoginFailureStore#lock}). 비밀번호 비교는 잠금 밖이다(자리를 이미 잡았으므로).
  */
 @Component
 public class LoginThrottle {
@@ -34,79 +46,136 @@ public class LoginThrottle {
     public static final String SCOPE_EMAIL = "email";
     public static final String SCOPE_IP = "ip";
 
+    private static final String KEY_PREFIX = "login-throttle:";
+
     private static final Logger log = LoggerFactory.getLogger(LoginThrottle.class);
 
-    private final SlidingWindowLimiter byEmailIp;
-    private final SlidingWindowLimiter byEmail;
-    private final SlidingWindowLimiter byIp;
+    private final int emailIpLimit;
+    private final int emailLimit;
+    private final int ipLimit;
+    private final Duration window;
+    private final Clock clock;
+    private final LoginFailureStore store;
+    private final TransactionTemplate transaction;
+    private final PiiHasher hasher;
     private final RejectionTally rejections;
-    private final long windowMinutes;
 
-    public LoginThrottle(LoginThrottleProperties properties, Clock clock) {
-        this.byEmailIp = new SlidingWindowLimiter(properties.emailIpMaxFailures(), properties.window(),
-            properties.maxKeys(), clock);
-        this.byEmail = new SlidingWindowLimiter(properties.emailMaxFailures(), properties.window(), properties.maxKeys(),
-            clock);
-        this.byIp = new SlidingWindowLimiter(properties.ipMaxFailures(), properties.window(), properties.maxKeys(), clock);
+    public LoginThrottle(LoginThrottleProperties properties, Clock clock, JdbcTemplate jdbc,
+            PlatformTransactionManager transactionManager, PiiHasher hasher) {
+        this.emailIpLimit = properties.emailIpMaxFailures();
+        this.emailLimit = properties.emailMaxFailures();
+        this.ipLimit = properties.ipMaxFailures();
+        this.window = properties.window();
+        this.clock = clock;
+        this.store = new LoginFailureStore(jdbc);
+        this.transaction = new TransactionTemplate(transactionManager);
+        this.hasher = hasher;
         this.rejections = new RejectionTally(log, "로그인 시도 제한 거절: 지난 기록 이후 {}건", clock);
-        this.windowMinutes = properties.window().toMinutes();
     }
 
     public long windowMinutes() {
-        return windowMinutes;
+        return window.toMinutes();
     }
 
     /**
      * 시도를 시작한다. 세 한도 모두에서 자리를 잡는다.
      *
-     * @throws TooManyRequestsException 하나라도 창이 꽉 찼으면 429 too_many_login_attempts(잡은 자리는 돌려준다)
+     * @throws TooManyRequestsException 하나라도 창이 꽉 찼으면 429 too_many_login_attempts(자리를 잡지 않는다)
      */
     public Attempt begin(String email, String ip) {
         String emailKey = Operator.normalizeEmail(email);
         String ipKey = ip == null || ip.isBlank() ? "unknown" : ip;
-        String pairKey = emailKey + "|" + ipKey;
-        SlidingWindowLimiter.Slot pairSlot = byEmailIp.tryAcquire(pairKey);
-        SlidingWindowLimiter.Slot emailSlot = byEmail.tryAcquire(emailKey);
-        SlidingWindowLimiter.Slot ipSlot = byIp.tryAcquire(ipKey);
-        long retryAfter = Math.max(pairSlot.retryAfterSeconds(),
-            Math.max(emailSlot.retryAfterSeconds(), ipSlot.retryAfterSeconds()));
-        if (retryAfter > 0) {
-            byEmailIp.release(pairKey, pairSlot);
-            byEmail.release(emailKey, emailSlot);
-            byIp.release(ipKey, ipSlot);
+        String pairHash = key(SCOPE_EMAIL_IP, emailKey + "|" + ipKey);
+        String emailHash = key(SCOPE_EMAIL, emailKey);
+        String ipHash = key(SCOPE_IP, ipKey);
+        Attempt attempt = transaction.execute(status -> {
+            store.lock(List.of(pairHash, emailHash, ipHash));
+            Instant now = clock.instant();
+            Window pair = count(pairHash, emailIpLimit, now);
+            Window byEmail = count(emailHash, emailLimit, now);
+            Window byIp = count(ipHash, ipLimit, now);
+            long retryAfter = Math.max(pair.retryAfterSeconds, Math.max(byEmail.retryAfterSeconds, byIp.retryAfterSeconds));
+            if (retryAfter > 0) {
+                return new Attempt(retryAfter);
+            }
+            return new Attempt(pairHash, store.insert(pairHash, now), pair.lastSlot,
+                store.insert(emailHash, now), byEmail.lastSlot, store.insert(ipHash, now), byIp.lastSlot);
+        });
+        if (attempt.retryAfterSeconds > 0) {
             rejections.reject();
             rejections.flushIfDue();
-            throw new TooManyRequestsException(ErrorCode.TOO_MANY_LOGIN_ATTEMPTS, retryAfter);
+            throw new TooManyRequestsException(ErrorCode.TOO_MANY_LOGIN_ATTEMPTS, attempt.retryAfterSeconds);
         }
         rejections.flushIfDue();
-        return new Attempt(pairKey, pairSlot, emailKey, emailSlot, ipKey, ipSlot);
+        return attempt;
+    }
+
+    /** 창이 지난 기록을 지운다(정리 스케줄러). 지운 행 수. */
+    public int purgeExpired() {
+        return store.deleteUpTo(clock.instant().minus(window));
+    }
+
+    private String key(String scope, String value) {
+        return hasher.hash(KEY_PREFIX + scope + ":" + value);
+    }
+
+    /**
+     * 창 안의 기록 수로 한도를 본다. 꽉 찼으면 대기 초: 창 안 기록이 한도 아래로 내려갈 때(오래된 쪽에서 count - limit + 1번째
+     * 기록이 창을 벗어날 때)까지, 1 이상. 아니면 이번 자리로 꽉 차는지(lastSlot).
+     */
+    private Window count(String keyHash, int limit, Instant now) {
+        List<Instant> recent = store.recent(keyHash, now.minus(window));
+        if (recent.size() >= limit) {
+            Instant freesAt = recent.get(recent.size() - limit).plus(window);
+            long waitMillis = freesAt.toEpochMilli() - now.toEpochMilli();
+            return new Window(Math.max(1, (waitMillis + 999) / 1000), false);
+        }
+        return new Window(0, recent.size() + 1 == limit);
+    }
+
+    private record Window(long retryAfterSeconds, boolean lastSlot) {
     }
 
     /** 자리를 잡은 시도 하나. 결과 메서드는 한 번만 부른다. */
     public final class Attempt {
 
-        private final String pairKey;
-        private final SlidingWindowLimiter.Slot pairSlot;
-        private final String emailKey;
-        private final SlidingWindowLimiter.Slot emailSlot;
-        private final String ipKey;
-        private final SlidingWindowLimiter.Slot ipSlot;
+        private final long retryAfterSeconds;
+        private final String pairHash;
+        private final long pairId;
+        private final boolean pairLast;
+        private final long emailId;
+        private final boolean emailLast;
+        private final long ipId;
+        private final boolean ipLast;
 
-        private Attempt(String pairKey, SlidingWindowLimiter.Slot pairSlot, String emailKey,
-                SlidingWindowLimiter.Slot emailSlot, String ipKey, SlidingWindowLimiter.Slot ipSlot) {
-            this.pairKey = pairKey;
-            this.pairSlot = pairSlot;
-            this.emailKey = emailKey;
-            this.emailSlot = emailSlot;
-            this.ipKey = ipKey;
-            this.ipSlot = ipSlot;
+        private Attempt(long retryAfterSeconds) {
+            this(retryAfterSeconds, null, 0, false, 0, false, 0, false);
+        }
+
+        private Attempt(String pairHash, long pairId, boolean pairLast, long emailId, boolean emailLast, long ipId,
+                boolean ipLast) {
+            this(0, pairHash, pairId, pairLast, emailId, emailLast, ipId, ipLast);
+        }
+
+        private Attempt(long retryAfterSeconds, String pairHash, long pairId, boolean pairLast, long emailId,
+                boolean emailLast, long ipId, boolean ipLast) {
+            this.retryAfterSeconds = retryAfterSeconds;
+            this.pairHash = pairHash;
+            this.pairId = pairId;
+            this.pairLast = pairLast;
+            this.emailId = emailId;
+            this.emailLast = emailLast;
+            this.ipId = ipId;
+            this.ipLast = ipLast;
         }
 
         /** 로그인 성공: 그 쌍의 기록을 지우고, 이메일 전체·IP 자리는 돌려준다. */
         public void succeeded() {
-            byEmailIp.reset(pairKey);
-            byEmail.release(emailKey, emailSlot);
-            byIp.release(ipKey, ipSlot);
+            release(() -> {
+                store.deleteKey(pairHash);
+                store.delete(emailId);
+                store.delete(ipId);
+            });
         }
 
         /**
@@ -116,26 +185,40 @@ public class LoginThrottle {
          */
         public List<String> failed() {
             List<String> locked = new ArrayList<>(3);
-            if (pairSlot.lastSlot()) {
+            if (pairLast) {
                 locked.add(SCOPE_EMAIL_IP);
             }
-            if (emailSlot.lastSlot()) {
+            if (emailLast) {
                 locked.add(SCOPE_EMAIL);
             }
-            if (ipSlot.lastSlot()) {
+            if (ipLast) {
                 locked.add(SCOPE_IP);
             }
             if (!locked.isEmpty()) {
-                log.warn("로그인 시도 제한 시작: 범위={}, 창={}분", locked, windowMinutes);
+                log.warn("로그인 시도 제한 시작: 범위={}, 창={}분", locked, windowMinutes());
             }
             return List.copyOf(locked);
         }
 
         /** 자격 증명과 무관한 이유(서버 오류 등)로 끝남: 모든 자리를 돌려준다. */
         public void abandoned() {
-            byEmailIp.release(pairKey, pairSlot);
-            byEmail.release(emailKey, emailSlot);
-            byIp.release(ipKey, ipSlot);
+            release(() -> {
+                store.delete(pairId);
+                store.delete(emailId);
+                store.delete(ipId);
+            });
+        }
+
+        /**
+         * 자리 반환은 잠금 없이 한 트랜잭션으로 지운다(지우기는 수를 줄이기만 하므로 한도를 넘기지 않는다). 실패해도 로그인 결과를
+         * 바꾸지 않는다: 자리가 실패로 남는 보수적인 쪽이고, 창이 지나면 정리된다.
+         */
+        private void release(Runnable deletes) {
+            try {
+                transaction.executeWithoutResult(status -> deletes.run());
+            } catch (DataAccessException e) {
+                log.warn("로그인 시도 제한 자리 반환 실패: 원인={}", e.getClass().getName());
+            }
         }
     }
 }

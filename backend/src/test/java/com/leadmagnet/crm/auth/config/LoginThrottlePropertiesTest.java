@@ -14,11 +14,11 @@ import org.springframework.boot.context.properties.source.MapConfigurationProper
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.io.ClassPathResource;
 
-/** 출고 기본값(이메일·IP 쌍 5, 이메일 50, IP 20, 창 15분, 키 10,000)과 잘못된 값의 기동 실패 (ADR 0021). */
+/** 출고 기본값(이메일·IP 쌍 5, 이메일 50, IP 20, 창 15분)과 잘못된 값의 기동 실패 (ADR 0021). */
 class LoginThrottlePropertiesTest {
 
     static final LoginThrottleProperties DEFAULTS =
-        new LoginThrottleProperties(5, 50, 20, Duration.ofMinutes(15), 10_000);
+        new LoginThrottleProperties(5, 50, 20, Duration.ofMinutes(15));
 
     @Test
     void application_yml의_기본값은_쌍_5_이메일_50_IP_20_창_15분이다() throws IOException {

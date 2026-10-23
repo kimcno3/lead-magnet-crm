@@ -7,6 +7,7 @@ import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.auth.application.AuthService;
 import com.leadmagnet.crm.auth.application.IssuedTokens;
 import com.leadmagnet.crm.auth.application.LoginThrottle;
+import com.leadmagnet.crm.auth.application.RefreshRateLimit;
 import com.leadmagnet.crm.auth.application.RefreshTokenReusedException;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
@@ -43,13 +44,15 @@ public class AuthController {
     private final RefreshTokenCookies cookies;
     private final AuditService audit;
     private final LoginThrottle loginThrottle;
+    private final RefreshRateLimit refreshRateLimit;
 
     public AuthController(AuthService authService, RefreshTokenCookies cookies, AuditService audit,
-            LoginThrottle loginThrottle) {
+            LoginThrottle loginThrottle, RefreshRateLimit refreshRateLimit) {
         this.authService = authService;
         this.cookies = cookies;
         this.audit = audit;
         this.loginThrottle = loginThrottle;
+        this.refreshRateLimit = refreshRateLimit;
     }
 
     @Operation(operationId = "login", summary = "로그인", description = "access token은 바디로, refresh token은 HttpOnly 쿠키(lm_refresh)로 준다. 성공·실패는 감사 로그에 남는다(ADR 0016). (이메일, IP) 쌍·이메일 전체·IP별 실패가 창(기본 15분) 안에서 한도(기본 5회·50회·20회)에 닿으면 비밀번호를 확인하지 않고 429를 준다. 없는 이메일도 같은 규칙이다(ADR 0021).")
@@ -92,14 +95,19 @@ public class AuthController {
         return withRefreshCookie(tokens);
     }
 
-    @Operation(operationId = "refreshToken", summary = "access token 재발급", description = "refresh 쿠키를 교체한다. 이미 쓴 토큰이 오면 그 로그인의 토큰을 모두 폐기한다.")
+    @Operation(operationId = "refreshToken", summary = "access token 재발급", description = "refresh 쿠키를 교체한다. 이미 쓴 토큰이 오면 그 로그인의 토큰을 모두 폐기한다. 클라이언트 IP당 분당 한도(기본 30회)를 넘으면 쿠키를 확인하지 않고 429를 준다(ADR 0021).")
     @Parameter(name = RefreshTokenCookies.NAME, in = ParameterIn.COOKIE, description = "refresh token")
     @ApiResponse(responseCode = "200", description = "재발급 성공")
     @ApiResponse(responseCode = "401", description = "invalid_refresh_token 또는 refresh_token_reused")
+    @ApiResponse(responseCode = "429", description = "too_many_requests: IP별 refresh 한도 초과. Retry-After 헤더(초) 뒤에 다시 시도한다",
+        headers = @Header(name = HttpHeaders.RETRY_AFTER, description = "다시 시도할 수 있을 때까지의 초", schema = @Schema(type = "integer")),
+        content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refresh(
             @Parameter(hidden = true) @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken,
             HttpServletRequest httpRequest) {
+        // 쿠키를 보기 전에 센다: 토큰 조회·교체(DB 쓰기)를 부르는 요청 수를 IP별로 묶는다(ADR 0021 변경 기록).
+        refreshRateLimit.check(httpRequest.getRemoteAddr());
         try {
             return withRefreshCookie(authService.refresh(refreshToken));
         } catch (RefreshTokenReusedException e) {

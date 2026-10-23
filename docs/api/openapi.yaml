@@ -214,7 +214,8 @@ paths:
       tags:
       - 인증
       summary: access token 재발급
-      description: refresh 쿠키를 교체한다. 이미 쓴 토큰이 오면 그 로그인의 토큰을 모두 폐기한다.
+      description: refresh 쿠키를 교체한다. 이미 쓴 토큰이 오면 그 로그인의 토큰을 모두 폐기한다. 클라이언트 IP당 분당
+        한도(기본 30회)를 넘으면 쿠키를 확인하지 않고 429를 준다(ADR 0021).
       operationId: refreshToken
       parameters:
       - name: lm_refresh
@@ -233,6 +234,19 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/TokenResponse"
+        "429":
+          description: "too_many_requests: IP별 refresh 한도 초과. Retry-After 헤더(초) 뒤에\
+            \ 다시 시도한다"
+          headers:
+            Retry-After:
+              description: 다시 시도할 수 있을 때까지의 초
+              style: simple
+              schema:
+                type: integer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
   /api/admin/campaigns:
     get:
       tags:

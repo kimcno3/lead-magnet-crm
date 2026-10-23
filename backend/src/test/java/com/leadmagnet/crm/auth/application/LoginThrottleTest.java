@@ -4,11 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.leadmagnet.crm.auth.config.LoginThrottleProperties;
+import com.leadmagnet.crm.common.crypto.PiiHasher;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.common.error.TooManyRequestsException;
+import com.leadmagnet.crm.support.DatabaseCleaner;
+import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.TestClock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -16,17 +20,50 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 
-/** 한도: (이메일, IP) 쌍 3, 이메일 전체 6, IP 5, 창 15분. */
+/**
+ * 로그인 시도 제한의 DB 저장소 (ADR 0021, 2026-10-24 v0.4.0 변경). 한도: (이메일, IP) 쌍 3, 이메일 전체 6, IP 5, 창 15분.
+ * 인스턴스는 테스트가 직접 만든다(같은 DB를 쓰는 서버 여러 대·재시작을 흉내 낸다). 시계는 실제 시각보다 하루 뒤에서 시작해
+ * 공유 컨텍스트의 정리 스케줄러(실제 시각 기준)가 이 테스트의 행을 지우지 않게 한다.
+ */
+@IntegrationTest
 class LoginThrottleTest {
 
-    final TestClock clock = new TestClock(Instant.parse("2026-10-24T00:00:00Z"));
-    final LoginThrottle throttle =
-        new LoginThrottle(new LoginThrottleProperties(3, 6, 5, Duration.ofMinutes(15), 100), clock);
+    static final LoginThrottleProperties LIMITS = new LoginThrottleProperties(3, 6, 5, Duration.ofMinutes(15));
+
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @Autowired
+    PlatformTransactionManager transactionManager;
+
+    @Autowired
+    PiiHasher hasher;
+
+    final TestClock clock = new TestClock(Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.SECONDS));
+    LoginThrottle throttle;
+
+    @BeforeEach
+    void setUp() {
+        DatabaseCleaner.truncateAll(jdbc);
+        throttle = newInstance(LIMITS);
+    }
+
+    LoginThrottle newInstance(LoginThrottleProperties limits) {
+        return new LoginThrottle(limits, clock, jdbc, transactionManager, hasher);
+    }
 
     void fail(String email, String ip) {
         throttle.begin(email, ip).failed();
+    }
+
+    int rows() {
+        return jdbc.queryForObject("SELECT count(*) FROM login_failures", Integer.class);
     }
 
     @Test
@@ -91,7 +128,7 @@ class LoginThrottleTest {
 
     @Test
     void 여러_한도에_걸리면_Retry_After는_가장_긴_대기다() {
-        // IP 한도(5)를 먼저 0분에 4번 채우고, 10분 뒤 같은 쌍으로 쌍 한도(3)와 IP 한도를 함께 채운다
+        // IP 한도(5)를 0분에 2번 채우고, 10분 뒤 같은 IP의 쌍으로 쌍 한도(3)와 IP 한도를 함께 채운다
         for (int i = 0; i < 2; i++) {
             fail("u" + i + "@example.com", "9.9.9.9");
         }
@@ -133,7 +170,7 @@ class LoginThrottleTest {
 
     @Test
     void 여러_한도가_동시에_닿으면_모두_알린다() {
-        LoginThrottle tight = new LoginThrottle(new LoginThrottleProperties(1, 1, 1, Duration.ofMinutes(15), 100), clock);
+        LoginThrottle tight = newInstance(new LoginThrottleProperties(1, 1, 1, Duration.ofMinutes(15)));
 
         assertThat(tight.begin("a@example.com", "1.1.1.1").failed())
             .containsExactly(LoginThrottle.SCOPE_EMAIL_IP, LoginThrottle.SCOPE_EMAIL, LoginThrottle.SCOPE_IP);
@@ -141,16 +178,70 @@ class LoginThrottleTest {
     }
 
     @Test
-    void 동시에_들어온_시도도_한도보다_많이_비밀번호_비교로_가지_않는다() throws Exception {
+    void 같은_DB를_쓰는_두_인스턴스는_실패_수를_함께_센다() {
+        LoginThrottle other = newInstance(LIMITS);
+
+        throttle.begin("a@example.com", "1.1.1.1").failed();
+        other.begin("a@example.com", "1.1.1.1").failed();
+        assertThat(throttle.begin("a@example.com", "1.1.1.1").failed()).containsExactly(LoginThrottle.SCOPE_EMAIL_IP);
+
+        assertThatThrownBy(() -> other.begin("a@example.com", "1.1.1.1")).isInstanceOf(TooManyRequestsException.class);
+    }
+
+    @Test
+    void 재시작해도_잠금이_유지된다() {
+        for (int i = 0; i < 3; i++) {
+            fail("a@example.com", "1.1.1.1");
+        }
+        throttle = null;
+
+        LoginThrottle restarted = newInstance(LIMITS);
+        assertThatThrownBy(() -> restarted.begin("a@example.com", "1.1.1.1"))
+            .isInstanceOfSatisfying(TooManyRequestsException.class, e -> assertThat(e.retryAfterSeconds()).isEqualTo(900));
+    }
+
+    @Test
+    void 테이블에는_이메일과_IP_원문이_없고_키는_HMAC_hex다() {
+        fail("Secret.Person@Example.com", "203.0.113.45");
+        fail("secret.person@example.com", "2001:db8::45");
+
+        List<String> keys = jdbc.queryForList("SELECT key_hash FROM login_failures", String.class);
+        assertThat(keys).hasSize(6).allMatch(k -> k.matches("[0-9a-f]{64}"));
+        // 이메일 전체 키 하나 + 쌍 두 개 + IP 두 개
+        assertThat(keys.stream().distinct()).hasSize(5);
+        String dump = jdbc.queryForList("SELECT login_failures::text FROM login_failures", String.class).toString();
+        assertThat(dump).doesNotContain("secret", "Secret", "example.com", "203.0.113", "2001:db8");
+        // 신청 중복 판정 해시(같은 HMAC 키, 접두어 없음)와도 다르다
+        assertThat(keys).doesNotContain(hasher.hashEmail("secret.person@example.com"), hasher.hash("203.0.113.45"));
+    }
+
+    @Test
+    void 정리는_창이_지난_행만_지운다() {
+        fail("a@example.com", "1.1.1.1");
+        clock.advance(Duration.ofMinutes(10));
+        fail("b@example.com", "2.2.2.2");
+        clock.advance(Duration.ofMinutes(5));
+
+        // 첫 실패(3행)는 정확히 창(15분)이 지나 지우고, 두 번째(3행)는 남긴다
+        assertThat(throttle.purgeExpired()).isEqualTo(3);
+        assertThat(rows()).isEqualTo(3);
+        assertThat(throttle.purgeExpired()).isZero();
+    }
+
+    @Test
+    void 동시에_들어온_실패도_한도보다_많이_비밀번호_비교로_가지_않는다() throws Exception {
+        // 두 인스턴스에 나눠 보낸다(서버 두 대). 같은 키의 자리 잡기가 DB 잠금으로 줄을 선다.
+        LoginThrottle other = newInstance(LIMITS);
         int threads = 16;
         ExecutorService pool = Executors.newFixedThreadPool(threads);
         CountDownLatch start = new CountDownLatch(1);
         List<Future<Boolean>> results = new ArrayList<>();
         for (int i = 0; i < threads; i++) {
+            LoginThrottle instance = i % 2 == 0 ? throttle : other;
             results.add(pool.submit(() -> {
                 start.await();
                 try {
-                    throttle.begin("a@example.com", "1.1.1.1").failed();
+                    instance.begin("a@example.com", "1.1.1.1").failed();
                     return true;
                 } catch (TooManyRequestsException e) {
                     return false;
@@ -160,10 +251,11 @@ class LoginThrottleTest {
         start.countDown();
         int admitted = 0;
         for (Future<Boolean> result : results) {
-            admitted += result.get(10, TimeUnit.SECONDS) ? 1 : 0;
+            admitted += result.get(30, TimeUnit.SECONDS) ? 1 : 0;
         }
         pool.shutdown();
 
         assertThat(admitted).isEqualTo(3);
+        assertThat(rows()).isEqualTo(9);
     }
 }

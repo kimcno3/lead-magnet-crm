@@ -10,6 +10,6 @@ public final class DatabaseCleaner {
 
     public static void truncateAll(JdbcTemplate jdbc) {
         jdbc.execute("TRUNCATE operators, refresh_tokens, html_templates, campaigns, forms, "
-            + "creators, distribution_links, visits, leads, audit_logs RESTART IDENTITY CASCADE");
+            + "creators, distribution_links, visits, leads, audit_logs, login_failures RESTART IDENTITY CASCADE");
     }
 }

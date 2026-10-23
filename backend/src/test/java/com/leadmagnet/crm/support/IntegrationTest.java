@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Import;
 @Retention(RetentionPolicy.RUNTIME)
 // 테스트 전용 서명 키와 개인정보 암호화·HMAC 키, 폼 토큰 키. 운영 값은 환경 변수(JWT_SECRET, LEAD_ENC_KEY, LEAD_HMAC_KEY,
 // FORM_TOKEN_KEY)로만 받는다. 제출 rate limit은 테스트가 같은 IP로 많이 제출하므로 크게 둔다(한도 자체는 SubmissionRateLimitTest).
-// 로그인 시도 제한도 같은 이유로 크게 둔다(한도 자체는 LoginThrottleApiTest). 신뢰 프록시는 루프백으로 두어 admin 포트의
+// 로그인 시도 제한과 /refresh 제한도 같은 이유로 크게 둔다(한도 자체는 LoginThrottleApiTest, RefreshRateLimitApiTest). 신뢰 프록시는 루프백으로 두어 admin 포트의
 // X-Forwarded-For 해석을 공유 컨텍스트에서 확인한다(public 포트는 그래도 읽지 않는다, ADR 0021).
 // 보존 기간 파기 스케줄러는 끄고(수동 실행·서비스로 테스트), 배치는 2건으로 줄여 keyset 페이징을 지나게 한다.
 // 개인정보 암호화 키는 교체 중인 설정(현재 키 id 2, 이전 키 id 1)으로 띄워 새 값은 형식 2·키 id 2로 쓰고 이전 키로 만든 값도
@@ -25,7 +25,7 @@ import org.springframework.context.annotation.Import;
         "FORM_TOKEN_KEY=" + IntegrationTest.TEST_FORM_TOKEN_KEY,
         "app.public.rate-limit.ip-per-minute=100000", "app.public.rate-limit.visitor-per-minute=100000",
         "app.auth.login-throttle.email-ip-max-failures=100000", "app.auth.login-throttle.email-max-failures=100000",
-        "app.auth.login-throttle.ip-max-failures=100000",
+        "app.auth.login-throttle.ip-max-failures=100000", "app.auth.refresh-rate-limit=100000",
         "app.trusted-proxies=127.0.0.1/32,::1/128",
         "app.ports.public-port=0", "app.retention.enabled=false", "app.retention.batch-size=2"})
 @Import(TestcontainersConfiguration.class)

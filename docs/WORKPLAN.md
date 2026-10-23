@@ -77,7 +77,7 @@ v0.3.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다.
 |---|---|---|---|
 | 1 | ~~PII 키 교체(버전 → 키 맵, 재암호화 배치, HMAC 이중 해시 기간)~~ 완료 (#67): 암호문 형식 2(키 id), `POST /api/admin/pii/reencrypt`(남은 건수), HMAC 키는 기동 시 재계산([ADR 0022](adr/0022-pii-key-rotation.md), GUIDE 2.11) | 중간 | 키를 바꾸면 기동이 막혔다. 유출 시 대응 수단이 없었다 |
 | 2 | 배포(Render + Neon 또는 GHCR), dev·prod 프로필 | 중간 | 지금은 로컬 Docker 실행만 된다. `TRUSTED_PROXIES`는 배포 구성의 프록시 주소에 맞춰 정한다 |
-| 3 | 로그인 시도 제한의 공유 저장소와 `/refresh` 제한 | 중간 | 지금은 인메모리·인스턴스별이라 서버를 여러 대 두면 한도가 대수만큼 커지고, 키 10,000개를 넘으면 오래된 카운터를 잊는다. `/refresh`는 제한이 없다 |
+| 3 | 로그인 시도 제한의 공유 저장소와 `/refresh` 제한 | 중간 | 지금은 인메모리·인스턴스별이라 서버를 여러 대 두면 한도가 대수만큼 커지고, 키 10,000개를 넘으면 오래된 카운터를 잊는다. `/refresh`는 제한이 없다. **완료 (#66)**: 실패 기록을 `login_failures`(V13, HMAC 키만, advisory lock으로 자리 잡기, 5분마다 정리)로 옮기고 `/refresh`에 IP별 분당 30회 제한(429 `too_many_requests`), [ADR 0021](adr/0021-login-throttle-and-trusted-proxy.md) 변경 기록 |
 | 4 | 감사 로그 API의 액션 목록을 `AuditAction` enum에서 OpenAPI로 생성 | 낮음 | `AuditLogController`의 OpenAPI 설명에 액션 목록이 손으로 적혀 있어 enum과 어긋날 수 있다. **완료 (#65)**: `AuditOpenApiConfig`가 action 파라미터 enum을 채운다 |
 | 5 | 새 감사 행의 IP 검증 | 낮음 | IP 컬럼을 XFF 아래에서 확인하는 테스트가 `auth.login.failure` 하나뿐이다. `form.publish` 같은 행에도 한 건씩 추가한다. **완료 (#65)**: `AuditClientIpTest`가 form.publish·template.version.upload·creator.archive·auth.logout을 확인 |
 
@@ -85,7 +85,7 @@ v0.3.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다.
 
 - 공개 폼은 외부 이미지·웹폰트·외부 CSS를 막는다(보안 우선, ADR 0002). 업로드 단계에서 #16의 검사 리포트가 경고한다([ADR 0017](adr/0017-template-inspection.md)).
 - 캠페인 기간(startsAt/endsAt)은 참고용이다. 폼 자동 마감은 하지 않는다(ADR 0013).
-- refresh 토큰은 쓸 때마다 14일이 다시 시작되어 세션 절대 수명이 없다(ROADMAP). 로그인 시도 제한(#51)은 인메모리·인스턴스별이라 서버를 여러 대 두면 한도가 대수만큼 커진다(ADR 0021).
+- refresh 토큰은 쓸 때마다 14일이 다시 시작되어 세션 절대 수명이 없다(ROADMAP). 로그인 시도 제한은 v0.4.0(#66)부터 DB에 기록해 서버 여러 대가 함께 센다. `/refresh` 제한은 인메모리·인스턴스별이다(ADR 0021).
 - 폼당 채널별 링크 1개 규칙(크리에이터 포함 시 폼 × 채널 × 크리에이터 1개)은 애플리케이션에서만 지킨다(동시 클릭 시 중복 가능성, ADR 0006·0014).
 - 관리자 화면: 저장하지 않고 떠날 때 경고가 없다. 로그인 화면은 서버 연결 실패를 제출 시점에만 알린다.
 - 제출 rate limit은 인메모리·인스턴스별이다. 공개 포트에는 앞단 프록시가 없다고 보고 `X-Forwarded-For`를 읽지 않으므로, 공개 포트 앞에 프록시를 두려면 ADR 0021을 다시 본다. 봇 판정은 User-Agent만 본다.
