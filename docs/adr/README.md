@@ -17,3 +17,4 @@
 | [0011](0011-admin-ui.md) | 관리자 UI | 승인 |
 | [0012](0012-branch-environment.md) | 브랜치·환경 전략 | 승인 |
 | [0013](0013-campaign-form-status.md) | 캠페인·폼 상태 모델 | 승인 |
+| [0014](0014-creator-attribution.md) | 크리에이터 귀속 | 승인 |
