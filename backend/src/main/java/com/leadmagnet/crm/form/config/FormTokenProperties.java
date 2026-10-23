@@ -1,6 +1,8 @@
 package com.leadmagnet.crm.form.config;
 
+import com.leadmagnet.crm.common.crypto.SecretKeyMaterial;
 import java.util.Base64;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -11,7 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param key HMAC-SHA256 키(FORM_TOKEN_KEY)
  */
 @ConfigurationProperties(prefix = "app.form-token")
-public record FormTokenProperties(String key) {
+public record FormTokenProperties(String key) implements SecretKeyMaterial {
 
     static final int KEY_BYTES = 32;
     private static final String RULE =
@@ -23,6 +25,16 @@ public record FormTokenProperties(String key) {
 
     public byte[] keyBytes() {
         return decode(key);
+    }
+
+    @Override
+    public String name() {
+        return "FORM_TOKEN_KEY";
+    }
+
+    @Override
+    public List<byte[]> candidates() {
+        return List.of(keyBytes());
     }
 
     @Override

@@ -128,15 +128,20 @@ class LinkApiTest {
         authed().body(Map.of("channel", "instagram", "creatorId", creator)).post("/api/admin/forms/{id}/links", formId)
             .then().statusCode(201)
             .body("channel", equalTo("instagram"))
-            .body("creator.id", equalTo(creator)).body("creator.name", equalTo("김하늘"));
+            .body("creator.id", equalTo(creator)).body("creator.name", equalTo("김하늘"))
+            .body("utmContent", equalTo("creator-" + creator));
         assertThat(jdbc.queryForObject("SELECT creator_id FROM distribution_links WHERE form_id = ?", Long.class, formId))
             .isEqualTo(creator);
+        assertThat(jdbc.queryForObject("SELECT utm_content FROM distribution_links WHERE form_id = ?", String.class, formId))
+            .isEqualTo("creator-" + creator);
     }
 
     @Test
     void 크리에이터_없는_링크는_creator가_null이다() {
         authed().body(Map.of("channel", "x")).post("/api/admin/forms/{id}/links", formId)
-            .then().statusCode(201).body("creator", nullValue());
+            .then().statusCode(201).body("creator", nullValue()).body("utmContent", nullValue());
+        assertThat(jdbc.queryForObject("SELECT utm_content FROM distribution_links WHERE form_id = ?", String.class, formId))
+            .isNull();
     }
 
     @Test

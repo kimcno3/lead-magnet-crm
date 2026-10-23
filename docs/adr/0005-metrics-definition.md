@@ -21,7 +21,7 @@
 
 - **교집합 규칙**: 전환 방문자는 방문과 신청 양쪽에 같은 `visitor_id`가 기간 안에 있어야 센다. 기간 밖에서 신청한 사람, 방문 기록이 없는 신청은 세지 않는다. 같은 캠페인 안에서만 교집합을 구한다. `visitor_id`가 NULL인 신청은 `leads`에는 들어가지만 `convertedVisitors`에는 절대 들어가지 않는다. 한 방문자가 여러 번 신청해도 전환 방문자는 1이므로 전환율은 1을 넘지 않는다.
 - **기간**: `from`, `to`는 `yyyy-MM-dd` 날짜이고 둘 다 선택이다. 없으면 그쪽은 무제한이다. 시각 범위는 `[from 00:00, to 다음날 00:00)`이다. 형식 오류와 `from > to`는 422 `validation_failed`(`errors[].field`가 `from`/`to`), 없는 캠페인은 404.
-- **시간대**: 날짜는 `Asia/Seoul` 기준이다. DB는 UTC `timestamptz`로 저장하지만 운영자가 "3월 11일"이라고 말할 때는 한국의 하루를 뜻한다. 그래서 서울 자정을 UTC 시각으로 바꿔 비교한다(`stats/domain/DateRange`). 응답의 `from`/`to`는 요청 값 그대로 돌려주고, 없으면 `null`이다.
+- **시간대**: 날짜는 `Asia/Seoul` 기준이다. DB는 UTC `timestamptz`로 저장하지만 운영자가 "3월 11일"이라고 말할 때는 한국의 하루를 뜻한다. 그래서 서울 자정을 UTC 시각으로 바꿔 비교한다(`common/DateRange`). 응답의 `from`/`to`는 요청 값 그대로 돌려주고, 없으면 `null`이다.
 - **채널별**: 같은 지표를 채널마다 구한다. 방문과 방문자는 `visits.channel`, 신청은 `leads.channel`로 센다. 채널별 전환은 같은 채널 안의 교집합이다: 그 채널의 방문 기록이 있는 `visitor_id` 중 그 채널로 신청한 수. `instagram, x, youtube, threads, direct` 다섯 채널을 `AttributionChannel` 선언 순서대로 항상 반환하고 데이터가 없으면 0이다.
 - **전환율 표현**: JSON 숫자이고 소수 넷째 자리까지 항상 쓴다(`0.6667`, `1.0000`, 0이면 `0.0000`). `BigDecimal`을 `HALF_UP`, scale 4로 계산한다.
 - **캠페인 목록**: `created_at` 내림차순, `id` 내림차순이고 데이터가 없는 캠페인도 0으로 포함한다.
@@ -49,3 +49,4 @@
 
 - 2026-10-24 (ADR 0019, `V9__visit_bot_flag.sql`): 방문 지표(방문·방문자·전환 방문자)는 봇 방문을 뺀다. User-Agent가 봇 패턴인 방문은 `visits.is_bot = true`로 기록되고, `StatsQuery`의 모든 방문 CTE가 `AND NOT v.is_bot`으로 거른다(캠페인·캠페인 목록, 채널, 크리에이터, 크리에이터 × 채널, 크리에이터의 캠페인별). 위 표의 "방문"은 "기간 내 사람 방문(`NOT is_bot`) `visits` 행 수"로, "방문자"·"전환 방문자"도 사람 방문 기준으로 읽는다. 신청에는 봇 표시가 없어 그대로 센다. 그래서 봇 UA로만 방문하고 신청한 `visitor_id`는 `leads`에는 들어가지만 `convertedVisitors`에는 들어가지 않는다. V9 이전 방문은 모두 사람 방문(false)으로 남는다.
 - 2026-10-24 (ADR 0020, `V10__retention_and_consent.sql`): 보존 기간이 지난 신청은 행을 지우지 않고 연락처·payload 값만 지운다(익명화). 지표에 쓰는 `form_id`·`campaign_id`·`link_id`·`channel`·`visitor_id`·`created_at`은 남으므로 위 정의와 숫자는 파기 전후로 같다. 파기 뒤 같은 사람이 다시 신청하면 별개의 신청으로 센다.
+- 2026-10-24 (#55): `DateRange`를 `stats/domain`에서 `common`으로 옮겼다. 동작은 같다. audit·lead가 stats에 의존하지 않게 하려는 패키지 정리다.

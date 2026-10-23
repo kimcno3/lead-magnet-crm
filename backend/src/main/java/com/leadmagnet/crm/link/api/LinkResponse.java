@@ -7,7 +7,7 @@ import java.time.Instant;
 
 /** creator는 크리에이터 없는 링크면 null이다. */
 public record LinkResponse(Long id, String channel, CreatorRef creator, String code, String url, String utmSource,
-        String utmMedium, String utmCampaign, Instant createdAt) {
+        String utmMedium, String utmCampaign, String utmContent, Instant createdAt) {
 
     public record CreatorRef(Long id, String name) {
     }
@@ -17,6 +17,6 @@ public record LinkResponse(Long id, String channel, CreatorRef creator, String c
         Creator c = detail.creator();
         return new LinkResponse(l.getId(), l.getChannel().value(), c == null ? null : new CreatorRef(c.getId(), c.getName()),
             l.getCode(), publicBaseUrl + "/l/" + l.getCode(), l.getUtmSource(), l.getUtmMedium(), l.getUtmCampaign(),
-            l.getCreatedAt());
+            l.getUtmContent(), l.getCreatedAt());
     }
 }

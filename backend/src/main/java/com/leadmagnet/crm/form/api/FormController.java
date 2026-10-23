@@ -1,6 +1,6 @@
 package com.leadmagnet.crm.form.api;
 
-import com.leadmagnet.crm.common.web.AuditActors;
+import com.leadmagnet.crm.audit.api.AuditActors;
 import com.leadmagnet.crm.form.application.FormService;
 import com.leadmagnet.crm.form.domain.Form;
 import io.swagger.v3.oas.annotations.Operation;

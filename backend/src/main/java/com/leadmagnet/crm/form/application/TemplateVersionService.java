@@ -1,8 +1,8 @@
 package com.leadmagnet.crm.form.application;
 
 import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
-import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.form.domain.FormRepository;
 import com.leadmagnet.crm.form.domain.FormStatus;

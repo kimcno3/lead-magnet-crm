@@ -1,6 +1,6 @@
 package com.leadmagnet.crm.lead.api;
 
-import com.leadmagnet.crm.common.web.AuditActors;
+import com.leadmagnet.crm.audit.api.AuditActors;
 import com.leadmagnet.crm.lead.application.LeadContactService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;

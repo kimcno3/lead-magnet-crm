@@ -1,4 +1,4 @@
-package com.leadmagnet.crm.stats.domain;
+package com.leadmagnet.crm.common;
 
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.DomainException.FieldError;

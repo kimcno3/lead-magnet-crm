@@ -1,4 +1,4 @@
-package com.leadmagnet.crm.stats.domain;
+package com.leadmagnet.crm.common;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

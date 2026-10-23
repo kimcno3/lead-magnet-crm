@@ -2,6 +2,7 @@ package com.leadmagnet.crm.common.crypto;
 
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -12,7 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param hmacKey 중복 판정 HMAC-SHA256 키(LEAD_HMAC_KEY). 암호화 키와 달라야 한다.
  */
 @ConfigurationProperties(prefix = "app.pii")
-public record PiiCryptoProperties(String encKey, String hmacKey) {
+public record PiiCryptoProperties(String encKey, String hmacKey) implements SecretKeyMaterial {
 
     public PiiCryptoProperties {
         byte[] enc = decode("LEAD_ENC_KEY", encKey);
@@ -28,6 +29,16 @@ public record PiiCryptoProperties(String encKey, String hmacKey) {
 
     public byte[] hmacKeyBytes() {
         return decode("LEAD_HMAC_KEY", hmacKey);
+    }
+
+    @Override
+    public String name() {
+        return "LEAD_ENC_KEY·LEAD_HMAC_KEY";
+    }
+
+    @Override
+    public List<byte[]> candidates() {
+        return List.of(encKeyBytes(), hmacKeyBytes());
     }
 
     @Override

@@ -1,6 +1,5 @@
 package com.leadmagnet.crm.audit.domain;
 
-import com.leadmagnet.crm.common.web.AuditActor;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
