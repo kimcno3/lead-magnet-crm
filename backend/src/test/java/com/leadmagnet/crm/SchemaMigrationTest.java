@@ -98,6 +98,26 @@ class SchemaMigrationTest {
     }
 
     @Test
+    void V4_마이그레이션이_암호문과_해시_컬럼을_더하고_같은_폼의_같은_해시를_막는다() {
+        Boolean applied = jdbc.queryForObject(
+            "SELECT success FROM flyway_schema_history WHERE version = '4'", Boolean.class);
+        assertThat(applied).isTrue();
+        String hashA = "a".repeat(64);
+        String hashB = "b".repeat(64);
+        String insert = "INSERT INTO leads (form_id, campaign_id, channel, phone, email, phone_hash, email_hash, "
+            + "phone_enc, consent_at) SELECT id, campaign_id, 'direct', %s, %s, %s, %s, '\\x01'::bytea, now() "
+            + "FROM forms WHERE id = " + formId;
+        jdbc.update(insert.formatted("'01011112222'", "NULL", "'" + hashA + "'", "'" + hashB + "'"));
+
+        // 평문은 다르지만 해시가 같으면 거부한다(평문 인덱스와 별개로 해시 인덱스가 막는다).
+        assertRejected(insert.formatted("'01033334444'", "NULL", "'" + hashA + "'", "NULL"));
+        assertRejected(insert.formatted("'01055556666'", "NULL", "NULL", "'" + hashB + "'"));
+        jdbc.update(insert.formatted("'01077778888'", "NULL", "NULL", "NULL"));
+        jdbc.update(insert.formatted("'01099990000'", "NULL", "NULL", "NULL"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM leads", Long.class)).isEqualTo(3);
+    }
+
+    @Test
     void 허용되지_않은_채널의_배포_링크는_거부한다() {
         assertRejected("INSERT INTO distribution_links (form_id, channel, code) VALUES (" + formId + ", 'tiktok', 'zzz999')");
     }

@@ -8,8 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # 전체 로컬 실행 (postgres, backend :8080·:8081, admin-web :5173)
-# .env.example을 복사하면서 JWT_SECRET을 새로 만든다(자리표시 값으로는 기동하지 않는다)
-sed "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" .env.example > .env
+# .env.example을 복사하면서 JWT_SECRET과 개인정보 암호화 키 두 개를 새로 만든다(자리표시 값으로는 기동하지 않는다)
+sed -e "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" \
+    -e "s|^LEAD_ENC_KEY=.*|LEAD_ENC_KEY=$(openssl rand -base64 32)|" \
+    -e "s|^LEAD_HMAC_KEY=.*|LEAD_HMAC_KEY=$(openssl rand -base64 32)|" .env.example > .env
 docker compose up --build
 
 # backend (Gradle 툴체인이 JDK 21을 자동으로 받는다. 실행 JDK는 17 이상이면 된다)
@@ -52,9 +54,10 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
   - 공개 폼(ADR 0002): `/f/{slug}`는 동적 값이 없는 고정 셸(`form/api/WrapperPages`)이고, `static/f/_assets/form-wrapper.js`가 `/api/public/forms/{slug}`로 받은 HTML을 sandbox iframe srcdoc에 넣는다. 셸에 서버 값을 끼워 넣지 않는다(CSP에 `'unsafe-inline'`이 있다).
   - 방문(`tracking`): `/f/{slug}` 200마다 `VisitRecorder`가 한 행을 남긴다. 방문자 id는 `tracking/api/VisitorIdCookie`(`lm_vid`, UUID v4가 아니면 새로 발급).
   - 신청(ADR 0007, 0008): `lead` 패키지. 제출 `POST /api/public/forms/{slug}/submissions`는 서버가 신뢰 경계다(sandbox HTML이 CSP `connect-src 'self'`로 직접 부를 수 있다): JSON만 받고, `Origin: null`은 403 `forbidden_origin`, 동의와 fieldConfig 검증은 `lead/domain/SubmissionValidator`가 한다(오류는 `errors[{field,message,code}]`로 모아 422). 중복(같은 폼의 같은 phone/email)은 V2 부분 유니크 인덱스와 `INSERT ... ON CONFLICT DO NOTHING`으로 409 `duplicate_submission`; 유니크 위반 예외를 쓰지 않는 이유는 DB 오류 로그에 전화번호 원문이 실리기 때문이다. 방문자 쿠키는 `VisitorIdCookie.read`로 읽기만 하고 제출에서는 발급하지 않는다.
+  - 개인정보 암호화(ADR 0015, expand 단계): `common/crypto`의 `PiiCipher`(AES-256-GCM, `version|iv|ciphertext+tag`)·`PiiHasher`(HMAC-SHA256 hex, 전화번호는 숫자만·이메일은 소문자로 정규화) 키는 `PiiCryptoProperties`(`LEAD_ENC_KEY`·`LEAD_HMAC_KEY`, base64 32바이트, 없거나 틀리면 기동 실패). 신청은 평문과 `*_enc`·`*_hash`를 함께 쓰고 중복은 평문·해시 부분 유니크 인덱스 모두를 대상 없는 `ON CONFLICT DO NOTHING`이 거른다. 암·복호화는 `lead/application/ContactProtector`에서만 하고, 명단은 가린 값(`PiiMasker.maskName`·`maskPhoneForDisplay`·`maskEmailForDisplay`), 원문은 `LeadContactService.reveal`(`GET /api/admin/leads/{id}/contact`)로만 준다. 기존 행은 기동 시 `PiiBackfillRunner`가 채운다(멱등, 로그엔 건수만). 그보다 먼저 웹 서버가 요청을 받기 전에(`SmartInitializingSingleton`, Flyway 이후) `common/crypto/PiiKeyCheck`가 `pii_key_check` 표식 행으로 현재 키가 기존 데이터의 키와 같은지 확인하고 다르면 기동을 멈춘다. 암호문은 컬럼 이름을 AAD로 묶는다(`PiiCipher.encrypt(value, column)`). 명단에서 복호화하지 못한 행은 `contactUnavailable`로 비우고 원문 API는 500으로 실패한다.
   - 지표(ADR 0005): `stats`는 엔티티 없이 `StatsQuery`(NamedParameterJdbcTemplate 네이티브 SQL, 지표 정의를 SQL 주석으로 인용)가 집계한다. 기간은 `stats/domain/DateRange`가 Asia/Seoul 날짜 `[from 00:00, to+1 00:00)`로 바꾸고 형식 오류·`from > to`는 422. 전환 방문자는 방문∩신청 `visitor_id` 교집합(채널별은 같은 채널 안), `visitor_id` NULL 신청은 전환에 넣지 않는다.
   - 운영자 계정은 기동 시 `auth/application/OperatorSeeder`가 `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD`로 만든다(ADR 0009). 로그용 개인정보 마스킹은 `common/PiiMasker`.
-  - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. `RestAssured.port`는 admin 포트로 두고 public 포트 요청은 `PublicOrigin.given(publicPort)`로 보낸다. Docker가 떠 있어야 backend 테스트가 돈다.
+  - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. 단 `pii_key_check`는 일부러 넣지 않는다: 업무 데이터가 아니라 컨텍스트 기동 때 한 번 쓰는 키 확인 행이고, 공유 컨텍스트에서 지우면 다음 확인이 다른 키로 행을 새로 만들 수 있어 키 불일치 검사를 무력화한다(`PiiKeyCheckTest`는 행을 지운 뒤 `@AfterEach`에서 원래 키로 되돌린다). `RestAssured.port`는 admin 포트로 두고 public 포트 요청은 `PublicOrigin.given(publicPort)`로 보낸다. Docker가 떠 있어야 backend 테스트가 돈다.
   - 시나리오 테스트(`scenario` 테스트 패키지): `HappyPath`·`Failure`·`Isolation`이 두 포트를 오가며 로그인→업로드→배포→방문→신청→지표를 실제 HTTP로 잇는다. 기능별 테스트를 복제하지 않고 앞 단계 출력이 다음 입력이 되는지만 본다. 공통 도우미는 `support/ScenarioBase`, 방문자 쿠키를 들고 `/l/{code}` 302를 직접 따라가는 `support/PublicVisitor`. 지표는 테스트 주석에 손계산 표를 두고 정확히 비교한다.
 - `admin-web/`: React + Vite + TypeScript 관리자 SPA. 운영 시에는 nginx(`admin-web/nginx.conf`), 개발 시에는 Vite가 `/api/admin/`과 `/actuator/health`를 backend admin 포트로 프록시한다. 브라우저 입장에서는 admin-web 출처 하나뿐이어서 refresh 쿠키(SameSite=Strict, Path=/api/admin/auth)가 그대로 동작하고, public 출처(:8081)와는 출처가 다르다.
   - 관리자 UI(ADR 0011): `src/api/client.ts`가 access token을 모듈 메모리에만 두고 401 → refresh 한 번(동시 401은 공유) → 재시도를 맡는다. refresh의 네트워크 오류는 세션 종료(401)와 구분해 토큰을 지우지 않는다. 도메인별 호출은 `src/api/*.ts`, DTO 타입은 `src/api/types.ts`(백엔드 record와 같은 이름). 세션 복원·로그인 상태는 `src/auth/`(`AuthProvider`, `RequireAuth`).

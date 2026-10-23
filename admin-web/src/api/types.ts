@@ -147,8 +147,17 @@ export interface Lead {
   name: string | null
   phone: string | null
   email: string | null
+  /** 연락처를 복호화하지 못한 줄. name·phone·email이 모두 null이다 (ADR 0015). */
+  contactUnavailable: boolean
   payload: Record<string, unknown> | null
   createdAt: string
+}
+
+/** 원문 연락처(GET /api/admin/leads/{id}/contact). 명단의 name·phone·email은 가린 값이다 (ADR 0015). */
+export interface LeadContact {
+  name: string | null
+  phone: string | null
+  email: string | null
 }
 
 export interface LeadPage {

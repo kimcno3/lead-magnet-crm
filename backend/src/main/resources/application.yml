@@ -34,6 +34,10 @@ app:
     admin-origin: ${ADMIN_ORIGIN:http://localhost:5173}
     # refresh 쿠키와 방문자 쿠키(lm_vid)의 Secure 속성
     cookie-secure: ${COOKIE_SECURE:false}
+  pii:
+    # 필수. 신청자 개인정보 암호화 키와 중복 판정 HMAC 키. 각각 base64로 인코딩한 32바이트, 서로 달라야 한다 (ADR 0015)
+    enc-key: ${LEAD_ENC_KEY}
+    hmac-key: ${LEAD_HMAC_KEY}
   public:
     # 신청 제출 본문 최대 바이트(64KB). 넘으면 413 (lead/config/SubmissionGuardFilter)
     max-submission-bytes: 65536
