@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
   ApiError,
+  apiDownload,
+  saveDownload,
   apiRequest,
   clearSession,
   hasSession,
@@ -275,5 +277,68 @@ describe('ProblemDetail', () => {
     const error = (await apiRequest('/api/admin/campaigns').catch((e: unknown) => e)) as ApiError
     expect(error.status).toBe(502)
     expect(error.message).toContain('502')
+  })
+})
+
+describe('파일 내려받기', () => {
+  function csv(body: string, disposition = 'attachment; filename="leads-campaign-7-20261024-101500.csv"') {
+    return new Response(body, { status: 200, headers: { 'Content-Type': 'text/csv;charset=UTF-8', 'Content-Disposition': disposition } })
+  }
+
+  it('토큰과 Accept: text/csv를 붙여 Blob과 파일 이름을 돌려준다', async () => {
+    fetchMock.mockResolvedValueOnce(token('A1')).mockResolvedValueOnce(csv('\uFEFF신청일\r\n'))
+    await login('ops@example.com', 'pw-123456789')
+
+    const file = await apiDownload('/api/admin/campaigns/7/leads.csv', { query: { reveal: 'true', channel: null } })
+
+    const call = fetchMock.mock.calls[1]
+    expect(String(call[0])).toBe('/api/admin/campaigns/7/leads.csv?reveal=true')
+    expect(authHeader(call)).toBe('Bearer A1')
+    expect(new Headers((call[1] as RequestInit).headers).get('Accept')).toContain('text/csv')
+    expect(file.filename).toBe('leads-campaign-7-20261024-101500.csv')
+    expect(await file.blob.text()).toContain('신청일')
+  })
+
+  it('401이면 refresh 후 다시 받는다', async () => {
+    fetchMock
+      .mockResolvedValueOnce(json({ code: 'unauthorized' }, 401))
+      .mockResolvedValueOnce(token('A2'))
+      .mockResolvedValueOnce(csv('x', 'attachment'))
+
+    const file = await apiDownload('/api/admin/campaigns/7/leads.csv')
+
+    expect(authHeader(callsTo(fetchMock, '/api/admin/campaigns/7/leads.csv')[1])).toBe('Bearer A2')
+    expect(file.filename).toBeNull()
+  })
+
+  it('오류 응답은 ProblemDetail로 읽어 ApiError로 던진다', async () => {
+    fetchMock.mockResolvedValueOnce(json({ code: 'internal_error', detail: '서버 오류가 발생했습니다' }, 500))
+
+    await expect(apiDownload('/api/admin/campaigns/7/leads.csv')).rejects.toMatchObject({
+      status: 500,
+      code: 'internal_error',
+    })
+  })
+})
+
+describe('saveDownload', () => {
+  it('object URL로 내려받게 하고 약 1초 뒤에 해제한다', () => {
+    vi.useFakeTimers()
+    const create = vi.fn(() => 'blob:csv')
+    const revoke = vi.fn()
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke }))
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    try {
+      saveDownload({ blob: new Blob(['x']), filename: null }, 'fallback.csv')
+
+      expect(click).toHaveBeenCalledTimes(1)
+      expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe('fallback.csv')
+      vi.advanceTimersByTime(999)
+      expect(revoke).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
+      expect(revoke).toHaveBeenCalledWith('blob:csv')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

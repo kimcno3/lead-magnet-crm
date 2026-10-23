@@ -25,6 +25,9 @@ export function Layout() {
             <li>
               <NavLink to="/templates">템플릿</NavLink>
             </li>
+            <li>
+              <NavLink to="/audit-logs">감사 로그</NavLink>
+            </li>
           </ul>
         </nav>
         <div className="sidebar-foot">

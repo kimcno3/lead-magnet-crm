@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider } from './auth/AuthProvider'
 import { RequireAuth } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
+import { AuditLogListPage } from './pages/AuditLogList'
 import { CampaignDetailPage } from './pages/CampaignDetail'
 import { CampaignListPage } from './pages/CampaignList'
 import { CreatorDetailPage } from './pages/CreatorDetail'
@@ -29,6 +30,7 @@ export function AppRoutes() {
         <Route path="/creators/:id" element={<CreatorDetailPage />} />
         <Route path="/templates" element={<TemplateListPage />} />
         <Route path="/templates/:id" element={<TemplateDetailPage />} />
+        <Route path="/audit-logs" element={<AuditLogListPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

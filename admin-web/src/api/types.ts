@@ -252,3 +252,37 @@ export interface ProblemDetail {
   code?: string
   errors?: FieldError[]
 }
+
+/** 감사 로그 action (ADR 0016). */
+export const AUDIT_ACTIONS = [
+  'lead.list',
+  'lead.contact.view',
+  'lead.export',
+  'lead.export.reveal',
+  'auth.login.success',
+  'auth.login.failure',
+] as const
+export type AuditAction = (typeof AUDIT_ACTIONS)[number]
+
+/** 감사 기록 한 줄. detail에는 필터·페이지·건수·가린 이메일만 있다. */
+export interface AuditLog {
+  id: number
+  operatorId: number | null
+  operatorEmail: string | null
+  action: AuditAction
+  targetType: string
+  targetId: number | null
+  campaignId: number | null
+  detail: Record<string, unknown>
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
+}
+
+export interface AuditLogPage {
+  items: AuditLog[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}

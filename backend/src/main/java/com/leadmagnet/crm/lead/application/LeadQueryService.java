@@ -10,10 +10,8 @@ import com.leadmagnet.crm.form.domain.FormRepository;
 import com.leadmagnet.crm.lead.domain.Lead;
 import com.leadmagnet.crm.lead.domain.LeadRepository;
 import com.leadmagnet.crm.link.domain.AttributionChannel;
-import jakarta.persistence.criteria.Predicate;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -22,7 +20,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,7 +51,10 @@ public class LeadQueryService {
         this.protector = protector;
     }
 
-    /** 범위를 벗어난 page·size와 모르는 channel은 422, 없는 캠페인은 404. 폼 제목은 페이지 전체를 한 번에 조회한다. */
+    /**
+     * 범위를 벗어난 page·size와 모르는 channel은 422, 없는 캠페인은 404. 폼 제목은 페이지 전체를 한 번에 조회한다.
+     * 감사 기록(lead.list)은 이 트랜잭션이 끝난 뒤 컨트롤러가 남긴다(ADR 0016).
+     */
     public LeadPage list(long campaignId, int page, int size, Long formId, String channel) {
         List<FieldError> errors = new ArrayList<>();
         if (page < 0) {
@@ -63,15 +63,7 @@ public class LeadQueryService {
         if (size < 1 || size > MAX_SIZE) {
             errors.add(new FieldError("size", "size는 1 이상 " + MAX_SIZE + " 이하여야 합니다", "invalid_value"));
         }
-        AttributionChannel channelFilter = null;
-        if (channel != null) {
-            channelFilter = Arrays.stream(AttributionChannel.values()).filter(c -> c.value().equals(channel))
-                .findFirst().orElse(null);
-            if (channelFilter == null) {
-                errors.add(new FieldError("channel",
-                    "channel은 instagram, x, youtube, threads, direct 중 하나여야 합니다", "invalid_value"));
-            }
-        }
+        AttributionChannel channelFilter = LeadFilter.parseChannel(channel, errors);
         if (!errors.isEmpty()) {
             throw DomainException.validation(errors);
         }
@@ -79,26 +71,12 @@ public class LeadQueryService {
             throw new DomainException(ErrorCode.NOT_FOUND);
         }
 
-        Page<Lead> result = leads.findAll(filter(campaignId, formId, channelFilter),
-            PageRequest.of(page, size, NEWEST_FIRST));
+        LeadFilter filter = new LeadFilter(campaignId, formId, channelFilter);
+        Page<Lead> result = leads.findAll(filter.toSpecification(), PageRequest.of(page, size, NEWEST_FIRST));
         Map<Long, String> titles = forms.findAllById(result.stream().map(Lead::getFormId).distinct().toList()).stream()
             .collect(Collectors.toMap(Form::getId, Form::getTitle, (a, b) -> a));
         return new LeadPage(result.stream().map(l -> toView(l, titles.get(l.getFormId()))).toList(),
             page, size, result.getTotalElements(), result.getTotalPages());
-    }
-
-    private static Specification<Lead> filter(long campaignId, Long formId, AttributionChannel channel) {
-        return (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("campaignId"), campaignId));
-            if (formId != null) {
-                predicates.add(cb.equal(root.get("formId"), formId));
-            }
-            if (channel != null) {
-                predicates.add(cb.equal(root.get("channel"), channel));
-            }
-            return cb.and(predicates.toArray(Predicate[]::new));
-        };
     }
 
     /**

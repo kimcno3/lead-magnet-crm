@@ -2,8 +2,11 @@ import { useSearchParams } from 'react-router'
 import { Button } from './Button'
 import { Field } from './Field'
 
-/** 지표 기간 필터. 값은 URL 쿼리 from·to(yyyy-MM-dd, 서울 날짜)에 둔다. */
-export function PeriodFilter() {
+/**
+ * 기간 필터. 값은 URL 쿼리 from·to(yyyy-MM-dd, 서울 날짜)에 둔다.
+ * resetParams: 기간이 바뀌면 함께 지울 쿼리(예: 페이지가 있는 목록의 page).
+ */
+export function PeriodFilter({ resetParams = [] }: { resetParams?: readonly string[] } = {}) {
   const [params, setParams] = useSearchParams()
   const from = params.get('from') ?? ''
   const to = params.get('to') ?? ''
@@ -16,6 +19,7 @@ export function PeriodFilter() {
           if (value) next.set(key, value)
           else next.delete(key)
         }
+        for (const key of resetParams) next.delete(key)
         return next
       },
       { replace: true },

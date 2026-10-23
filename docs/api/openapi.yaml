@@ -25,6 +25,8 @@ tags:
   description: "캠페인·채널·크리에이터별 방문, 방문자, 신청, 전환 방문자, 전환율 (ADR 0005, 0014)"
 - name: 공개 링크
   description: 단축 URL 리다이렉트
+- name: 감사 로그
+  description: 명단 조회·원문 열람·CSV 다운로드·로그인 기록 (ADR 0016). 조회만 있고 수정·삭제는 없다.
 - name: 폼
   description: 캠페인의 공개 신청 폼 생성·수정·게시·마감 (ADR 0013)
 - name: 캠페인
@@ -32,12 +34,85 @@ tags:
 - name: 공개 폼
   description: public 출처(:8081) 전용. 래퍼 스크립트가 호출한다 (ADR 0002)
 paths:
+  /api/admin/audit-logs:
+    get:
+      tags:
+      - 감사 로그
+      summary: 감사 로그
+      description: "최신순. action은 lead.list, lead.contact.view, lead.export, lead.export.reveal,\
+        \ auth.login.success, auth.login.failure. from·to는 Asia/Seoul 날짜(yyyy-MM-dd,\
+        \ 양 끝 포함). page는 0부터, size는 1~100(기본 20). 이 조회 자체는 기록하지 않는다."
+      operationId: listAuditLogs
+      parameters:
+      - name: action
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: operatorId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: campaignId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          description: 감사 로그 한 페이지
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AuditLogPageResponse"
+        "401":
+          description: unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: 잘못된 action·page·size·기간 (validation_failed)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+      security:
+      - bearer: []
   /api/admin/auth/login:
     post:
       tags:
       - 인증
       summary: 로그인
-      description: "access token은 바디로, refresh token은 HttpOnly 쿠키(lm_refresh)로 준다."
+      description: "access token은 바디로, refresh token은 HttpOnly 쿠키(lm_refresh)로 준다\
+        . 성공·실패는 감사 로그에 남는다(ADR 0016)."
       operationId: login
       requestBody:
         content:
@@ -240,7 +315,7 @@ paths:
       - 명단
       summary: 캠페인 명단
       description: "최신순. page는 0부터, size는 1~100(기본 20). channel은 instagram, x, youtube,\
-        \ threads, direct."
+        \ threads, direct. 조회는 감사 로그(lead.list)에 남는다(ADR 0016)."
       operationId: listLeads
       parameters:
       - name: campaignId
@@ -299,6 +374,69 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/LeadPageResponse"
+      security:
+      - bearer: []
+  /api/admin/campaigns/{campaignId}/leads.csv:
+    get:
+      tags:
+      - 명단
+      summary: 명단 CSV 다운로드
+      description: "UTF-8 BOM으로 시작하는 RFC 4180 CSV. 열은 신청일(Asia/Seoul), 이름, 전화번호, 이\
+        메일, 채널, 크리에이터, 폼, 추가 항목(payload JSON)이고 신청 순이다. 기본은 가린 값, reveal=true면 원문\
+        (전화번호는 숫자만)이다. =, +, -, @, 탭, CR로 시작하는 값에는 작은따옴표를 붙인다. 복호화하지 못한 행은 연락처 칸에\
+        \ \"복호화 불가\". 다운로드는 감사 로그(lead.export, 원문은 lead.export.reveal)에 건수와 함께 남고\
+        , 기록에 실패하면 내용을 주지 않고 500이다(ADR 0016)."
+      operationId: exportLeadsCsv
+      parameters:
+      - name: campaignId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: formId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: channel
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: reveal
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: CSV 파일
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "404":
+          description: 없는 캠페인 (not_found)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: 잘못된 channel (validation_failed)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
       security:
       - bearer: []
   /api/admin/campaigns/{campaignId}/stats:
@@ -935,7 +1073,8 @@ paths:
       - 명단
       summary: 신청자 원문 연락처
       description: "명단은 가린 값만 준다. 원문 이름·전화번호(숫자만)·이메일은 이 엔드포인트로 한 건씩 본다 (ADR 0015).\
-        \ 응답은 캐시하지 않는다(Cache-Control: no-store)."
+        \ 응답은 캐시하지 않는다(Cache-Control: no-store). 열람은 감사 로그(lead.contact.view)에 남고\
+        , 기록에 실패하면 원문을 주지 않고 500이다(ADR 0016)."
       operationId: getLeadContact
       parameters:
       - name: id
@@ -1932,6 +2071,56 @@ components:
           format: int64
         email:
           type: string
+    AuditLogPageResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLogResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    AuditLogResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        operatorId:
+          type: integer
+          format: int64
+        operatorEmail:
+          type: string
+        action:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: integer
+          format: int64
+        campaignId:
+          type: integer
+          format: int64
+        detail:
+          type: object
+          additionalProperties: {}
+        ip:
+          type: string
+        userAgent:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
   securitySchemes:
     bearer:
       type: http

@@ -8,6 +8,7 @@ import { ErrorMessage } from '../../components/ErrorMessage'
 import { Field } from '../../components/Field'
 import { SkeletonRows, TableWrap } from '../../components/Table'
 import { formatDateTime, formatNumber, formatPhone, summarizePayload } from '../../format'
+import { LeadExportMenu } from './LeadExportMenu'
 import { errorText } from '../../errors'
 import { useAsync } from '../../hooks'
 import { CHANNEL_LABELS } from '../../labels'
@@ -17,6 +18,14 @@ type Reveal = { status: 'loading'; token: number } | { status: 'shown'; contact:
 
 function toChannel(value: string | null): Channel | null {
   return value && (CHANNELS as readonly string[]).includes(value) ? (value as Channel) : null
+}
+
+/** CSV 확인 대화상자에 보여줄 필터 범위. */
+function exportScope(campaign: Campaign, formId: number | null, channel: Channel | null): string {
+  if (!formId && !channel) return '전체'
+  const form = formId ? `폼 ${campaign.forms.find((f) => f.id === formId)?.title ?? `#${formId}`}` : '전체 폼'
+  const ch = channel ? `채널 ${CHANNEL_LABELS[channel]}` : '전체 채널'
+  return `${form} · ${ch}`
 }
 
 export function LeadsTab({ campaign }: { campaign: Campaign }) {
@@ -107,6 +116,7 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
             총 <span className="num">{formatNumber(data.totalElements)}</span>명
           </p>
         )}
+        <LeadExportMenu campaignId={campaign.id} formId={formId} channel={channel} scope={exportScope(campaign, formId, channel)} />
       </div>
 
       <ErrorMessage error={error} onRetry={reload} />

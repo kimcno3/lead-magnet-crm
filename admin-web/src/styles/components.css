@@ -921,3 +921,85 @@
   padding-left: 40px;
   font-weight: 400;
 }
+
+/* ---------- 메뉴 (명단 CSV 다운로드) ---------- */
+.menu-root {
+  position: relative;
+  margin-left: auto;
+  padding-bottom: 2px;
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 10;
+  min-width: 220px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog);
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--surface-sunken);
+}
+
+.menu-item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.menu-hint {
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+}
+
+/* ---------- 감사 로그 ---------- */
+.detail-list {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.user-agent {
+  max-width: 260px;
+  font-size: var(--fs-small);
+}
+
+.user-agent summary {
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-agent summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.user-agent details p {
+  margin: 4px 0 0;
+}

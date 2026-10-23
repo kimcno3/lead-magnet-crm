@@ -79,8 +79,9 @@ class PiiContractGuardTest {
 
         flyway(dataSource(jdbc), null).migrate();
 
-        assertThat(jdbc.queryForObject("SELECT max(version::int) FROM flyway_schema_history WHERE success", Integer.class))
-            .isEqualTo(5);
+        // 뒤에 마이그레이션이 더해져도(V6 감사 로그 등) V5 가드가 빈 DB를 통과시키는지만 본다.
+        assertThat(jdbc.queryForObject("SELECT success FROM flyway_schema_history WHERE version = '5'", Boolean.class))
+            .isTrue();
     }
 
     private static JdbcTemplate freshDatabaseAtV4() {

@@ -1,4 +1,4 @@
-import type { CampaignStatus, Channel, CreatorStatus, FormStatus } from './api/types'
+import type { AuditAction, CampaignStatus, Channel, CreatorStatus, FormStatus } from './api/types'
 
 export const CHANNEL_LABELS: Record<Channel, string> = {
   instagram: '인스타그램',
@@ -50,4 +50,14 @@ export function publicBaseFrom(linkUrl: string | undefined): string {
     if (i > 0) return linkUrl.slice(0, i)
   }
   return PUBLIC_BASE_URL
+}
+
+/** 감사 로그 action 이름 (ADR 0016). */
+export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  'lead.list': '명단 조회',
+  'lead.contact.view': '원문 열람',
+  'lead.export': 'CSV 다운로드(마스킹)',
+  'lead.export.reveal': 'CSV 다운로드(원문)',
+  'auth.login.success': '로그인 성공',
+  'auth.login.failure': '로그인 실패',
 }
