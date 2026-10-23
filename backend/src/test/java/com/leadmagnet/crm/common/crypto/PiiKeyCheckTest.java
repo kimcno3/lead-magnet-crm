@@ -6,7 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.leadmagnet.crm.LeadMagnetApplication;
 import com.leadmagnet.crm.common.crypto.PiiKeyCheck.Result;
 import com.leadmagnet.crm.support.IntegrationTest;
+import com.leadmagnet.crm.support.LegacyPiiCiphertext;
 import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -134,6 +137,68 @@ class PiiKeyCheckTest {
         // 커넥터가 요청을 받기 시작하기(WebServerInitializedEvent) 전에 멈췄다.
         assertThat(webServerStarted).isFalse();
         assertThat(output.getAll()).doesNotContain(otherKey).doesNotContain(IntegrationTest.TEST_HMAC_KEY);
+    }
+
+    static PiiCipher previousOnly() {
+        return new PiiCipher(1, Map.of(1, Base64.getDecoder().decode(IntegrationTest.TEST_PREVIOUS_ENC_KEY)));
+    }
+
+    void markerEnc(byte[] enc) {
+        jdbc.update("UPDATE pii_key_check SET enc_check = ? WHERE id = 1", enc);
+    }
+
+    @Test
+    void 이전_키로_만든_표식이면_통과하고_현재_키가_아니라고_알린다() {
+        keyCheck.verify();
+        markerEnc(previousOnly().encrypt(PiiKeyCheck.MARKER, PiiKeyCheck.COLUMN));
+
+        assertThat(keyCheck.verify()).isEqualTo(Result.VERIFIED);
+        assertThat(keyCheck.markerOnCurrentKey()).isFalse();
+    }
+
+    @Test
+    void v030의_형식1_표식도_이전_키_id_1로_읽어_통과한다() {
+        keyCheck.verify();
+        markerEnc(LegacyPiiCiphertext.v1(Base64.getDecoder().decode(IntegrationTest.TEST_PREVIOUS_ENC_KEY),
+            PiiKeyCheck.MARKER, PiiKeyCheck.COLUMN));
+
+        assertThat(keyCheck.verify()).isEqualTo(Result.VERIFIED);
+    }
+
+    @Test
+    void 이전_키를_설정에서_지우면_이전_키로_남은_표식_때문에_기동이_실패한다() {
+        keyCheck.verify();
+        markerEnc(previousOnly().encrypt(PiiKeyCheck.MARKER, PiiKeyCheck.COLUMN));
+        PiiCipher currentOnly = new PiiCipher(2, Map.of(2, Base64.getDecoder().decode(IntegrationTest.TEST_ENC_KEY)));
+
+        assertThatThrownBy(() -> new PiiKeyCheck(jdbc, currentOnly, hasher).verify())
+            .isInstanceOf(PiiKeyCheck.KeyMismatchException.class).hasMessageContaining("LEAD_ENC_KEY");
+    }
+
+    @Test
+    void 표식을_현재_키로_다시_암호화한다() {
+        keyCheck.verify();
+        markerEnc(previousOnly().encrypt(PiiKeyCheck.MARKER, PiiKeyCheck.COLUMN));
+
+        assertThat(keyCheck.reencryptMarker()).isTrue();
+
+        assertThat(keyCheck.markerOnCurrentKey()).isTrue();
+        byte[] enc = jdbc.queryForObject("SELECT enc_check FROM pii_key_check", byte[].class);
+        assertThat(PiiCipher.keyIdOf(enc)).isEqualTo(2);
+        assertThat(cipher.decrypt(enc, PiiKeyCheck.COLUMN)).isEqualTo(PiiKeyCheck.MARKER);
+        assertThat(keyCheck.reencryptMarker()).isFalse();
+    }
+
+    @Test
+    void 이전_HMAC_키를_줬는데_표식이_이전_키로도_현재_키로도_안_맞으면_기동이_실패한다() {
+        keyCheck.verify();
+        PiiHasher previous = new PiiHasher(Base64.getDecoder().decode(PiiCryptoPropertiesTest.HMAC_PREV_B64));
+        PiiKeyCheck rotating = new PiiKeyCheck(jdbc, cipher, new PiiHasher(OTHER), previous, List.of());
+
+        assertThatThrownBy(rotating::verify).isInstanceOf(PiiKeyCheck.KeyMismatchException.class)
+            .hasMessageContaining("LEAD_HMAC_KEY");
+        assertThat(jdbc.queryForObject("SELECT hmac_check FROM pii_key_check", String.class))
+            .isEqualTo(hasher.hash(PiiKeyCheck.MARKER));
     }
 
     private static void assertNoKeyMaterial(CapturedOutput output) {

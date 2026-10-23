@@ -55,6 +55,14 @@ app:
     # 필수. 신청자 개인정보 암호화 키와 중복 판정 HMAC 키. 각각 base64로 인코딩한 32바이트, 서로 달라야 한다 (ADR 0015)
     enc-key: ${LEAD_ENC_KEY}
     hmac-key: ${LEAD_HMAC_KEY}
+    # 키 교체 (ADR 0022). 현재 암호화 키의 id(1~255). 새로 쓰는 암호문에 들어간다. v0.3.0까지의 암호문은 키 id 1이다
+    enc-key-id: ${LEAD_ENC_KEY_ID:1}
+    # 이전 암호화 키(선택, id:base64,id:base64). 읽기에만 쓰고, 재암호화(POST /api/admin/pii/reencrypt)로 남은 건수가 0이면 지운다
+    enc-previous-keys: ${LEAD_ENC_PREVIOUS_KEYS:}
+    # 이전 HMAC 키(선택). 설정한 채 기동하면 요청을 받기 전에 모든 중복 판정 해시를 LEAD_HMAC_KEY로 다시 계산한다. 끝나면 지운다
+    hmac-previous-key: ${LEAD_HMAC_PREVIOUS_KEY:}
+    # 재암호화·HMAC 교체에서 한 트랜잭션에 처리할 최대 행 수
+    batch-size: 500
   form-token:
     # 필수. 공개 폼 작성 시간 토큰(ft) HMAC-SHA256 서명 키. base64로 인코딩한 32바이트 (ADR 0019)
     key: ${FORM_TOKEN_KEY}
