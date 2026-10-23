@@ -4,7 +4,7 @@
 
 | 번호 | 제목 | 상태 |
 |---|---|---|
-| 0001 | 기술 스택 | 예정 |
+| [0001](0001-tech-stack.md) | 기술 스택 | 승인 |
 | [0002](0002-html-isolation.md) | HTML 격리 | 승인 |
 | [0003](0003-auth.md) | 인증 | 승인 |
 | [0004](0004-html-form-contract.md) | HTML 폼 계약 | 승인 |
@@ -15,5 +15,5 @@
 | [0009](0009-operator-seed.md) | 운영자 시드 | 승인 |
 | [0010](0010-single-app-two-ports.md) | 단일 앱·포트 분리 | 승인 |
 | [0011](0011-admin-ui.md) | 관리자 UI | 승인 |
-| 0012 | 브랜치·환경 전략 | 예정 |
+| [0012](0012-branch-environment.md) | 브랜치·환경 전략 | 승인 |
 | [0013](0013-campaign-form-status.md) | 캠페인·폼 상태 모델 | 승인 |

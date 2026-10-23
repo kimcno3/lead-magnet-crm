@@ -1,0 +1,1470 @@
+openapi: 3.1.0
+info:
+  title: 리드마그넷 CRM API
+  description: |-
+    관리자 API(`/api/admin/**`)는 admin 출처(기본 :8080)에서 Bearer access token으로 호출한다.
+    공개 경로(`/f/{slug}`, `/l/{code}`, `/api/public/**`)는 같은 앱이지만 public 출처
+    (`PUBLIC_BASE_URL`, 기본 :8081)에서만 열리고 인증이 없다. 서로의 포트에서는 404다 (ADR 0010).
+    에러는 모두 ProblemDetail(`application/problem+json`, 확장 속성 `code`)이다.
+  version: 0.1.0
+servers:
+- url: http://localhost:8080
+  description: "admin 출처 (관리자 API, 이 문서)"
+tags:
+- name: 명단
+  description: 캠페인별 신청 명단 (ADR 0008)
+- name: HTML 템플릿
+  description: AI가 만든 단일 HTML 폼 업로드와 조회 (ADR 0004)
+- name: 인증
+  description: 운영자 로그인과 토큰 교체 (ADR 0003)
+- name: 성과 지표
+  description: "캠페인·채널별 방문, 방문자, 신청, 전환 방문자, 전환율 (ADR 0005)"
+- name: 공개 링크
+  description: 단축 URL 리다이렉트
+- name: 폼
+  description: 캠페인의 공개 신청 폼 생성·수정·게시·마감 (ADR 0013)
+- name: 배포 링크
+  description: 폼의 채널별 배포 링크 (ADR 0006)
+- name: 캠페인
+  description: 캠페인 생성·조회·수정·보관 (ADR 0013)
+- name: 공개 폼
+  description: public 출처(:8081) 전용. 래퍼 스크립트가 호출한다 (ADR 0002)
+paths:
+  /api/admin/auth/login:
+    post:
+      tags:
+      - 인증
+      summary: 로그인
+      description: "access token은 바디로, refresh token은 HttpOnly 쿠키(lm_refresh)로 준다."
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "200":
+          description: 로그인 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: "invalid_credentials: 이메일 또는 비밀번호가 틀림"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "422":
+          description: "validation_failed: 요청 형식 오류"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+  /api/admin/auth/logout:
+    post:
+      tags:
+      - 인증
+      summary: 로그아웃
+      description: refresh 토큰 패밀리를 폐기하고 쿠키를 지운다. 쿠키가 없어도 204다.
+      operationId: logout
+      parameters:
+      - name: lm_refresh
+        in: cookie
+        description: refresh token
+      responses:
+        "204":
+          description: 로그아웃
+  /api/admin/auth/me:
+    get:
+      tags:
+      - 인증
+      summary: 현재 운영자
+      operationId: me
+      responses:
+        "200":
+          description: 현재 운영자
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          description: "unauthorized: 토큰이 없거나 유효하지 않음"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+      security:
+      - bearer: []
+  /api/admin/auth/refresh:
+    post:
+      tags:
+      - 인증
+      summary: access token 재발급
+      description: refresh 쿠키를 교체한다. 이미 쓴 토큰이 오면 그 로그인의 토큰을 모두 폐기한다.
+      operationId: refresh
+      parameters:
+      - name: lm_refresh
+        in: cookie
+        description: refresh token
+      responses:
+        "200":
+          description: 재발급 성공
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: invalid_refresh_token 또는 refresh_token_reused
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+  /api/admin/campaigns:
+    get:
+      tags:
+      - 캠페인
+      summary: 캠페인 목록
+      description: 최신순. formCount는 상태와 무관하게 센다.
+      operationId: list
+      responses:
+        "200":
+          description: 목록
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CampaignSummaryResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CampaignSummaryResponse"
+      security:
+      - bearer: []
+    post:
+      tags:
+      - 캠페인
+      summary: 캠페인 생성
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCampaignRequest"
+        required: true
+      responses:
+        "201":
+          description: 생성됨. Location에 상세 경로
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "422":
+          description: validation_failed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+      security:
+      - bearer: []
+  /api/admin/campaigns/{campaignId}/forms:
+    post:
+      tags:
+      - 폼
+      summary: 폼 생성
+      description: 템플릿 fields를 스냅샷으로 복사한 draft 폼을 만든다. slug를 생략하면 8자 랜덤.
+      operationId: create_1
+      parameters:
+      - name: campaignId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFormRequest"
+        required: true
+      responses:
+        "201":
+          description: 생성됨. Location에 상세 경로
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "404":
+          description: 캠페인 또는 템플릿 없음 (not_found)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "409":
+          description: "campaign_archived, slug_taken"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "422":
+          description: validation_failed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+      security:
+      - bearer: []
+  /api/admin/campaigns/{campaignId}/leads:
+    get:
+      tags:
+      - 명단
+      summary: 캠페인 명단
+      description: "최신순. page는 0부터, size는 1~100(기본 20). channel은 instagram, x, youtube,\
+        \ threads, direct."
+      operationId: list_1
+      parameters:
+      - name: campaignId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      - name: formId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: channel
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: 명단 한 페이지
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LeadPageResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LeadPageResponse"
+        "404":
+          description: 없는 캠페인 (not_found)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LeadPageResponse"
+        "422":
+          description: 잘못된 page·size·channel (validation_failed)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LeadPageResponse"
+      security:
+      - bearer: []
+  /api/admin/campaigns/{campaignId}/stats:
+    get:
+      tags:
+      - 성과 지표
+      summary: 캠페인 지표
+      description: "from, to는 yyyy-MM-dd(Asia/Seoul)이고 둘 다 선택이다. from 00:00 이상, to\
+        \ 다음날 00:00 미만. conversionRate는 소수 넷째 자리 반올림."
+      operationId: campaign
+      parameters:
+      - name: campaignId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: 캠페인 전체 지표
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignStatsResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignStatsResponse"
+        "404":
+          description: 없는 캠페인 (not_found)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignStatsResponse"
+        "422":
+          description: 날짜 형식·범위 오류 (validation_failed)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignStatsResponse"
+      security:
+      - bearer: []
+  /api/admin/campaigns/{campaignId}/stats/channels:
+    get:
+      tags:
+      - 성과 지표
+      summary: 캠페인 채널별 지표
+      description: "from, to는 yyyy-MM-dd(Asia/Seoul)이고 둘 다 선택이다. from 00:00 이상, to\
+        \ 다음날 00:00 미만. conversionRate는 소수 넷째 자리 반올림. 다섯 채널을 항상 0 포함해 돌려준다."
+      operationId: channels
+      parameters:
+      - name: campaignId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: "instagram, x, youtube, threads, direct 순서"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ChannelStatsResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ChannelStatsResponse"
+        "404":
+          description: 없는 캠페인 (not_found)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ChannelStatsResponse"
+        "422":
+          description: 날짜 형식·범위 오류 (validation_failed)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ChannelStatsResponse"
+      security:
+      - bearer: []
+  /api/admin/campaigns/{id}:
+    get:
+      tags:
+      - 캠페인
+      summary: 캠페인 상세
+      description: 소속 폼 요약 포함
+      operationId: get
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: 상세
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "404":
+          description: not_found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+      security:
+      - bearer: []
+    patch:
+      tags:
+      - 캠페인
+      summary: 캠페인 수정·보관
+      description: 없는 필드는 그대로 둔다. status는 "archived"만 받는다.
+      operationId: update
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCampaignRequest"
+        required: true
+      responses:
+        "200":
+          description: 수정됨
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "404":
+          description: not_found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "409":
+          description: campaign_already_archived
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+        "422":
+          description: validation_failed
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignResponse"
+      security:
+      - bearer: []
+  /api/admin/forms/{formId}/links:
+    get:
+      tags:
+      - 배포 링크
+      summary: 배포 링크 목록
+      description: "채널 순서 instagram, x, youtube, threads."
+      operationId: list_2
+      parameters:
+      - name: formId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: 목록
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkResponse"
+        "404":
+          description: 폼 없음 (not_found)
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkResponse"
+      security:
+      - bearer: []
+    post:
+      tags:
+      - 배포 링크
+      summary: 배포 링크 생성
+      description: "channel은 instagram, x, youtube, threads. 폼당 채널별 하나, draft·published\
+        \ 폼에만 만든다."
+      operationId: create_2
+      parameters:
+      - name: formId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLinkRequest"
+        required: true
+      responses:
+        "201":
+          description: 생성됨
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LinkResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LinkResponse"
+        "404":
+          description: 폼 없음 (not_found)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LinkResponse"
+        "409":
+          description: "link_exists, form_closed"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LinkResponse"
+        "422":
+          description: direct·모르는 채널 (validation_failed)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LinkResponse"
+      security:
+      - bearer: []
+  /api/admin/forms/{id}:
+    get:
+      tags:
+      - 폼
+      summary: 폼 상세
+      operationId: get_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: 상세
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "404":
+          description: not_found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+      security:
+      - bearer: []
+    patch:
+      tags:
+      - 폼
+      summary: 폼 수정·게시·마감
+      description: "없는 필드는 그대로 둔다. 내용(title, consentText, fieldConfig의 label·required)은\
+        \ draft에서만 수정. status는 published(draft→published) 또는 closed(published→closed)."
+      operationId: update_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFormRequest"
+        required: true
+      responses:
+        "200":
+          description: 수정됨
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "404":
+          description: not_found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "409":
+          description: "invalid_form_transition, form_not_editable"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+        "422":
+          description: validation_failed (필드 추가·삭제·이름 변경 포함)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FormResponse"
+      security:
+      - bearer: []
+  /api/admin/stats/campaigns:
+    get:
+      tags:
+      - 성과 지표
+      summary: 캠페인별 지표 목록
+      description: "from, to는 yyyy-MM-dd(Asia/Seoul)이고 둘 다 선택이다. from 00:00 이상, to\
+        \ 다음날 00:00 미만. conversionRate는 소수 넷째 자리 반올림. 최신 캠페인순, 데이터가 없는 캠페인도 포함."
+      operationId: campaigns
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: 캠페인별 지표
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignListStatsResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignListStatsResponse"
+        "422":
+          description: 날짜 형식·범위 오류 (validation_failed)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CampaignListStatsResponse"
+      security:
+      - bearer: []
+  /api/admin/templates:
+    get:
+      tags:
+      - HTML 템플릿
+      summary: 템플릿 목록
+      description: 최신순
+      operationId: list_3
+      responses:
+        "200":
+          description: 목록
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemplateSummaryResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TemplateSummaryResponse"
+      security:
+      - bearer: []
+    post:
+      tags:
+      - HTML 템플릿
+      summary: 템플릿 업로드
+      description: "multipart file(.html/.htm, UTF-8, 512KB 이하)과 선택 name. 폼 계약을 검사\
+        해 필드를 추출한다."
+      operationId: upload
+      parameters:
+      - name: name
+        in: query
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+      responses:
+        "201":
+          description: 등록됨. Location에 상세 경로
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateResponse"
+        "413":
+          description: template_too_large 또는 payload_too_large
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateResponse"
+        "422":
+          description: "template_empty, template_invalid_extension, template_not_utf8,\
+            \ template_form_count_invalid, template_forbidden_field, template_field_invalid,\
+            \ template_contact_field_missing, validation_failed"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateResponse"
+      security:
+      - bearer: []
+  /api/admin/templates/{id}:
+    get:
+      tags:
+      - HTML 템플릿
+      summary: 템플릿 상세
+      description: 원문 content와 추출한 fields 포함
+      operationId: get_2
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: 상세
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateDetailResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateDetailResponse"
+        "404":
+          description: not_found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateDetailResponse"
+      security:
+      - bearer: []
+  /api/public/forms/{slug}:
+    get:
+      tags:
+      - 공개 폼
+      summary: 공개 폼 조회
+      description: "published 폼의 제목, 동의 문구, 필드 설정, 템플릿 HTML 원문"
+      operationId: get_3
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: 공개 중
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PublicFormResponse"
+        "404":
+          description: 없는 slug 또는 draft (not_found)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PublicFormResponse"
+        "410":
+          description: closed (gone)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PublicFormResponse"
+      servers:
+      - url: http://localhost:8081
+        description: "public 출처 (PUBLIC_BASE_URL). /f, /l, /api/public 경로는 이 출처에서만\
+          \ 열린다"
+  /api/public/forms/{slug}/submissions:
+    post:
+      tags:
+      - 공개 폼
+      summary: 신청 제출
+      description: "Content-Type: application/json만 받는다. Origin: null(sandbox 프레임\
+        )은 거절한다. name·phone·email 필드는 컬럼으로, 나머지는 payload로 저장한다. 같은 폼의 같은 전화번호·이메일은\
+        \ 409."
+      operationId: submit
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmissionRequest"
+        required: true
+      responses:
+        "201":
+          description: "접수됨 {status: received}"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+        "400":
+          description: malformed_request
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+        "403":
+          description: forbidden_origin
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+        "404":
+          description: 없는 slug 또는 draft (not_found)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+        "409":
+          description: duplicate_submission
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+        "410":
+          description: closed (gone)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+        "415":
+          description: unsupported_media_type
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+        "422":
+          description: "validation_failed. errors[].code: unknown_field, required,\
+            \ invalid_format, invalid_option, invalid_value, too_long, consent_required,\
+            \ contact_required"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SubmissionResponse"
+      servers:
+      - url: http://localhost:8081
+        description: "public 출처 (PUBLIC_BASE_URL). /f, /l, /api/public 경로는 이 출처에서만\
+          \ 열린다"
+  /f/{slug}:
+    get:
+      tags:
+      - 공개 폼
+      summary: 공개 폼 페이지
+      description: "래퍼 셸 HTML. 방문 1건 기록, 방문자 쿠키 lm_vid 발급. lm이 이 폼의 링크 code면 그 채널로\
+        , 아니면 direct로 귀속한다."
+      operationId: page
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: lm
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: 래퍼 셸
+          content:
+            '*/*':
+              schema:
+                type: string
+        "404":
+          description: 없는 slug 또는 draft (HTML 안내)
+          content:
+            '*/*':
+              schema:
+                type: string
+        "410":
+          description: closed (HTML 안내)
+          content:
+            '*/*':
+              schema:
+                type: string
+      servers:
+      - url: http://localhost:8081
+        description: "public 출처 (PUBLIC_BASE_URL). /f, /l, /api/public 경로는 이 출처에서만\
+          \ 열린다"
+  /l/{code}:
+    get:
+      tags:
+      - 공개 링크
+      summary: 단축 URL 리다이렉트
+      description: "302 Location: /f/{slug}?lm={code}"
+      operationId: redirect
+      parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "302":
+          description: 공개 폼으로 이동
+          content:
+            '*/*':
+              schema:
+                type: string
+        "404":
+          description: 없는 code 또는 draft 폼 (HTML 안내)
+          content:
+            '*/*':
+              schema:
+                type: string
+        "410":
+          description: closed 폼 (HTML 안내)
+          content:
+            '*/*':
+              schema:
+                type: string
+      servers:
+      - url: http://localhost:8081
+        description: "public 출처 (PUBLIC_BASE_URL). /f, /l, /api/public 경로는 이 출처에서만\
+          \ 열린다"
+components:
+  schemas:
+    SubmissionRequest:
+      type: object
+      properties:
+        fields:
+          type: object
+          additionalProperties: {}
+          description: 필드 이름 → 문자열 또는 문자열 배열(checkbox)
+        consent:
+          type: string
+          description: 개인정보 수집·이용 동의. true여야 한다
+        lm:
+          type: string
+          description: "배포 링크 code(/f/{slug}?lm=...). 없으면 direct"
+    SubmissionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+    FormField:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        required:
+          type: boolean
+        label:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+    TemplateResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        size:
+          type: integer
+          format: int32
+        sha256:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormField"
+        createdAt:
+          type: string
+          format: date-time
+    CreateLinkRequest:
+      type: object
+      properties:
+        channel:
+          type: string
+    LinkResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        channel:
+          type: string
+        code:
+          type: string
+        url:
+          type: string
+        utmSource:
+          type: string
+        utmMedium:
+          type: string
+        utmCampaign:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    CreateCampaignRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+    CampaignResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        forms:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormSummary"
+    FormSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+    CreateFormRequest:
+      type: object
+      properties:
+        templateId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        consentText:
+          type: string
+        slug:
+          type: string
+    FormResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        campaignId:
+          type: integer
+          format: int64
+        templateId:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        title:
+          type: string
+        consentText:
+          type: string
+        fieldConfig:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormField"
+        status:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          minLength: 0
+        password:
+          type: string
+          maxLength: 200
+          minLength: 0
+      required:
+      - email
+      - password
+    FieldChange:
+      type: object
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        required:
+          type: boolean
+    UpdateFormRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        consentText:
+          type: string
+        fieldConfig:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldChange"
+        status:
+          type: string
+    UpdateCampaignRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+    PublicFormResponse:
+      type: object
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        consentText:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormField"
+        html:
+          type: string
+    TemplateSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        size:
+          type: integer
+          format: int32
+        fieldCount:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+    TemplateDetailResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        size:
+          type: integer
+          format: int32
+        sha256:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormField"
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    CampaignListStatsResponse:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/Item"
+    Item:
+      type: object
+      properties:
+        campaignId:
+          type: integer
+          format: int64
+        name:
+          type: string
+        status:
+          type: string
+        visits:
+          type: integer
+          format: int64
+        visitors:
+          type: integer
+          format: int64
+        leads:
+          type: integer
+          format: int64
+        convertedVisitors:
+          type: integer
+          format: int64
+        conversionRate:
+          type: number
+    CampaignSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        status:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        formCount:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+    CampaignStatsResponse:
+      type: object
+      properties:
+        campaignId:
+          type: integer
+          format: int64
+        from:
+          type: string
+        to:
+          type: string
+        visits:
+          type: integer
+          format: int64
+        visitors:
+          type: integer
+          format: int64
+        leads:
+          type: integer
+          format: int64
+        convertedVisitors:
+          type: integer
+          format: int64
+        conversionRate:
+          type: number
+    ChannelStatsResponse:
+      type: object
+      properties:
+        campaignId:
+          type: integer
+          format: int64
+        from:
+          type: string
+        to:
+          type: string
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Item"
+    LeadPageResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeadResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    LeadResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        formId:
+          type: integer
+          format: int64
+        formTitle:
+          type: string
+        channel:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        payload:
+          type: object
+          additionalProperties: {}
+        createdAt:
+          type: string
+          format: date-time
+    MeResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

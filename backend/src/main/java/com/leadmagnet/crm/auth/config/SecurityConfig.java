@@ -70,7 +70,7 @@ public class SecurityConfig {
     SecurityFilterChain defaultChain(HttpSecurity http, ProblemDetailSecurityHandler problemHandler) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // 컨트롤러 밖에서 난 오류를 Boot 기본 오류 응답으로 내보내기 위한 경로
                 .requestMatchers("/error").permitAll()
                 .anyRequest().denyAll())

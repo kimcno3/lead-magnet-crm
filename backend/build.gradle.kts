@@ -41,6 +41,8 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // OpenApiExportTest: -Dopenapi.verify=true 이면 docs/api/openapi.yaml과 비교만 한다
+    systemProperty("openapi.verify", System.getProperty("openapi.verify", "false"))
 }
 
 tasks.jar {

@@ -18,6 +18,8 @@ cd backend
 ./gradlew test --tests 'com.leadmagnet.crm.HealthCheckTest'          # 테스트 클래스 하나
 ./gradlew test --tests 'com.leadmagnet.crm.HealthCheckTest.헬스체크는_UP을_반환한다'  # 메서드 하나
 ./gradlew bootRun
+./gradlew test --tests '*OpenApiExportTest'           # docs/api/openapi.yaml 재생성(앱이 내보낸 /v3/api-docs.yaml). API를 바꾸면 커밋에 포함
+./gradlew test -Dopenapi.verify=true --tests '*OpenApiExportTest'   # 커밋된 파일이 최신인지만 확인(파일을 쓰지 않음)
 
 # admin-web
 cd admin-web
@@ -42,6 +44,7 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
   - 스키마는 `src/main/resources/db/migration/V*.sql`(Flyway)이 유일한 원천이다. 상태·채널 값과 링크·채널 일관성은 CHECK 제약으로 DB에서도 막는다.
   - 도메인 패키지는 `domain`(엔티티·리포지토리), `application`(유스케이스 서비스), `api`(컨트롤러·DTO), `config`(보안·웹 설정)로 나눈다.
   - 인증(ADR 0003): `auth/config/SecurityConfig`에 필터 체인 세 개(admin `/api/admin/**` Bearer JWT, public `/f/**`·`/l/**`·`/api/public/**` permitAll·인증 헤더 무시, 기본 체인은 헬스·문서 외 denyAll). 토큰 발급·교체는 `auth/application/AuthService`, 키·CORS·쿠키 설정은 `AuthProperties`(`JWT_SECRET` 필수, `ADMIN_ORIGIN`, `COOKIE_SECURE`). 현재 시각은 `Clock` 빈(`common/ClockConfig`)으로 얻는다.
+  - API 문서: 컨트롤러의 springdoc 애너테이션과 `common/OpenApiConfig`(서버·설명, 공개 경로는 오퍼레이션 단위로 :8081을 가리킴)가 만든다. 문서 엔드포인트는 admin 포트에서만 열리고 공개 컨트롤러도 같은 문서에 들어간다. `docs/api/openapi.yaml`은 `docs/OpenApiExportTest`가 쓴다(손으로 고치지 않는다).
   - 에러는 `common/error`의 `ErrorCode`·`DomainException`을 던지면 `GlobalExceptionHandler`가 ProblemDetail(`code` 포함)로 바꾼다. Security 401·403도 같은 형식이다.
   - 캠페인·폼(ADR 0013): `campaign`과 `form` 애그리거트는 서로 id로만 참조한다. 폼의 `fieldConfig`는 생성 시 템플릿 `fields`를 복사한 스냅샷이며 `label`·`required`만 draft에서 수정할 수 있다. 상태 값은 DB CHECK에 맞춰 소문자로 저장하므로(`*StatusConverter`) enum에 `@Enumerated`를 쓰지 않는다.
   - 배포 링크(ADR 0006): `link` 패키지. 폼당 채널별 링크 하나는 DB 유니크가 아니라 `LinkService`가 지킨다. `/l/{code}`는 방문을 기록하지 않고 `/f/{slug}?lm={code}`로 302만 하며(방문자 쿠키만 발급), 채널 귀속은 `LinkService.attribute`/`resolveForForm`으로 한다. URL 앞부분은 `PUBLIC_BASE_URL`(`app.public-base-url`).
@@ -60,7 +63,7 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
   - 공개 폼 URL 앞부분은 링크 응답 `url`에서 얻고 없으면 빌드 시 `VITE_PUBLIC_BASE_URL`(compose가 `PUBLIC_BASE_URL`을 빌드 인자로 넘김).
   - 화면 테스트는 `src/test/http.ts`의 `mockBackend`(경로별 가짜 fetch, refresh·me 기본 응답 포함)와 `src/test/render.tsx`의 `renderPage`로 쓴다.
 - `docker-compose.yml`: postgres → backend → admin-web 순서로 헬스체크를 기다린다. 값은 루트 `.env`에서 읽는다.
-- `docs/`: `PLAN.md`(과제 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `ROADMAP.md`(범위 밖), `adr/`.
+- `docs/`: `PLAN.md`(과제 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `OVERVIEW.md`(제출 개요), `api/openapi.yaml`, `ROADMAP.md`(범위 밖), `adr/`.
 - `scripts/bootstrap-github.sh`: 라벨·마일스톤·이슈를 gh api로 만든다. 여러 번 실행해도 안전하다.
 
 ## 보안 불변식 (위반 금지)
