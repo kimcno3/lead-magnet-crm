@@ -8,21 +8,22 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.leadmagnet.crm.common.SchedulingConfig;
 import com.leadmagnet.crm.lead.application.LeadRetentionService;
 import java.util.List;
+import org.slf4j.LoggerFactory;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.config.CronTask;
 import org.springframework.scheduling.config.ScheduledTask;
 import org.springframework.scheduling.config.ScheduledTaskHolder;
 
-@ExtendWith(OutputCaptureExtension.class)
 class RetentionSchedulerTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
@@ -60,16 +61,31 @@ class RetentionSchedulerTest {
     }
 
     @Test
-    void scheduled로_실행하고_실패해도_예외를_밖으로_던지지_않고_예외_종류만_ERROR로_남긴다(CapturedOutput output) {
+    void scheduled로_실행하고_실패해도_예외를_밖으로_던지지_않고_예외_종류만_ERROR로_남긴다() {
         LeadRetentionService service = mock(LeadRetentionService.class);
         when(service.run(eq(LeadRetentionService.TRIGGER_SCHEDULED), any()))
             .thenThrow(new IllegalStateException("db down 01012345678"));
-
-        new RetentionScheduler(service).runDaily();
+        // 콘솔로 흘리지 않고 이 테스트 안에서만 잡는다(ERROR 줄이 테스트 출력에 섞이지 않게 한다)
+        Logger logger = (Logger) LoggerFactory.getLogger(RetentionScheduler.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        boolean additive = logger.isAdditive();
+        logger.setAdditive(false);
+        try {
+            new RetentionScheduler(service).runDaily();
+        } finally {
+            logger.setAdditive(additive);
+            logger.detachAppender(appender);
+        }
 
         verify(service).run(eq(LeadRetentionService.TRIGGER_SCHEDULED), any());
-        assertThat(output.getAll()).contains("ERROR").contains("보존 기간 파기 실패: 원인=java.lang.IllegalStateException")
-            .doesNotContain("db down").doesNotContain("01012345678").doesNotContain("\tat ");
+        assertThat(appender.list).hasSize(1);
+        ILoggingEvent event = appender.list.get(0);
+        assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+        assertThat(event.getFormattedMessage()).contains("보존 기간 파기 실패: 원인=java.lang.IllegalStateException")
+            .doesNotContain("db down").doesNotContain("01012345678");
+        assertThat(event.getThrowableProxy()).isNull();
     }
 
     @Test
