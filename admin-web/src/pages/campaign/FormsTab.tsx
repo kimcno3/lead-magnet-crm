@@ -160,6 +160,12 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
         </div>
       </section>
 
+      {form.data?.publishedTemplateSha256 && form.data.publishedTemplateSha256 !== form.data.templateSha256 && (
+        <p className="note" role="status">
+          게시 시점 템플릿과 현재 템플릿이 다릅니다. 이 폼은 게시할 때의 내용 그대로 공개되고, 새 버전은 반영되지 않습니다.
+        </p>
+      )}
+
       <section className="panel-block" aria-label="공개 URL">
         <h3>공개 URL</h3>
         <div className="inline-row">

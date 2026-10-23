@@ -21,3 +21,4 @@
 | [0015](0015-pii-encryption.md) | 개인정보 암호화 | 승인 |
 | [0016](0016-audit-log.md) | 감사 로그와 명단 CSV 다운로드 | 승인 |
 | [0017](0017-template-inspection.md) | 업로드 HTML 검사 리포트 | 승인 |
+| [0018](0018-publish-snapshot.md) | 게시 시 템플릿 스냅샷과 새 버전 업로드 | 승인 |

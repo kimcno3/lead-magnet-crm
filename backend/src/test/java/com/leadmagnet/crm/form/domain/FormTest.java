@@ -16,6 +16,9 @@ class FormTest {
     static final Instant T1 = T0.plusSeconds(60);
     static final Instant T2 = T0.plusSeconds(120);
 
+    static final String HTML = "<form></form>";
+    static final String SHA = "a".repeat(64);
+
     static final List<FormField> FIELDS = List.of(
         new FormField("name", "text", true, "이름", null),
         new FormField("plan", "select", false, "플랜", List.of("a", "b")));
@@ -50,17 +53,66 @@ class FormTest {
     void 게시하면_published이고_publishedAt이_기록된다() {
         Form f = draft();
 
-        f.publish(T1);
+        f.publish(T1, HTML, SHA);
 
         assertThat(f.getStatus()).isEqualTo(FormStatus.PUBLISHED);
         assertThat(f.getPublishedAt()).isEqualTo(T1);
         assertThat(f.getUpdatedAt()).isEqualTo(T1);
+        assertThat(f.getPublishedHtml()).isEqualTo(HTML);
+        assertThat(f.getPublishedTemplateSha256()).isEqualTo(SHA);
+    }
+
+    @Test
+    void draft는_스냅샷이_없다() {
+        assertThat(draft().getPublishedHtml()).isNull();
+        assertThat(draft().getPublishedTemplateSha256()).isNull();
+    }
+
+    @Test
+    void 다시_스냅샷하면_새_필드를_따르고_운영자가_바꾼_label과_required만_유지한다() {
+        Form f = draft();
+        f.edit(null, null, List.of(new FieldChange("name", "신청자", null), new FieldChange("plan", null, true)), T1);
+        List<FormField> next = List.of(
+            new FormField("name", "text", false, "성함", null),
+            new FormField("plan", "select", false, "플랜 v2", List.of("a", "b", "c")),
+            new FormField("memo", "text", false, "메모", null));
+
+        f.resnapshotFields(FIELDS, next, T2);
+
+        assertThat(f.getFieldConfig()).containsExactly(
+            new FormField("name", "text", false, "신청자", null),            // label만 override, required는 새 값
+            new FormField("plan", "select", true, "플랜 v2", List.of("a", "b", "c")), // required만 override, 옵션은 새 값
+            new FormField("memo", "text", false, "메모", null));
+        assertThat(f.getUpdatedAt()).isEqualTo(T2);
+    }
+
+    @Test
+    void 다시_스냅샷할_때_없어진_필드는_사라지고_타입이_바뀐_필드의_수정은_유지하지_않는다() {
+        Form f = draft();
+        f.edit(null, null, List.of(new FieldChange("name", "신청자", null), new FieldChange("plan", "내 플랜", true)), T1);
+        List<FormField> next = List.of(
+            new FormField("plan", "checkbox", false, "동의 플랜", null)); // name 삭제, plan은 select → checkbox
+
+        f.resnapshotFields(FIELDS, next, T2);
+
+        assertThat(f.getFieldConfig()).containsExactly(new FormField("plan", "checkbox", false, "동의 플랜", null));
+    }
+
+    @Test
+    void 게시된_폼은_다시_스냅샷할_수_없다() {
+        Form f = draft();
+        f.publish(T1, HTML, SHA);
+
+        assertThatThrownBy(() -> f.resnapshotFields(FIELDS, FIELDS, T2))
+            .isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.FORM_NOT_EDITABLE));
+        assertThat(f.getFieldConfig()).isEqualTo(FIELDS);
     }
 
     @Test
     void 마감하면_closed이고_closedAt이_기록된다() {
         Form f = draft();
-        f.publish(T1);
+        f.publish(T1, HTML, SHA);
 
         f.close(T2);
 
@@ -72,14 +124,14 @@ class FormTest {
     @Test
     void 잘못된_전이는_409_invalid_form_transition이다() {
         Form published = draft();
-        published.publish(T1);
+        published.publish(T1, HTML, SHA);
         Form closed = draft();
-        closed.publish(T1);
+        closed.publish(T1, HTML, SHA);
         closed.close(T2);
 
         assertTransition(() -> draft().close(T1));
-        assertTransition(() -> published.publish(T2));
-        assertTransition(() -> closed.publish(T2));
+        assertTransition(() -> published.publish((T2), HTML, SHA));
+        assertTransition(() -> closed.publish((T2), HTML, SHA));
         assertTransition(() -> closed.close(T2));
     }
 
@@ -170,7 +222,7 @@ class FormTest {
         assertThatThrownBy(f::ensurePublic).isInstanceOf(DomainException.class)
             .extracting(e -> ((DomainException) e).getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND);
 
-        f.publish(T1);
+        f.publish(T1, HTML, SHA);
         f.ensurePublic();
 
         f.close(T2);
@@ -181,9 +233,9 @@ class FormTest {
     @Test
     void draft가_아니면_수정은_409_form_not_editable이다() {
         Form published = draft();
-        published.publish(T1);
+        published.publish(T1, HTML, SHA);
         Form closed = draft();
-        closed.publish(T1);
+        closed.publish(T1, HTML, SHA);
         closed.close(T2);
 
         for (Form f : List.of(published, closed)) {

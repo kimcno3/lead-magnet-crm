@@ -82,12 +82,25 @@ public class TemplateService {
 
     @Transactional(readOnly = true)
     public List<HtmlTemplate> list() {
-        return templates.findAllByOrderByCreatedAtDescIdDesc();
+        return templates.findAllByOrderByUpdatedAtDescIdDesc();
     }
 
     @Transactional(readOnly = true)
     public HtmlTemplate get(long id) {
         return templates.findById(id).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+    }
+
+    /** 존재만 확인한다. 엔티티를 영속성 컨텍스트에 올리지 않으므로 뒤이은 {@code getForUpdate}가 잠금 뒤의 최신 상태를 읽는다. */
+    @Transactional(readOnly = true)
+    public void requireExists(long id) {
+        if (!templates.existsById(id)) {
+            throw new DomainException(ErrorCode.NOT_FOUND);
+        }
+    }
+
+    /** 행을 잠그고 읽는다. 같은 트랜잭션에서 먼저 {@code get}으로 엔티티를 읽었다면 잠금 뒤에도 낡은 상태가 남으므로, 호출 전에 템플릿 엔티티를 읽지 않는다. 호출한 트랜잭션이 끝날 때까지 다른 게시·새 버전 업로드는 기다린다. */
+    public HtmlTemplate getForUpdate(long id) {
+        return templates.findByIdForUpdate(id).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
     }
 
     private static String baseName(String filename) {

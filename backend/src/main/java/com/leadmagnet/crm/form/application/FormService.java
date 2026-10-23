@@ -46,7 +46,8 @@ public class FormService {
             throw DomainException.validation("templateId", "templateId가 필요합니다");
         }
         Form.validateContent(title, consentText);
-        HtmlTemplate template = templates.get(templateId);
+        // 새 버전 업로드가 이 템플릿의 draft 폼을 다시 스냅샷하는 중이면 끝날 때까지 기다린다(ADR 0018 잠금 경로 1).
+        HtmlTemplate template = templates.getForUpdate(templateId);
         Slug slug = requestedSlug != null ? new Slug(requestedSlug) : randomFreeSlug();
         if (forms.existsBySlug(slug.value())) {
             throw new DomainException(ErrorCode.SLUG_TAKEN);
@@ -69,7 +70,11 @@ public class FormService {
 
     /** null인 필드는 바꾸지 않는다. 내용 수정은 draft에서만, status는 "published"·"closed"만 받는다. */
     public Form update(long id, String title, String consentText, List<FieldChange> fieldConfig, String status) {
-        Form form = find(id);
+        // 잠금 순서는 템플릿 → 폼이다. 새 버전 업로드도 같은 순서라 교착이 없고, 게시는 새 버전이 커밋된 뒤의
+        // 템플릿과 필드를 함께 읽는다(ADR 0018).
+        Long templateId = forms.findTemplateIdById(id).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+        HtmlTemplate template = templates.getForUpdate(templateId);
+        Form form = forms.findByIdForUpdate(id).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         if (status != null && !PUBLISHED.equals(status) && !CLOSED.equals(status)) {
             throw DomainException.validation("status", "status는 \"published\" 또는 \"closed\"만 지정할 수 있습니다");
         }
@@ -78,11 +83,17 @@ public class FormService {
             form.edit(title, consentText, fieldConfig, now);
         }
         if (PUBLISHED.equals(status)) {
-            form.publish(now);
+            form.publish(now, template.getContent(), template.getSha256());
         } else if (CLOSED.equals(status)) {
             form.close(now);
         }
         return form;
+    }
+
+    /** 폼의 템플릿이 지금 가진 sha256. 게시 시점 스냅샷과 비교해 템플릿이 바뀌었는지 알리는 데 쓴다. */
+    @Transactional(readOnly = true)
+    public String currentTemplateSha256(Form form) {
+        return templates.get(form.getTemplateId()).getSha256();
     }
 
     private Slug randomFreeSlug() {

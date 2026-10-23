@@ -49,23 +49,42 @@ public class HtmlTemplate {
     @Column(name = "created_by", nullable = false, updatable = false)
     private Long createdBy;
 
+    /** 새 버전을 올릴 때마다 1씩 오른다 (ADR 0018). */
+    @Column(nullable = false)
+    private int version;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
     protected HtmlTemplate() {
     }
 
     private HtmlTemplate(String name, String content, List<FormField> fields, List<InspectionWarning> inspection,
             Long createdBy, Instant createdAt) {
-        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         this.name = name;
+        this.createdBy = createdBy;
+        this.createdAt = createdAt;
+        this.version = 1;
+        applyContent(content, fields, inspection, createdAt);
+    }
+
+    private void applyContent(String content, List<FormField> fields, List<InspectionWarning> inspection, Instant now) {
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         this.content = content;
         this.sha256 = sha256Hex(bytes);
         this.fields = List.copyOf(fields);
         this.inspection = List.copyOf(inspection);
         this.size = bytes.length;
-        this.createdBy = createdBy;
-        this.createdAt = createdAt;
+        this.updatedAt = now;
+    }
+
+    /** 새 버전: 내용·sha256·필드·크기·검사 결과를 바꾸고 버전을 올린다. 이름과 만든 사람은 그대로다. */
+    public void newVersion(String content, List<FormField> fields, List<InspectionWarning> inspection, Instant now) {
+        applyContent(content, fields, inspection, now);
+        this.version++;
     }
 
     public static HtmlTemplate create(String name, String content, List<FormField> fields,
@@ -114,7 +133,15 @@ public class HtmlTemplate {
         return createdBy;
     }
 
+    public int getVersion() {
+        return version;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 }

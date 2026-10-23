@@ -38,7 +38,7 @@ public class FormController {
     public ResponseEntity<FormResponse> create(@PathVariable long campaignId, @RequestBody CreateFormRequest request) {
         Form created = formService.create(campaignId, request.templateId(), request.title(), request.consentText(),
             request.slug());
-        return ResponseEntity.created(URI.create("/api/admin/forms/" + created.getId())).body(FormResponse.from(created));
+        return ResponseEntity.created(URI.create("/api/admin/forms/" + created.getId())).body(response(created));
     }
 
     @Operation(operationId = "getForm", summary = "폼 상세", security = @SecurityRequirement(name = "bearer"))
@@ -47,7 +47,7 @@ public class FormController {
     @ApiResponse(responseCode = "404", description = "not_found")
     @GetMapping("/forms/{id}")
     public FormResponse get(@PathVariable long id) {
-        return FormResponse.from(formService.get(id));
+        return response(formService.get(id));
     }
 
     @Operation(operationId = "updateForm", summary = "폼 수정·게시·마감",
@@ -61,7 +61,11 @@ public class FormController {
     @ApiResponse(responseCode = "422", description = "validation_failed (필드 추가·삭제·이름 변경 포함)")
     @PatchMapping("/forms/{id}")
     public FormResponse update(@PathVariable long id, @RequestBody UpdateFormRequest request) {
-        return FormResponse.from(formService.update(id, request.title(), request.consentText(),
+        return response(formService.update(id, request.title(), request.consentText(),
             request.fieldConfig(), request.status()));
+    }
+
+    private FormResponse response(Form form) {
+        return FormResponse.from(form, formService.currentTemplateSha256(form));
     }
 }
