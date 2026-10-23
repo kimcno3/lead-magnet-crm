@@ -4,8 +4,10 @@ import { fileURLToPath } from 'node:url'
 
 export const E2E_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const REPO_DIR = resolve(E2E_DIR, '..')
-export const SCREENSHOT_DIR = resolve(REPO_DIR, 'docs/e2e/screenshots')
-export const RESULTS_FILE = resolve(REPO_DIR, 'docs/e2e/results.json')
+// 결과 위치. 로컬 실행은 docs/e2e를 갱신하고(커밋 대상), CI는 E2E_OUTPUT_DIR로 저장소 밖 경로를 줘 커밋 파일을 덮지 않는다.
+export const OUTPUT_DIR = process.env.E2E_OUTPUT_DIR ? resolve(process.env.E2E_OUTPUT_DIR) : resolve(REPO_DIR, 'docs/e2e')
+export const SCREENSHOT_DIR = resolve(OUTPUT_DIR, 'screenshots')
+export const RESULTS_FILE = resolve(OUTPUT_DIR, 'results.json')
 export const STEPS_FILE = resolve(E2E_DIR, '.steps.jsonl')
 export const STATE_FILE = resolve(E2E_DIR, '.state.json')
 export const FIXTURES = resolve(E2E_DIR, 'fixtures')
