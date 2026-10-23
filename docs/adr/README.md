@@ -14,6 +14,6 @@
 | [0008](0008-lead-data-storage.md) | 신청 데이터 저장 구조 | 승인 |
 | [0009](0009-operator-seed.md) | 운영자 시드 | 승인 |
 | [0010](0010-single-app-two-ports.md) | 단일 앱·포트 분리 | 승인 |
-| 0011 | 관리자 UI | 예정 |
+| [0011](0011-admin-ui.md) | 관리자 UI | 승인 |
 | 0012 | 브랜치·환경 전략 | 예정 |
 | [0013](0013-campaign-form-status.md) | 캠페인·폼 상태 모델 | 승인 |
