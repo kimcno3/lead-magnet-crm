@@ -18,7 +18,7 @@ export function FieldsTable({ fields, caption }: { fields: FormField[]; caption:
         <tbody>
           {fields.map((f) => (
             <tr key={f.name}>
-              <td className="mono">{f.name}</td>
+              <td className="mono" translate="no">{f.name}</td>
               <td className="mono">{f.type}</td>
               <td>{f.required ? '필수' : '선택'}</td>
               <td>{f.label || <span className="muted">-</span>}</td>

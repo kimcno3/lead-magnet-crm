@@ -13,7 +13,7 @@ export function Layout() {
         본문으로 건너뛰기
       </a>
       <aside className="sidebar">
-        <p className="brand">리드마그넷 CRM</p>
+        <p className="brand" translate="no">리드마그넷 CRM</p>
         <nav aria-label="주 메뉴">
           <ul className="nav">
             <li>
@@ -25,7 +25,7 @@ export function Layout() {
           </ul>
         </nav>
         <div className="sidebar-foot">
-          <p className="operator" title={operator?.email}>
+          <p className="operator" title={operator?.email} translate="no">
             {operator?.email}
           </p>
           <Button

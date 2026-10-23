@@ -9,6 +9,7 @@ import { Dialog } from '../components/Dialog'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { errorText } from '../errors'
+import { focusFirstInvalid } from '../dom'
 import { Field } from '../components/Field'
 import { PageHeader, SkeletonRows, TableWrap } from '../components/Table'
 import { formatNumber, formatPercent, formatPeriod, seoulDateToInstant } from '../format'
@@ -119,8 +120,9 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
     setFormError(null)
   }
 
-  async function submit(e: FormEvent) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    const formEl = e.currentTarget
     setBusy(true)
     setErrors({})
     setFormError(null)
@@ -134,8 +136,10 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
       reset()
       onCreated(created.id)
     } catch (err) {
-      if (err instanceof ApiError && err.errors.length) setErrors(err.fieldErrors)
-      else setFormError(errorText(err))
+      if (err instanceof ApiError && err.errors.length) {
+        setErrors(err.fieldErrors)
+        focusFirstInvalid(formEl)
+      } else setFormError(errorText(err))
     } finally {
       setBusy(false)
     }
@@ -170,7 +174,7 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
           {(p) => <input {...p} type="text" value={name} autoComplete="off" onChange={(e) => setName(e.target.value)} required />}
         </Field>
         <Field label="설명" optional error={errors.description}>
-          {(p) => <textarea {...p} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />}
+          {(p) => <textarea {...p} rows={3} autoComplete="off" value={description} onChange={(e) => setDescription(e.target.value)} />}
         </Field>
         <div className="field-row">
           <Field label="시작일" optional error={errors.startsAt}>

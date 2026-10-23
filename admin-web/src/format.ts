@@ -7,6 +7,7 @@ const percentFormat = new Intl.NumberFormat('ko-KR', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
+const oneDecimal = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 const partsFormat = new Intl.DateTimeFormat('en-CA', {
   timeZone: TIME_ZONE,
   year: 'numeric',
@@ -62,8 +63,8 @@ export function seoulDateToInstant(date: string, edge: 'start' | 'end'): string 
 
 export function formatBytes(size: number): string {
   if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  if (size < 1024 * 1024) return `${oneDecimal.format(size / 1024)} KB`
+  return `${oneDecimal.format(size / (1024 * 1024))} MB`
 }
 
 /** 국내 전화번호 숫자열을 하이픈 형식으로. 모르는 형식은 원문 그대로. */

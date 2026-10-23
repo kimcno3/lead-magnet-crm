@@ -16,6 +16,8 @@ body {
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  /* 한국어는 어절 단위로 줄바꿈한다. 긴 URL·이메일은 .break / .url이 따로 끊는다. */
+  word-break: keep-all;
 }
 
 h1,

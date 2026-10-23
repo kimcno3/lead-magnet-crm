@@ -567,6 +567,8 @@
   border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .tab {
@@ -722,6 +724,14 @@
   display: inline-flex;
 }
 
+.table .inline-row {
+  flex-wrap: nowrap;
+}
+
+.table .url {
+  white-space: nowrap;
+}
+
 /* ---------- 템플릿 상세 ---------- */
 .split {
   display: grid;
@@ -862,4 +872,26 @@
 
 .login h1 {
   margin-bottom: 4px;
+}
+
+/* 펼친 폼 패널이 바깥 표 폭을 늘리지 않도록 고정 레이아웃. 패널 안 표는 자체 스크롤한다. */
+.table-expandable {
+  table-layout: fixed;
+  min-width: 560px;
+}
+
+.table-expandable th:nth-child(1) {
+  width: 38%;
+}
+
+.table-expandable th:nth-child(2) {
+  width: 26%;
+}
+
+.table-expandable th:nth-child(3) {
+  width: 14%;
+}
+
+.table-expandable td {
+  overflow-wrap: anywhere;
 }

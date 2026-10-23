@@ -1,5 +1,5 @@
 import { Fragment, useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { ApiError } from '../../api/client'
 import { createForm, getForm, updateForm } from '../../api/forms'
 import { createLink, listLinks } from '../../api/links'
@@ -13,6 +13,7 @@ import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorMessage } from '../../components/ErrorMessage'
 import { errorText } from '../../errors'
+import { focusFirstInvalid } from '../../dom'
 import { Field } from '../../components/Field'
 import { FieldsTable } from '../../components/FieldsTable'
 import { TableWrap } from '../../components/Table'
@@ -21,7 +22,20 @@ import { useAsync } from '../../hooks'
 import { CHANNEL_LABELS, publicBaseFrom } from '../../labels'
 
 export function FormsTab({ campaign, onChanged }: { campaign: Campaign; onChanged: () => void }) {
-  const [openId, setOpenId] = useState<number | null>(null)
+  // 펼친 폼은 URL(?open=)에 남겨 새로고침·공유해도 같은 패널이 열린다.
+  const [params, setParams] = useSearchParams()
+  const openId = Number(params.get('open')) || null
+  function setOpenId(id: number | null) {
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (id) next.set('open', String(id))
+        else next.delete('open')
+        return next
+      },
+      { replace: true },
+    )
+  }
   const [creating, setCreating] = useState(false)
   const archived = campaign.status === 'archived'
 
@@ -75,7 +89,7 @@ export function FormsTab({ campaign, onChanged }: { campaign: Campaign; onChange
                           {f.title}
                         </button>
                       </td>
-                      <td className="mono">{f.slug}</td>
+                      <td className="mono" translate="no">{f.slug}</td>
                       <td>
                         <StatusBadge status={f.status} />
                       </td>
@@ -151,7 +165,7 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
       <section className="panel-block" aria-label="공개 URL">
         <h3>공개 URL</h3>
         <div className="inline-row">
-          <code className="url">{publicUrl}</code>
+          <code className="url" translate="no">{publicUrl}</code>
           <CopyButton text={publicUrl} />
           {status === 'published' && (
             <a className="btn btn-ghost btn-sm" href={publicUrl} target="_blank" rel="noopener noreferrer">
@@ -188,7 +202,7 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
                     <td>
                       {link ? (
                         <span className="inline-row">
-                          <code className="url">{link.url}</code>
+                          <code className="url" translate="no">{link.url}</code>
                           <CopyButton text={link.url} />
                         </span>
                       ) : links.data ? (
@@ -204,7 +218,7 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
                         <span className="skeleton" aria-hidden="true" />
                       )}
                     </td>
-                    <td className="mono small">
+                    <td className="mono small nowrap">
                       {link ? `${link.utmSource} / ${link.utmMedium} / ${link.utmCampaign}` : <span className="muted">-</span>}
                     </td>
                   </tr>
@@ -295,7 +309,7 @@ function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () => void 
           <tbody>
             {rows.map((r, i) => (
                 <tr key={r.name}>
-                  <td className="mono">{r.name}</td>
+                  <td className="mono" translate="no">{r.name}</td>
                   <td className="mono">{r.type}</td>
                   <td>
                     <input
@@ -360,8 +374,9 @@ function NewFormDialog({
     onClose()
   }
 
-  async function submit(e: FormEvent) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    const formEl = e.currentTarget
     setBusy(true)
     setErrors({})
     setFormError(null)
@@ -381,6 +396,7 @@ function NewFormDialog({
       if (err instanceof ApiError && err.code === 'slug_taken') setErrors({ slug: err.message })
       else if (err instanceof ApiError && err.errors.length) setErrors(err.fieldErrors)
       else setFormError(errorText(err))
+      focusFirstInvalid(formEl)
     } finally {
       setBusy(false)
     }
@@ -425,7 +441,7 @@ function NewFormDialog({
               {(p) => <input {...p} type="text" value={title} autoComplete="off" onChange={(e) => setTitle(e.target.value)} required />}
             </Field>
             <Field label="동의 문구" error={errors.consentText} hint="신청자가 체크해야 하는 개인정보 수집·이용 동의 문구입니다">
-              {(p) => <textarea {...p} rows={4} value={consentText} onChange={(e) => setConsentText(e.target.value)} required />}
+              {(p) => <textarea {...p} rows={4} autoComplete="off" value={consentText} onChange={(e) => setConsentText(e.target.value)} required />}
             </Field>
             <Field label="slug" optional error={errors.slug} hint="공개 주소 /f/{slug}. 비우면 자동으로 만듭니다. 소문자·숫자·하이픈 3~64자">
               {(p) => (

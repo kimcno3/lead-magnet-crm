@@ -7,6 +7,7 @@ import { Dialog } from '../components/Dialog'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { errorText } from '../errors'
+import { focusFirstInvalid } from '../dom'
 import { Field } from '../components/Field'
 import { PageHeader, SkeletonRows, TableWrap } from '../components/Table'
 import { formatBytes, formatDateTime, formatNumber } from '../format'
@@ -110,10 +111,11 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
     pick(e.dataTransfer.files[0])
   }
 
-  async function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!file) {
       setFileError('업로드할 HTML 파일을 골라 주세요')
+      focusFirstInvalid(e.currentTarget)
       return
     }
     setBusy(true)
