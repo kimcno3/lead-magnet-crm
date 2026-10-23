@@ -1,5 +1,6 @@
 package com.leadmagnet.crm.form.domain;
 
+import com.leadmagnet.crm.common.TextInput;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.template.domain.FormField;
@@ -154,8 +155,9 @@ public class Form {
             if (field == null || field.name() == null || !seen.add(field.name())) {
                 throw invalid("fieldConfig", "fieldConfig의 필드 이름이 올바르지 않거나 중복되었습니다");
             }
-            if (field.label() != null && (field.label().isBlank() || field.label().length() > MAX_LABEL_LENGTH)) {
-                throw invalid("fieldConfig", "필드 label은 1~" + MAX_LABEL_LENGTH + "자여야 합니다: " + field.name());
+            if (field.label() != null && (field.label().isBlank() || field.label().length() > MAX_LABEL_LENGTH
+                    || TextInput.containsForbiddenControl(field.label()))) {
+                throw invalid("fieldConfig", "필드 label은 제어 문자 없이 1~" + MAX_LABEL_LENGTH + "자여야 합니다: " + field.name());
             }
         }
         Set<String> existing = new HashSet<>();
@@ -183,11 +185,17 @@ public class Form {
         if (title == null || title.isBlank() || title.trim().length() > MAX_TITLE_LENGTH) {
             throw invalid("title", "title은 1~" + MAX_TITLE_LENGTH + "자여야 합니다");
         }
+        if (TextInput.containsForbiddenControl(title)) {
+            throw invalid("title", "title에는 제어 문자를 쓸 수 없습니다");
+        }
     }
 
     private static void validateConsent(String consentText) {
         if (consentText == null || consentText.isBlank() || consentText.length() > MAX_CONSENT_LENGTH) {
             throw invalid("consentText", "consentText는 1~" + MAX_CONSENT_LENGTH + "자여야 합니다");
+        }
+        if (TextInput.containsForbiddenControl(consentText)) {
+            throw invalid("consentText", "consentText에는 제어 문자를 쓸 수 없습니다");
         }
     }
 

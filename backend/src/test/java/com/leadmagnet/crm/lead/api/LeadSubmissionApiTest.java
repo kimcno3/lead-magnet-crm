@@ -427,6 +427,23 @@ class LeadSubmissionApiTest {
     }
 
     @Test
+    void 이름_이메일_payload에_NUL이_있으면_422_invalid_value이고_저장하지_않으며_로그에_값을_남기지_않는다(
+            CapturedOutput output) {
+        submit("spring-2026", fields("name", "홍\u0000길동", "phone", PHONE, "email", "secret.person@example.com"))
+            .then().statusCode(422).body("errors.find { it.field == 'name' }.code", equalTo("invalid_value"));
+        submit("spring-2026", fields("name", "홍길동", "phone", PHONE, "email", "secret.\u0000person@example.com"))
+            .then().statusCode(422).body("errors.find { it.field == 'email' }.code", equalTo("invalid_value"));
+        submit("spring-2026", fields("name", "홍길동", "phone", PHONE, "email", "secret.person@example.com",
+            "memo", "비밀\u0000메모"))
+            .then().statusCode(422).body("errors.find { it.field == 'memo' }.code", equalTo("invalid_value"));
+
+        assertThat(leads()).isEmpty();
+        assertThat(output.getAll())
+            .doesNotContain(PHONE).doesNotContain(PHONE_DIGITS).doesNotContain("secret.person@example.com")
+            .doesNotContain("비밀").doesNotContain("홍길동").doesNotContain("22P05").doesNotContain("Zero bytes");
+    }
+
+    @Test
     void 성공_응답과_로그에_전화번호_이메일_원문이_남지_않는다(CapturedOutput output) {
         submit("spring-2026", fields("name", "홍길동", "phone", PHONE, "email", "secret.person@example.com"))
             .then().statusCode(201).body("status", notNullValue()).body("phone", nullValue());

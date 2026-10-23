@@ -163,6 +163,13 @@ class TemplateApiTest {
     }
 
     @Test
+    void 이름에_NUL_같은_제어_문자가_있으면_422이고_저장하지_않는다() {
+        upload("a.html", FORM, "내\u0000템플릿").statusCode(422).body("code", equalTo("validation_failed"))
+            .body("errors[0].field", equalTo("name"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM html_templates", Long.class)).isZero();
+    }
+
+    @Test
     void 파일_파트가_없으면_400이다() {
         given().auth().oauth2(token).multiPart("name", "x")
             .when().post("/api/admin/templates").then().statusCode(400).body("code", equalTo("malformed_request"));

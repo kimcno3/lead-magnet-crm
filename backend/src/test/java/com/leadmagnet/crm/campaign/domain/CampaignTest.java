@@ -38,6 +38,15 @@ class CampaignTest {
     }
 
     @Test
+    void 이름이나_설명에_NUL_같은_제어_문자가_있으면_검증_실패이다() {
+        assertInvalid(() -> Campaign.create("봄\u0000", null, null, null, 1L, NOW));
+        assertInvalid(() -> Campaign.create("봄", "설명\u0007", null, null, 1L, NOW));
+        Campaign c = Campaign.create("봄", "첫 줄\n둘째 줄\t끝", null, null, 1L, NOW);
+        assertInvalid(() -> c.update("가을\u0000", null, null, null, LATER));
+        assertThat(c.getName()).isEqualTo("봄");
+    }
+
+    @Test
     void 시작이_종료보다_같거나_늦으면_검증_실패이다() {
         assertInvalid(() -> Campaign.create("c", null, LATER, NOW, 1L, NOW));
         assertInvalid(() -> Campaign.create("c", null, NOW, NOW, 1L, NOW));

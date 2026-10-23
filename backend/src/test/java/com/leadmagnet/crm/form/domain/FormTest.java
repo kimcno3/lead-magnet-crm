@@ -136,6 +136,19 @@ class FormTest {
     }
 
     @Test
+    void 제목_동의문구_label에_NUL_같은_제어_문자가_있으면_검증_실패이다() {
+        assertInvalid(() -> Form.create(1L, 2L, new Slug("spring"), "제목\u0000", "c", FIELDS, T0));
+        assertInvalid(() -> Form.create(1L, 2L, new Slug("spring"), "t", "동의\u0000", FIELDS, T0));
+        Form f = draft();
+        assertInvalid(() -> f.edit("새\u0000", null, null, T1));
+        assertInvalid(() -> f.edit(null, null, List.of(new FieldChange("name", "성\u0000함", true),
+            new FieldChange("plan", "플랜", false)), T1));
+        assertThat(f.getTitle()).isEqualTo("제목");
+        assertThat(f.getFieldConfig()).isEqualTo(FIELDS);
+        assertThat(Form.create(1L, 2L, new Slug("spring"), "t", "첫 줄\r\n둘째 줄", FIELDS, T0)).isNotNull();
+    }
+
+    @Test
     void 검증_실패는_errors에_담길_필드를_가진다() {
         assertThatThrownBy(() -> Form.create(1L, 2L, new Slug("spring"), " ", "c", FIELDS, T0))
             .isInstanceOfSatisfying(DomainException.class,
