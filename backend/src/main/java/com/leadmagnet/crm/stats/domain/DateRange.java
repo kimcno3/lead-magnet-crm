@@ -17,6 +17,10 @@ public final class DateRange {
 
     public static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
 
+    /** 이보다 먼 연도는 의미가 없고 DB 타임스탬프 변환에서 500이 날 수 있어 422로 거절한다. */
+    private static final int MIN_YEAR = 2000;
+    private static final int MAX_YEAR = 2100;
+
     private final Instant from;
     private final Instant toExclusive;
 
@@ -49,7 +53,13 @@ public final class DateRange {
             return null;
         }
         try {
-            return LocalDate.parse(value);
+            LocalDate date = LocalDate.parse(value);
+            if (date.getYear() < MIN_YEAR || date.getYear() > MAX_YEAR) {
+                errors.add(new FieldError(field, field + "의 연도는 " + MIN_YEAR + "~" + MAX_YEAR + " 범위여야 합니다",
+                    "out_of_range"));
+                return null;
+            }
+            return date;
         } catch (DateTimeException e) {
             errors.add(new FieldError(field, field + "은 yyyy-MM-dd 형식이어야 합니다", "invalid_format"));
             return null;

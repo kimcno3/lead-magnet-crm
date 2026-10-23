@@ -256,6 +256,48 @@ class StatsApiTest {
     }
 
     @Test
+    void 다른_캠페인에만_있는_방문이나_신청은_교집합에_들어가지_않는다() {
+        seedBase();
+        int other = AdminFixtures.createCampaign(token, "B 캠페인");
+        int b1 = AdminFixtures.createPublishedFormIn(token, other, "form-b1", AdminFixtures.FORM_HTML);
+        AdminFixtures.createLink(token, b1, "youtube");
+        UUID v4 = UUID.fromString("00000000-0000-4000-8000-000000000004");
+        // V4: B에서만 방문, 신청은 A에만 있다. V3: A에서만 방문(direct), 신청은 B에만 있다.
+        visit(b1, "youtube", v4, "2026-03-10T10:00:00");
+        lead(a1, campaign, "instagram", v4, "2026-03-10T12:00:00");
+        lead(b1, other, "youtube", V3, "2026-03-10T12:00:00");
+
+        // A: visits 5, visitors {V1,V2,V3}=3, leads {V1,V2,V4}=3, converted {V1,V2}=2 (V3의 신청은 B, V4의 방문은 B)
+        authed().get("/api/admin/campaigns/{id}/stats", campaign).then().statusCode(200)
+            .body("visits", equalTo(5)).body("visitors", equalTo(3)).body("leads", equalTo(3))
+            .body("convertedVisitors", equalTo(2)).body("conversionRate", is(0.6667f));
+        // B: visits 1, visitors {V4}=1, leads {V3}=1, converted 0
+        authed().get("/api/admin/campaigns/{id}/stats", other).then().statusCode(200)
+            .body("visits", equalTo(1)).body("visitors", equalTo(1)).body("leads", equalTo(1))
+            .body("convertedVisitors", equalTo(0)).body("conversionRate", is(0.0f));
+        // 목록 엔드포인트도 같은 값: 최신순이라 B, A
+        authed().get("/api/admin/stats/campaigns").then().statusCode(200)
+            .body("campaigns.campaignId", equalTo(List.of(other, campaign)))
+            .body("campaigns.leads", equalTo(List.of(1, 3)))
+            .body("campaigns.convertedVisitors", equalTo(List.of(0, 2)));
+    }
+
+    @Test
+    void 기간_내_방문이_없는_신청_방문자는_전환_방문자가_아니다() {
+        UUID v4 = UUID.fromString("00000000-0000-4000-8000-000000000004");
+        visit(a1, "instagram", V1, "2026-03-10T10:00:00");
+        lead(a1, campaign, "instagram", v4, "2026-03-10T11:00:00"); // V4는 방문 기록이 전혀 없다
+
+        authed().get("/api/admin/campaigns/{id}/stats", campaign).then().statusCode(200)
+            .body("visitors", equalTo(1)).body("leads", equalTo(1)).body("convertedVisitors", equalTo(0))
+            .body("conversionRate", is(0.0f));
+        authed().get("/api/admin/campaigns/{id}/stats/channels", campaign).then().statusCode(200)
+            .body("channels[0].leads", equalTo(1)).body("channels[0].convertedVisitors", equalTo(0));
+        authed().get("/api/admin/stats/campaigns").then().statusCode(200)
+            .body("campaigns[0].convertedVisitors", equalTo(0));
+    }
+
+    @Test
     void 캠페인_목록_지표는_최신순이고_데이터가_없는_캠페인도_포함한다() {
         seedBase();
         int second = AdminFixtures.createCampaign(token, "B 캠페인");

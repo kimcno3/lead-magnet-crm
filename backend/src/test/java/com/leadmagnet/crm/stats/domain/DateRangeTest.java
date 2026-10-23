@@ -50,4 +50,14 @@ class DateRangeTest {
         assertThatThrownBy(() -> DateRange.parse("2026-3-1", null)).isInstanceOf(DomainException.class);
         assertThatThrownBy(() -> DateRange.parse("", null)).isInstanceOf(DomainException.class);
     }
+
+    @Test
+    void 허용_연도_범위를_벗어나면_해당_필드_422다() {
+        assertThatThrownBy(() -> DateRange.parse("1999-12-31", "+999999999-12-31"))
+            .isInstanceOfSatisfying(DomainException.class, e ->
+                assertThat(e.getErrors()).extracting(DomainException.FieldError::field)
+                    .containsExactly("from", "to"));
+        assertThatThrownBy(() -> DateRange.parse(null, "2101-01-01")).isInstanceOf(DomainException.class);
+        assertThat(DateRange.parse("2000-01-01", "2100-12-31")).isNotNull();
+    }
 }
