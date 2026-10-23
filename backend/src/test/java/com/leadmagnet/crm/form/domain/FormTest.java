@@ -152,6 +152,20 @@ class FormTest {
     }
 
     @Test
+    void 공개_가능_여부는_published만_통과하고_draft는_404_closed는_410이다() {
+        Form f = draft();
+        assertThatThrownBy(f::ensurePublic).isInstanceOf(DomainException.class)
+            .extracting(e -> ((DomainException) e).getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND);
+
+        f.publish(T1);
+        f.ensurePublic();
+
+        f.close(T2);
+        assertThatThrownBy(f::ensurePublic).isInstanceOf(DomainException.class)
+            .extracting(e -> ((DomainException) e).getErrorCode()).isEqualTo(ErrorCode.GONE);
+    }
+
+    @Test
     void draft가_아니면_수정은_409_form_not_editable이다() {
         Form published = draft();
         published.publish(T1);

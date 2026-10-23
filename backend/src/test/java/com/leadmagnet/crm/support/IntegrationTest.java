@@ -11,8 +11,9 @@ import org.springframework.context.annotation.Import;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 // 테스트 전용 서명 키. 운영 값은 환경 변수 JWT_SECRET으로만 받는다.
+// admin 커넥터는 RANDOM_PORT(@LocalServerPort), public 커넥터도 임의 포트로 띄우고 실제 포트는 PublicPort 빈에서 읽는다.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = "JWT_SECRET=test-only-jwt-secret-not-for-production-0123456789")
+    properties = {"JWT_SECRET=test-only-jwt-secret-not-for-production-0123456789", "app.ports.public-port=0"})
 @Import(TestcontainersConfiguration.class)
 public @interface IntegrationTest {
 }

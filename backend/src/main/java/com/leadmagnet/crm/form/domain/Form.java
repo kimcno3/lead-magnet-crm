@@ -110,6 +110,16 @@ public class Form {
         updatedAt = now;
     }
 
+    /** 공개 출처에서 열 수 있는지. draft는 존재를 드러내지 않도록 404, closed는 410(gone). */
+    public void ensurePublic() {
+        switch (status) {
+            case DRAFT -> throw new DomainException(ErrorCode.NOT_FOUND);
+            case CLOSED -> throw new DomainException(ErrorCode.GONE);
+            case PUBLISHED -> {
+            }
+        }
+    }
+
     /**
      * draft에서만 호출할 수 있다. null인 인자는 바꾸지 않는다.
      * fieldConfig는 기존 필드와 이름이 정확히 같아야 하고, 필드마다 label·required만 반영한다(type·options는 유지).
