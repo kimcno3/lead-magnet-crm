@@ -40,7 +40,7 @@ npm test
 npm run build
 ```
 
-브라우저 E2E(Playwright, Chromium)는 `docker compose up --build -d`로 전체 시스템을 띄운 뒤 `cd e2e && npm ci && npx playwright install chromium && npm test`로 돌린다. 화면은 `docs/e2e/screenshots/`, 단계별 결과는 `docs/e2e/results.json`에 남는다.
+브라우저 E2E(Playwright, Chromium)는 `docker compose up --build -d`로 전체 시스템을 띄운 뒤 `cd e2e && npm ci && npx playwright install chromium && npm test`로 돌린다. 화면은 `docs/e2e/screenshots/`, 단계별 결과는 `docs/e2e/results.json`에 남는다. CI(`.github/workflows/e2e.yml`)도 develop·main 대상 PR과 push마다 같은 E2E를 돌린다. CI는 키와 관리자 비밀번호를 새로 만든 `.env`로 띄우고, 결과를 `E2E_OUTPUT_DIR`(`e2e/ci-output`)에 써서 `e2e-results` 아티팩트로만 올린다(커밋된 `docs/e2e`는 로컬 실행만 갱신한다). 실패하면 Playwright 리포트·trace와 `docker compose logs`도 `e2e-failure-report`로 올린다.
 
 ## 문서
 

@@ -34,7 +34,7 @@
 
 ## 테스트
 
-- Playwright E2E를 CI에 통합.
+- ~~Playwright E2E를 CI에 통합.~~ v0.3.0 #54에서 완료(`.github/workflows/e2e.yml`).
 
 ## 구조
 

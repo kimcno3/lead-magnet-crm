@@ -35,7 +35,12 @@ npx vitest run src/App.test.tsx   # 파일 하나
 npm run build
 ```
 
-CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend `./gradlew build -Dopenapi.verify=true`(커밋된 openapi.yaml이 최신인지도 확인), admin-web lint·typecheck·test·build를 돌린다.
+CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend `./gradlew build -Dopenapi.verify=true`(커밋된 openapi.yaml이 최신인지도 확인), admin-web lint·typecheck·test·build를 돌린다. `.github/workflows/e2e.yml`은 같은 조건에서 `docker compose up --build -d --wait` 뒤 `e2e`의 Playwright를 돌린다(결과는 `E2E_OUTPUT_DIR`=`e2e/ci-output`, 아티팩트만, 커밋하지 않음).
+
+```bash
+# 브라우저 E2E (docker compose up --build -d 뒤)
+cd e2e && npm ci && npx playwright install chromium && npm test   # 결과: docs/e2e (E2E_OUTPUT_DIR로 변경)
+```
 
 ## 구조
 
