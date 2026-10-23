@@ -13,9 +13,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param jwtSecret    access token HS256 서명 키(JWT_SECRET). UTF-8 32바이트 미만이면 기동을 멈춘다.
  * @param adminOrigin  관리자 API CORS가 허용하는 유일한 출처(ADMIN_ORIGIN)
  * @param cookieSecure refresh 쿠키의 Secure 속성(COOKIE_SECURE). 로컬 http에서만 false로 둔다.
+ * @param refreshRateLimit POST /api/admin/auth/refresh의 클라이언트 IP당 분당 한도. 비우면 30, 1 미만이면 기동 실패 (ADR 0021)
  */
 @ConfigurationProperties(prefix = "app.auth")
-public record AuthProperties(String jwtSecret, String adminOrigin, boolean cookieSecure) implements SecretKeyMaterial {
+public record AuthProperties(String jwtSecret, String adminOrigin, boolean cookieSecure, Integer refreshRateLimit)
+        implements SecretKeyMaterial {
 
     static final int MIN_SECRET_BYTES = 32;
 
@@ -25,6 +27,11 @@ public record AuthProperties(String jwtSecret, String adminOrigin, boolean cooki
         }
         if (adminOrigin == null || adminOrigin.isBlank()) {
             throw new IllegalArgumentException("ADMIN_ORIGIN을 설정해야 합니다");
+        }
+        if (refreshRateLimit == null) {
+            refreshRateLimit = 30;
+        } else if (refreshRateLimit < 1) {
+            throw new IllegalArgumentException("app.auth.refresh-rate-limit는 1 이상이어야 합니다");
         }
     }
 

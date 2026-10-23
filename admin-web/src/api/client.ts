@@ -96,11 +96,13 @@ export async function login(email: string, password: string): Promise<void> {
  * refresh 쿠키로 새 access token을 받는다. 동시에 불려도 요청은 하나다.
  * - 서버가 거절하면(401 등) false: 세션이 끝났다.
  * - 서버에 닿지 못하면(fetch가 던짐) 거절(TypeError): 세션이 끝났는지 알 수 없으므로 토큰을 지우지 않는다.
+ * - 429(IP별 refresh 한도, ADR 0021)면 거절(ApiError 429, Retry-After): 쿠키는 아직 유효하므로 토큰을 지우지 않는다.
  */
 export function restoreSession(): Promise<boolean> {
   if (!refreshInFlight) {
     const attempt = (async () => {
       const res = await authPost('/refresh')
+      if (res.status === 429) throw new ApiError(429, await readProblem(res), retryAfterOf(res))
       if (!res.ok) {
         accessToken = null
         return false
@@ -171,7 +173,7 @@ async function authorizedFetch(path: string, options: RequestOptions, accept: st
 
   if (res.status === 401) {
     // 다른 요청이 이미 토큰을 바꿨으면 refresh 없이 새 토큰으로 다시 보낸다.
-    // refresh가 네트워크 오류로 거절되면 그대로 던진다(세션을 끝내지 않는다).
+    // refresh가 네트워크 오류나 429로 거절되면 그대로 던진다(세션을 끝내지 않는다).
     const refreshed = accessToken !== null && accessToken !== usedToken ? true : await restoreSession()
     if (!refreshed) {
       const problem = await readProblem(res)

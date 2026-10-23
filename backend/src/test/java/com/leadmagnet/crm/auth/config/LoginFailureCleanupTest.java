@@ -39,6 +39,19 @@ class LoginFailureCleanupTest {
             .run(context -> assertThat(fixedDelays(context)).containsExactly(Duration.ofMinutes(5)));
     }
 
+    @Test
+    void cleanup_enabled가_false면_정리_작업만_빠지고_스케줄링은_켜져_있다() {
+        new ApplicationContextRunner()
+            .withUserConfiguration(SchedulingConfig.class, LoginFailureCleanup.class)
+            .withBean(LoginThrottle.class, () -> mock(LoginThrottle.class))
+            .withPropertyValues("app.auth.login-throttle.cleanup-enabled=false")
+            .run(context -> {
+                assertThat(context).doesNotHaveBean(LoginFailureCleanup.class);
+                assertThat(context).hasSingleBean(ScheduledTaskHolder.class);
+                assertThat(fixedDelays(context)).isEmpty();
+            });
+    }
+
     private static List<Duration> fixedDelays(ApplicationContext context) {
         return context.getBeansOfType(ScheduledTaskHolder.class).values().stream()
             .flatMap(holder -> holder.getScheduledTasks().stream())

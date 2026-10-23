@@ -46,6 +46,10 @@ app:
       email-max-failures: 50
       ip-max-failures: 20
       window: 15m
+      # 자리 잡기 트랜잭션이 키 잠금을 기다리는 최대 시간. 넘으면 429(연결 풀을 오래 붙잡지 않는다)
+      lock-timeout: 2s
+      # 창이 지난 실패 기록 정리(5분마다). false면 끈다(테스트)
+      cleanup-enabled: true
     # POST /api/admin/auth/refresh의 클라이언트 IP별 분당 한도(인메모리 토큰 버킷, 인스턴스별). 넘으면 429 too_many_requests +
     # Retry-After. 정상 사용은 탭마다 access 만료(15분)나 새로고침 때 한 번이다 (ADR 0021 변경 기록)
     refresh-rate-limit: 30

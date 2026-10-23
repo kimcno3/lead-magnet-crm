@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { Me } from '../api/types'
 
-/** unreachable: refresh 요청이 서버에 닿지 못했다. 세션이 끝났는지 알 수 없으므로 로그아웃으로 보지 않는다. */
+/** unreachable: refresh 요청이 서버에 닿지 못했거나 요청이 많아 잠시 거절됐다(429). 세션이 끝났는지 알 수 없으므로 로그아웃으로 보지 않는다. */
 export type AuthStatus = 'restoring' | 'authenticated' | 'anonymous' | 'unreachable'
 
 export interface AuthContextValue {

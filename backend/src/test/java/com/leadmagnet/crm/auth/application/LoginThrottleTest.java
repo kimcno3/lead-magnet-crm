@@ -10,6 +10,10 @@ import com.leadmagnet.crm.common.error.TooManyRequestsException;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.TestClock;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -20,21 +24,24 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * 로그인 시도 제한의 DB 저장소 (ADR 0021, 2026-10-24 v0.4.0 변경). 한도: (이메일, IP) 쌍 3, 이메일 전체 6, IP 5, 창 15분.
- * 인스턴스는 테스트가 직접 만든다(같은 DB를 쓰는 서버 여러 대·재시작을 흉내 낸다). 시계는 실제 시각보다 하루 뒤에서 시작해
- * 공유 컨텍스트의 정리 스케줄러(실제 시각 기준)가 이 테스트의 행을 지우지 않게 한다.
+ * 인스턴스는 테스트가 직접 만든다(같은 DB를 쓰는 서버 여러 대·재시작을 흉내 낸다). 정리 스케줄러는 @IntegrationTest에서 꺼져
+ * 있고, 정리 규칙은 {@link LoginThrottle#purgeExpired}를 직접 불러 확인한다.
  */
 @IntegrationTest
 class LoginThrottleTest {
 
-    static final LoginThrottleProperties LIMITS = new LoginThrottleProperties(3, 6, 5, Duration.ofMinutes(15));
+    static final LoginThrottleProperties LIMITS = new LoginThrottleProperties(3, 6, 5, Duration.ofMinutes(15), Duration.ofSeconds(2));
 
     @Autowired
     JdbcTemplate jdbc;
@@ -44,6 +51,9 @@ class LoginThrottleTest {
 
     @Autowired
     PiiHasher hasher;
+
+    @Autowired
+    DataSource dataSource;
 
     final TestClock clock = new TestClock(Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.SECONDS));
     LoginThrottle throttle;
@@ -170,7 +180,7 @@ class LoginThrottleTest {
 
     @Test
     void 여러_한도가_동시에_닿으면_모두_알린다() {
-        LoginThrottle tight = newInstance(new LoginThrottleProperties(1, 1, 1, Duration.ofMinutes(15)));
+        LoginThrottle tight = newInstance(new LoginThrottleProperties(1, 1, 1, Duration.ofMinutes(15), Duration.ofSeconds(2)));
 
         assertThat(tight.begin("a@example.com", "1.1.1.1").failed())
             .containsExactly(LoginThrottle.SCOPE_EMAIL_IP, LoginThrottle.SCOPE_EMAIL, LoginThrottle.SCOPE_IP);
@@ -226,6 +236,74 @@ class LoginThrottleTest {
         assertThat(throttle.purgeExpired()).isEqualTo(3);
         assertThat(rows()).isEqualTo(3);
         assertThat(throttle.purgeExpired()).isZero();
+    }
+
+    @Test
+    void DB가_잠금을_정한_키의_다음_거절은_DB에_닿지_않고_남은_대기를_준다() {
+        AtomicInteger connections = new AtomicInteger();
+        DataSource counting = (DataSource) Proxy.newProxyInstance(DataSource.class.getClassLoader(),
+            new Class<?>[] {DataSource.class}, (proxy, method, args) -> {
+                if (method.getName().equals("getConnection")) {
+                    connections.incrementAndGet();
+                }
+                try {
+                    return method.invoke(dataSource, args);
+                } catch (InvocationTargetException e) {
+                    throw e.getCause();
+                }
+            });
+        LoginThrottle counted = new LoginThrottle(LIMITS, clock, new JdbcTemplate(counting),
+            new DataSourceTransactionManager(counting), hasher);
+        for (int i = 0; i < 3; i++) {
+            counted.begin("a@example.com", "1.1.1.1").failed();
+        }
+        // 첫 거절은 DB가 정한다
+        assertThatThrownBy(() -> counted.begin("a@example.com", "1.1.1.1"))
+            .isInstanceOfSatisfying(TooManyRequestsException.class, e -> assertThat(e.retryAfterSeconds()).isEqualTo(900));
+        int afterFirstRejection = connections.get();
+
+        clock.advance(Duration.ofMinutes(1));
+        for (int i = 0; i < 5; i++) {
+            assertThatThrownBy(() -> counted.begin(" A@example.com", "1.1.1.1"))
+                .isInstanceOfSatisfying(TooManyRequestsException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TOO_MANY_LOGIN_ATTEMPTS);
+                    assertThat(e.retryAfterSeconds()).isEqualTo(840);
+                });
+        }
+        assertThat(connections.get()).isEqualTo(afterFirstRejection);
+
+        // 잠기지 않은 키는 그대로 DB로 센다(같은 IP의 다른 이메일, IP 한도 5 중 3)
+        counted.begin("b@example.com", "1.1.1.1").succeeded();
+        assertThat(connections.get()).isGreaterThan(afterFirstRejection);
+        // 남은 대기가 지나면 다시 DB가 정한다(창도 지나 통과)
+        clock.advance(Duration.ofMinutes(14));
+        counted.begin("a@example.com", "1.1.1.1").succeeded();
+    }
+
+    @Test
+    void 잠금을_lock_timeout_안에_못_잡으면_500이_아니라_429다() throws Exception {
+        LoginThrottle quick = newInstance(new LoginThrottleProperties(3, 6, 5, Duration.ofMinutes(15), Duration.ofMillis(200)));
+        String ipHash = hasher.hash("login-throttle:ip:1.1.1.1");
+        try (Connection holder = dataSource.getConnection()) {
+            holder.setAutoCommit(false);
+            try (PreparedStatement lock = holder.prepareStatement("SELECT pg_advisory_xact_lock(?, ?)")) {
+                lock.setInt(1, LoginFailureStore.LOCK_CLASS);
+                lock.setInt(2, LoginFailureStore.lockId(ipHash));
+                lock.executeQuery().close();
+            }
+
+            assertThatThrownBy(() -> quick.begin("a@example.com", "1.1.1.1"))
+                .isInstanceOfSatisfying(TooManyRequestsException.class, e -> {
+                    assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TOO_MANY_LOGIN_ATTEMPTS);
+                    assertThat(e.retryAfterSeconds()).isEqualTo(1);
+                });
+            holder.rollback();
+        }
+
+        assertThat(rows()).isZero();
+        // 잠금 대기 거절은 잠금 판정이 아니므로 기억하지 않는다: 잠금이 풀리면 바로 다시 시도할 수 있다
+        quick.begin("a@example.com", "1.1.1.1").failed();
+        assertThat(rows()).isEqualTo(3);
     }
 
     @Test

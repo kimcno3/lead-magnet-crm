@@ -32,6 +32,11 @@ final class LoginFailureStore {
             .forEach(id -> jdbc.query("SELECT pg_advisory_xact_lock(?, ?)", rs -> { }, LOCK_CLASS, id));
     }
 
+    /** 이 트랜잭션에서만 잠금 대기 상한을 둔다({@code SET LOCAL lock_timeout}). 넘으면 55P03 → CannotAcquireLockException. */
+    void setLockTimeout(String timeout) {
+        jdbc.query("SELECT set_config('lock_timeout', ?, true)", rs -> { }, timeout);
+    }
+
     static int lockId(String keyHash) {
         return (int) Long.parseLong(keyHash.substring(0, 8), 16);
     }

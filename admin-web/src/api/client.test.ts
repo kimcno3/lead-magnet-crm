@@ -240,6 +240,44 @@ describe('네트워크 오류', () => {
   })
 })
 
+describe('refresh 429 (IP별 refresh 한도, ADR 0021)', () => {
+  it('세션 복원 중 429는 false(로그아웃)가 아니라 ApiError(429, Retry-After)로 거절하고 토큰을 지우지 않는다', async () => {
+    fetchMock.mockResolvedValueOnce(token('A1')).mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: 'too_many_requests', detail: '요청이 너무 많습니다' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/problem+json', 'Retry-After': '7' },
+      }),
+    )
+    await login('ops@example.com', 'pw-123456789')
+
+    const error = await restoreSession().catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(429)
+    expect((error as ApiError).code).toBe('too_many_requests')
+    expect((error as ApiError).retryAfterSeconds).toBe(7)
+    expect(hasSession()).toBe(true)
+  })
+
+  it('401 뒤 refresh가 429면 세션을 끝내지 않고 429를 그대로 던진다', async () => {
+    const expired = vi.fn()
+    const off = onSessionExpired(expired)
+    fetchMock
+      .mockResolvedValueOnce(token('A1'))
+      .mockResolvedValueOnce(json({}, 401))
+      .mockResolvedValueOnce(json({ code: 'too_many_requests' }, 429))
+
+    await login('ops@example.com', 'pw-123456789')
+    const error = await apiRequest('/api/admin/campaigns').catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(429)
+    expect(hasSession()).toBe(true)
+    expect(expired).not.toHaveBeenCalled()
+    off()
+  })
+})
+
 describe('ProblemDetail', () => {
   it('detail, code, errors를 ApiError로 옮긴다', async () => {
     fetchMock.mockResolvedValueOnce(token('A1')).mockResolvedValueOnce(
