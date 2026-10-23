@@ -35,17 +35,20 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
 ## 구조
 
 - `backend/`: Spring Boot 3.5 단일 앱. 루트 패키지 `com.leadmagnet.crm`, 그 아래 도메인 패키지.
-  - 출처별 포트는 `app.ports.admin`/`app.ports.public-port`(`common/PortsProperties`, 환경 변수 `ADMIN_PORT`/`PUBLIC_PORT`). 기본 커넥터는 admin 포트에 뜬다. public 커넥터(:8081)와 OriginGuardFilter는 이슈 #7에서 붙이므로 그전에는 8081이 열려 있지 않다.
+  - 출처별 포트는 `app.ports.admin`/`app.ports.public-port`(`common/PortsProperties`, 환경 변수 `ADMIN_PORT`/`PUBLIC_PORT`). 기본 커넥터는 admin 포트, public 커넥터는 `common/web/PublicPort`가 붙인다(ADR 0010). 실제 public 포트는 `PublicPort.get()`으로 읽는다(테스트는 임의 포트).
+  - `common/web`: `OriginGuardFilter`(Security보다 앞, public 포트는 `PublicPaths`만, admin 포트는 그 밖만, 나머지 404)와 `PublicSecurityHeadersFilter`(public 포트 응답 전부에 CSP 등, ADR 0002). 공개 경로를 늘리려면 `PublicPaths`와 ADR 0010을 함께 바꾼다.
   - actuator는 `health`만 노출한다. compose 헬스체크와 admin-web이 이 경로를 쓴다.
   - 프로필: `application.yml`(공통, `ddl-auto: validate`, 기본 프로필 `local`)과 `application-local.yml`(`DB_URL`/`DB_USERNAME`/`DB_PASSWORD`).
   - 스키마는 `src/main/resources/db/migration/V*.sql`(Flyway)이 유일한 원천이다. 상태·채널 값과 링크·채널 일관성은 CHECK 제약으로 DB에서도 막는다.
   - 도메인 패키지는 `domain`(엔티티·리포지토리), `application`(유스케이스 서비스), `api`(컨트롤러·DTO), `config`(보안·웹 설정)로 나눈다.
-  - 인증(ADR 0003): `auth/config/SecurityConfig`에 필터 체인 두 개(admin `/api/admin/**` Bearer JWT, 기본 체인은 헬스·문서·공개 경로 외 denyAll). 토큰 발급·교체는 `auth/application/AuthService`, 키·CORS·쿠키 설정은 `AuthProperties`(`JWT_SECRET` 필수, `ADMIN_ORIGIN`, `COOKIE_SECURE`). 현재 시각은 `Clock` 빈(`common/ClockConfig`)으로 얻는다.
+  - 인증(ADR 0003): `auth/config/SecurityConfig`에 필터 체인 세 개(admin `/api/admin/**` Bearer JWT, public `/f/**`·`/l/**`·`/api/public/**` permitAll·인증 헤더 무시, 기본 체인은 헬스·문서 외 denyAll). 토큰 발급·교체는 `auth/application/AuthService`, 키·CORS·쿠키 설정은 `AuthProperties`(`JWT_SECRET` 필수, `ADMIN_ORIGIN`, `COOKIE_SECURE`). 현재 시각은 `Clock` 빈(`common/ClockConfig`)으로 얻는다.
   - 에러는 `common/error`의 `ErrorCode`·`DomainException`을 던지면 `GlobalExceptionHandler`가 ProblemDetail(`code` 포함)로 바꾼다. Security 401·403도 같은 형식이다.
   - 캠페인·폼(ADR 0013): `campaign`과 `form` 애그리거트는 서로 id로만 참조한다. 폼의 `fieldConfig`는 생성 시 템플릿 `fields`를 복사한 스냅샷이며 `label`·`required`만 draft에서 수정할 수 있다. 상태 값은 DB CHECK에 맞춰 소문자로 저장하므로(`*StatusConverter`) enum에 `@Enumerated`를 쓰지 않는다.
-  - 배포 링크(ADR 0006): `link` 패키지. 폼당 채널별 링크 하나는 DB 유니크가 아니라 `LinkService`가 지킨다. `/l/{code}`는 방문을 기록하지 않고 `/f/{slug}?lm={code}`로 302만 하며, 채널 귀속은 `LinkService.resolveForForm`으로 한다. URL 앞부분은 `PUBLIC_BASE_URL`(`app.public-base-url`).
+  - 배포 링크(ADR 0006): `link` 패키지. 폼당 채널별 링크 하나는 DB 유니크가 아니라 `LinkService`가 지킨다. `/l/{code}`는 방문을 기록하지 않고 `/f/{slug}?lm={code}`로 302만 하며(방문자 쿠키만 발급), 채널 귀속은 `LinkService.attribute`/`resolveForForm`으로 한다. URL 앞부분은 `PUBLIC_BASE_URL`(`app.public-base-url`).
+  - 공개 폼(ADR 0002): `/f/{slug}`는 동적 값이 없는 고정 셸(`form/api/WrapperPages`)이고, `static/f/_assets/form-wrapper.js`가 `/api/public/forms/{slug}`로 받은 HTML을 sandbox iframe srcdoc에 넣는다. 셸에 서버 값을 끼워 넣지 않는다(CSP에 `'unsafe-inline'`이 있다).
+  - 방문(`tracking`): `/f/{slug}` 200마다 `VisitRecorder`가 한 행을 남긴다. 방문자 id는 `tracking/api/VisitorIdCookie`(`lm_vid`, UUID v4가 아니면 새로 발급).
   - 운영자 계정은 기동 시 `auth/application/OperatorSeeder`가 `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD`로 만든다(ADR 0009). 로그용 개인정보 마스킹은 `common/PiiMasker`.
-  - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. Docker가 떠 있어야 backend 테스트가 돈다.
+  - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. `RestAssured.port`는 admin 포트로 두고 public 포트 요청은 `PublicOrigin.given(publicPort)`로 보낸다. Docker가 떠 있어야 backend 테스트가 돈다.
 - `admin-web/`: React + Vite + TypeScript 관리자 SPA. 운영 시에는 nginx(`admin-web/nginx.conf`), 개발 시에는 Vite가 `/api/admin/`과 `/actuator/health`를 backend admin 포트로 프록시한다. 브라우저 입장에서는 admin-web 출처 하나뿐이어서 refresh 쿠키(SameSite=Strict, Path=/api/admin/auth)가 그대로 동작하고, public 출처(:8081)와는 출처가 다르다.
 - `docker-compose.yml`: postgres → backend → admin-web 순서로 헬스체크를 기다린다. 값은 루트 `.env`에서 읽는다.
 - `docs/`: `PLAN.md`(과제 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `ROADMAP.md`(범위 밖), `adr/`.

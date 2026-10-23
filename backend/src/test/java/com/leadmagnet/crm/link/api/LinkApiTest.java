@@ -9,10 +9,12 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
+import com.leadmagnet.crm.common.web.PublicPort;
 import com.leadmagnet.crm.link.application.LinkService;
 import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
+import com.leadmagnet.crm.support.PublicOrigin;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
@@ -50,6 +52,9 @@ class LinkApiTest {
 
     @Autowired
     LinkService linkService;
+
+    @Autowired
+    PublicPort publicPort;
 
     String token;
     int formId;
@@ -148,22 +153,22 @@ class LinkApiTest {
     void 공개_단축_URL은_published_폼의_공개_경로로_302한다() {
         authed().body(Map.of("status", "published")).patch("/api/admin/forms/{id}", formId).then().statusCode(200);
         String code = createLink("youtube");
-        given().redirects().follow(false).get("/l/{code}", code)
+        PublicOrigin.given(publicPort).get("/l/{code}", code)
             .then().statusCode(302).header("Location", equalTo("/f/spring-2026?lm=" + code));
-        // Ruling R1 보호: /l은 방문을 기록하지 않는다. Task 7이 /f 페이지 로드에서 방문을 기록하기 시작하면 이 단언이 이중 집계를 잡는다.
+        // Ruling R1 보호: /l은 방문을 기록하지 않는다. 방문은 /f 페이지 로드에서만 기록한다(이중 집계 방지).
         assertThat(jdbc.queryForObject("SELECT count(*) FROM visits", Integer.class)).isZero();
     }
 
     @Test
     void 없는_code는_404다() {
-        given().redirects().follow(false).get("/l/{code}", "zzzzzzzz").then().statusCode(404);
-        given().redirects().follow(false).get("/l/{code}", "bad!").then().statusCode(404);
+        PublicOrigin.given(publicPort).get("/l/{code}", "zzzzzzzz").then().statusCode(404);
+        PublicOrigin.given(publicPort).get("/l/{code}", "bad!").then().statusCode(404);
     }
 
     @Test
     void draft_폼의_code는_404다() {
         String code = createLink("x");
-        given().redirects().follow(false).get("/l/{code}", code).then().statusCode(404);
+        PublicOrigin.given(publicPort).get("/l/{code}", code).then().statusCode(404);
     }
 
     @Test
@@ -171,7 +176,7 @@ class LinkApiTest {
         authed().body(Map.of("status", "published")).patch("/api/admin/forms/{id}", formId).then().statusCode(200);
         String code = createLink("x");
         authed().body(Map.of("status", "closed")).patch("/api/admin/forms/{id}", formId).then().statusCode(200);
-        given().redirects().follow(false).get("/l/{code}", code)
+        PublicOrigin.given(publicPort).get("/l/{code}", code)
             .then().statusCode(410).body("code", equalTo("gone"));
     }
 

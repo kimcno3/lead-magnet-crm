@@ -1,5 +1,6 @@
 package com.leadmagnet.crm.auth.config;
 
+import com.leadmagnet.crm.common.web.PublicPaths;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import java.util.List;
@@ -17,8 +18,10 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * 보안 필터 체인 두 개 (ADR 0003).
- * admin 체인은 /api/admin/** 를 Bearer JWT로 보호한다. 기본 체인은 문서·헬스·공개 경로만 열고 나머지는 막는다.
+ * 보안 필터 체인 세 개 (ADR 0003, ADR 0010).
+ * admin 체인은 /api/admin/** 를 Bearer JWT로 보호한다. public 체인은 공개 경로를 인증 없이 연다.
+ * 기본 체인은 문서·헬스만 열고 나머지는 막는다. 어느 포트에서 어떤 경로를 받을지는 체인보다 앞선
+ * OriginGuardFilter가 정한다(public 포트는 공개 경로만, admin 포트는 공개 경로 외).
  */
 @Configuration(proxyBeanMethods = false)
 @SecurityScheme(name = "bearer", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")
@@ -46,14 +49,28 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * 공개 폼·단축 URL·공개 API. 인증이 없으므로 Resource Server를 두지 않아 Authorization 헤더가 와도 무시한다.
+     * CORS도 두지 않는다(공개 API는 같은 출처의 래퍼 스크립트만 호출한다).
+     */
     @Bean
     @Order(2)
+    SecurityFilterChain publicChain(HttpSecurity http) throws Exception {
+        http.securityMatcher(PublicPaths.PATTERNS)
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .csrf(AbstractHttpConfigurer::disable)
+            .requestCache(AbstractHttpConfigurer::disable)
+            .logout(AbstractHttpConfigurer::disable);
+        return http.build();
+    }
+
+    @Bean
+    @Order(3)
     SecurityFilterChain defaultChain(HttpSecurity http, ProblemDetailSecurityHandler problemHandler) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                // 공개 경로는 이슈 #7에서 public 체인으로 분리한다.
-                .requestMatchers("/f/**", "/l/**", "/api/public/**").permitAll()
                 // 컨트롤러 밖에서 난 오류를 Boot 기본 오류 응답으로 내보내기 위한 경로
                 .requestMatchers("/error").permitAll()
                 .anyRequest().denyAll())

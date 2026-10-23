@@ -14,7 +14,7 @@ docker compose up --build
 |---|---|
 | http://localhost:5173 | 관리자 화면 (admin-web). 계정은 `.env`의 `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` |
 | http://localhost:8080/actuator/health | backend 헬스체크 (admin 출처) |
-| http://localhost:8081 | 공개 폼 출처 (공개 기능 구현 후 사용) |
+| http://localhost:8081 | 공개 폼 출처 (/f/{slug}, /l/{code}) |
 
 종료: `docker compose down` (DB 데이터까지 지우려면 `docker compose down -v`)
 

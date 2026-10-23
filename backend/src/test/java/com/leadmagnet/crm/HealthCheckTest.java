@@ -1,15 +1,12 @@
 package com.leadmagnet.crm;
 
 import static io.restassured.RestAssured.given;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
-import com.leadmagnet.crm.common.PortsProperties;
 import com.leadmagnet.crm.support.IntegrationTest;
 import io.restassured.RestAssured;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
 @IntegrationTest
@@ -17,9 +14,6 @@ class HealthCheckTest {
 
     @LocalServerPort
     int port;
-
-    @Autowired
-    PortsProperties ports;
 
     @BeforeEach
     void setUp() {
@@ -38,11 +32,5 @@ class HealthCheckTest {
         given()
             .when().get("/actuator/env")
             .then().statusCode(401);
-    }
-
-    @Test
-    void 출처별_포트_기본값은_8080과_8081이다() {
-        assertThat(ports.admin()).isEqualTo(8080);
-        assertThat(ports.publicPort()).isEqualTo(8081);
     }
 }
