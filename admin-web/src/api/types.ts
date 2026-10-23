@@ -151,6 +151,13 @@ export interface Lead {
   createdAt: string
 }
 
+/** 원문 연락처(GET /api/admin/leads/{id}/contact). 명단의 name·phone·email은 가린 값이다 (ADR 0015). */
+export interface LeadContact {
+  name: string | null
+  phone: string | null
+  email: string | null
+}
+
 export interface LeadPage {
   items: Lead[]
   page: number

@@ -110,18 +110,21 @@ class HappyPathScenarioTest extends ScenarioBase {
             .body("campaigns[0].campaignId", equalTo(campaign)).body("campaigns[0].visits", equalTo(5))
             .body("campaigns[0].leads", equalTo(2)).body("campaigns[0].convertedVisitors", equalTo(2));
 
-        // 10. 명단: 최신순, 링크 code 채널이 귀속되고 표기가 정규화되어 있다
+        // 10. 명단: 최신순, 링크 code 채널이 귀속되고 연락처는 가린 값이다. 원문은 contact API로만 본다 (ADR 0015)
         authed(token).get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
             .body("totalElements", equalTo(2))
-            .body("items.name", contains("비", "에이"))
+            .body("items.name", contains("*", "에*"))
             .body("items.channel", contains("threads", "instagram"))
-            .body("items.phone", contains("01011110002", "01011110001"))
-            .body("items[1].email", equalTo("a@example.com"))
+            .body("items.phone", contains("010-****-0002", "010-****-0001"))
+            .body("items[1].email", equalTo("a***@example.com"))
             .body("items[1].formId", equalTo(form))
             .body("items[1].payload.job", equalTo("student"))
             .body("items[1].payload.interests", contains("ai", "marketing"));
         authed(token).queryParam("channel", "instagram").get("/api/admin/campaigns/{id}/leads", campaign)
-            .then().statusCode(200).body("items.name", contains("에이"));
+            .then().statusCode(200).body("items.name", contains("에*"));
+        int leadA = authed(token).get("/api/admin/campaigns/{id}/leads", campaign).then().extract().path("items[1].id");
+        authed(token).get("/api/admin/leads/{id}/contact", leadA).then().statusCode(200)
+            .body("name", equalTo("에이")).body("phone", equalTo("01011110001")).body("email", equalTo("a@example.com"));
         assertThat(jdbc.queryForList("SELECT visitor_id::text FROM leads ORDER BY id", String.class))
             .containsExactly(a.visitorId(), b.visitorId());
 

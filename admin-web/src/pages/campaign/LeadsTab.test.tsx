@@ -4,7 +4,7 @@ import { clearSession } from '../../api/client'
 import { json, mockBackend, requestsTo } from '../../test/http'
 import { renderPage } from '../../test/render'
 import { CampaignDetailPage } from '../CampaignDetail'
-import { campaign, leadPage } from './fixtures'
+import { campaign, leadContact, leadPage } from './fixtures'
 
 beforeEach(() => clearSession())
 afterEach(() => vi.unstubAllGlobals())
@@ -15,17 +15,38 @@ function backend(total = 45) {
     if (url.pathname === '/api/admin/campaigns/7/leads') {
       return json(leadPage(Number(url.searchParams.get('page') ?? 0), total))
     }
+    const contact = url.pathname.match(/^\/api\/admin\/leads\/(\d+)\/contact$/)
+    if (contact) return json(leadContact(Number(contact[1]) - 100))
     return undefined
   })
 }
 
+/** 두 줄짜리 첫 페이지. 원문 보기가 그 줄에만 적용되는지 본다. */
+function twoRowBackend(contactResponse: () => Response = () => json(leadContact(0))) {
+  return mockBackend((url) => {
+    if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+    if (url.pathname === '/api/admin/campaigns/7/leads') {
+      const page = leadPage(0, 2)
+      return json({ ...page, items: [page.items[0], { ...page.items[0], id: 200, name: '김*희', email: null }] })
+    }
+    if (url.pathname === '/api/admin/leads/100/contact') return contactResponse()
+    return undefined
+  })
+}
+
+async function rowOf(text: string) {
+  const table = await screen.findByRole('table', { name: '신청자 명단' })
+  return (await within(table).findByText(text)).closest('tr')!
+}
+
 describe('명단 탭', () => {
-  it('전화번호를 하이픈 형식으로, 채널은 이름으로 보여준다', async () => {
+  it('가린 연락처를 그대로 보여주고 채널은 이름으로 보여준다', async () => {
     backend()
     renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
     const table = await screen.findByRole('table', { name: '신청자 명단' })
-    const row = (await within(table).findByText('신청자0')).closest('tr')!
-    expect(within(row).getByText('010-1234-5678')).toBeInTheDocument()
+    const row = (await within(table).findByText('신*0')).closest('tr')!
+    expect(within(row).getByText('010-****-5678')).toBeInTheDocument()
+    expect(within(row).getByText('l***@example.com')).toBeInTheDocument()
     expect(within(row).getByText('인스타그램')).toBeInTheDocument()
     expect(within(row).getByText('company: 하늘상사')).toBeInTheDocument()
     expect(within(row).getByText('2026-10-23 00:05')).toBeInTheDocument()
@@ -34,17 +55,17 @@ describe('명단 탭', () => {
   it('다음·이전 페이지가 page 파라미터를 바꾸고 size는 20이다', async () => {
     const fetchMock = backend()
     renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
-    await screen.findByText('신청자0')
+    await screen.findByText('신*0')
     expect(screen.getByText('1 / 3 페이지')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '이전 페이지' })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: '다음 페이지' }))
-    await screen.findByText('신청자1')
+    await screen.findByText('신*1')
     fireEvent.click(screen.getByRole('button', { name: '다음 페이지' }))
-    await screen.findByText('신청자2')
+    await screen.findByText('신*2')
     expect(screen.getByRole('button', { name: '다음 페이지' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: '이전 페이지' }))
-    await screen.findByText('신청자1')
+    await screen.findByText('신*1')
 
     const pages = requestsTo(fetchMock, '/api/admin/campaigns/7/leads').map((u) => u.searchParams.get('page'))
     expect(pages).toEqual(['0', '1', '2', '1'])
@@ -54,7 +75,7 @@ describe('명단 탭', () => {
   it('폼·채널 필터는 파라미터로 보내고 첫 페이지로 돌아간다', async () => {
     const fetchMock = backend()
     renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads&page=2')
-    await screen.findByText('신청자2')
+    await screen.findByText('신*2')
 
     fireEvent.change(screen.getByLabelText('폼'), { target: { value: '11' } })
     await waitFor(() => expect(requestsTo(fetchMock, '/api/admin/campaigns/7/leads').at(-1)!.searchParams.get('formId')).toBe('11'))
@@ -79,11 +100,64 @@ describe('명단 탭', () => {
   })
 })
 
+describe('원문 보기', () => {
+  it('원문 보기는 그 줄만 원문으로 바꾸고 가리기로 되돌린다', async () => {
+    const fetchMock = twoRowBackend()
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    const row = await rowOf('신*0')
+    const other = await rowOf('김*희')
+
+    fireEvent.click(within(row).getByRole('button', { name: '원문 보기' }))
+
+    expect(await within(row).findByText('신청자0')).toBeInTheDocument()
+    expect(within(row).getByText('010-1234-5678')).toBeInTheDocument()
+    expect(within(row).getByText('lead@example.com')).toBeInTheDocument()
+    expect(within(row).queryByText('010-****-5678')).not.toBeInTheDocument()
+    expect(within(other).getByText('010-****-5678')).toBeInTheDocument()
+    expect(within(other).getByRole('button', { name: '원문 보기' })).toBeInTheDocument()
+    expect(requestsTo(fetchMock, '/api/admin/leads/100/contact')).toHaveLength(1)
+    expect(requestsTo(fetchMock, '/api/admin/leads/200/contact')).toHaveLength(0)
+
+    fireEvent.click(within(row).getByRole('button', { name: '가리기' }))
+
+    expect(within(row).getByText('신*0')).toBeInTheDocument()
+    expect(within(row).getByText('010-****-5678')).toBeInTheDocument()
+    expect(within(row).queryByText('신청자0')).not.toBeInTheDocument()
+  })
+
+  it('다른 페이지로 가면 원문이 다시 가려진다', async () => {
+    backend()
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    fireEvent.click(within(await rowOf('신*0')).getByRole('button', { name: '원문 보기' }))
+    await screen.findByText('신청자0')
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 페이지' }))
+    await screen.findByText('신*1')
+    fireEvent.click(screen.getByRole('button', { name: '이전 페이지' }))
+
+    const row = await rowOf('신*0')
+    expect(within(row).getByRole('button', { name: '원문 보기' })).toBeInTheDocument()
+    expect(screen.queryByText('신청자0')).not.toBeInTheDocument()
+  })
+
+  it('원문을 불러오지 못하면 그 줄에 오류를 보여주고 가린 값을 유지한다', async () => {
+    twoRowBackend(() => json({ code: 'not_found', detail: '리소스를 찾을 수 없습니다' }, 404))
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    const row = await rowOf('신*0')
+
+    fireEvent.click(within(row).getByRole('button', { name: '원문 보기' }))
+
+    expect(await within(row).findByRole('alert')).toHaveTextContent('리소스를 찾을 수 없습니다')
+    expect(within(row).getByText('010-****-5678')).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: '원문 보기' })).toBeEnabled()
+  })
+})
+
 describe('명단 페이지 경계', () => {
   it('현재 페이지 표시는 페이지 목록의 항목에 aria-current="page"로 붙는다', async () => {
     backend()
     renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads&page=1')
-    await screen.findByText('신청자1')
+    await screen.findByText('신*1')
     const pager = screen.getByRole('navigation', { name: '명단 페이지' })
     const current = within(pager).getAllByRole('listitem').filter((li) => li.getAttribute('aria-current') === 'page')
     expect(current).toHaveLength(1)
@@ -105,7 +179,7 @@ describe('명단 페이지 경계', () => {
     expect(await screen.findByText(/이 페이지에는 신청이 없습니다/)).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: '신청자 명단' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '첫 페이지로' }))
-    expect(await screen.findByText('신청자0')).toBeInTheDocument()
+    expect(await screen.findByText('신*0')).toBeInTheDocument()
     expect(requestsTo(fetchMock, '/api/admin/campaigns/7/leads').at(-1)!.searchParams.get('page')).toBe('0')
   })
 })

@@ -1,14 +1,19 @@
+import { useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { LEAD_PAGE_SIZE, listLeads } from '../../api/leads'
-import { CHANNELS, type Campaign, type Channel } from '../../api/types'
+import { getLeadContact, LEAD_PAGE_SIZE, listLeads } from '../../api/leads'
+import { CHANNELS, type Campaign, type Channel, type Lead, type LeadContact } from '../../api/types'
 import { Button } from '../../components/Button'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorMessage } from '../../components/ErrorMessage'
 import { Field } from '../../components/Field'
 import { SkeletonRows, TableWrap } from '../../components/Table'
 import { formatDateTime, formatNumber, formatPhone, summarizePayload } from '../../format'
+import { errorText } from '../../errors'
 import { useAsync } from '../../hooks'
 import { CHANNEL_LABELS } from '../../labels'
+
+/** 원문 보기 상태. 그 줄에만, 같은 명단 조회(캠페인·페이지·필터) 동안에만 유지한다. */
+type Reveal = { status: 'loading' } | { status: 'shown'; contact: LeadContact } | { status: 'error'; error: unknown }
 
 function toChannel(value: string | null): Channel | null {
   return value && (CHANNELS as readonly string[]).includes(value) ? (value as Channel) : null
@@ -25,6 +30,31 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
     [campaign.id, page, formId, channel],
   )
 
+  // 조회 조건이 바뀌면(다른 페이지·필터) 원문을 다시 가린다. 화면을 떠나면 상태가 사라진다.
+  const queryKey = JSON.stringify([campaign.id, page, formId, channel])
+  const [reveals, setReveals] = useState<{ key: string; byId: Record<number, Reveal> }>({ key: queryKey, byId: {} })
+  if (reveals.key !== queryKey) setReveals({ key: queryKey, byId: {} })
+  const revealed = reveals.key === queryKey ? reveals.byId : {}
+
+  function setReveal(id: number, reveal: Reveal | null) {
+    // 응답이 늦게 와도 다른 조회 조건의 화면에는 원문을 남기지 않는다.
+    setReveals((prev) => {
+      if (prev.key !== queryKey) return prev
+      const byId = { ...prev.byId }
+      if (reveal) byId[id] = reveal
+      else delete byId[id]
+      return { key: queryKey, byId }
+    })
+  }
+
+  function reveal(id: number) {
+    setReveal(id, { status: 'loading' })
+    getLeadContact(id).then(
+      (contact) => setReveal(id, { status: 'shown', contact }),
+      (error: unknown) => setReveal(id, { status: 'error', error }),
+    )
+  }
+
   function update(changes: Record<string, string | null>) {
     setParams((prev) => {
       const next = new URLSearchParams(prev)
@@ -37,7 +67,7 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
   }
 
   const totalPages = data?.totalPages ?? 0
-  const columns = 7
+  const columns = 8
 
   return (
     <>
@@ -112,28 +142,22 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
                   <th scope="col">채널</th>
                   <th scope="col">폼</th>
                   <th scope="col">추가 항목</th>
+                  <th scope="col">원문</th>
                 </tr>
               </thead>
               <tbody aria-busy={loading}>
                 {!data && loading ? (
                   <SkeletonRows columns={columns} />
                 ) : (
-                  data?.items.map((lead) => {
-                    const extra = summarizePayload(lead.payload)
-                    return (
-                      <tr key={lead.id}>
-                        <td className="num nowrap">{formatDateTime(lead.createdAt)}</td>
-                        <td>{lead.name || <span className="muted">-</span>}</td>
-                        <td className="num nowrap">{formatPhone(lead.phone)}</td>
-                        <td className="break">{lead.email || <span className="muted">-</span>}</td>
-                        <td className="nowrap">{CHANNEL_LABELS[lead.channel] ?? lead.channel}</td>
-                        <td>{lead.formTitle}</td>
-                        <td className="truncate" title={extra}>
-                          {extra}
-                        </td>
-                      </tr>
-                    )
-                  })
+                  data?.items.map((lead) => (
+                    <LeadRow
+                      key={lead.id}
+                      lead={lead}
+                      reveal={revealed[lead.id]}
+                      onReveal={() => reveal(lead.id)}
+                      onHide={() => setReveal(lead.id, null)}
+                    />
+                  ))
                 )}
               </tbody>
             </table>
@@ -161,5 +185,40 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
         </>
       )}
     </>
+  )
+}
+
+function LeadRow({ lead, reveal, onReveal, onHide }: { lead: Lead; reveal: Reveal | undefined; onReveal: () => void; onHide: () => void }) {
+  const extra = summarizePayload(lead.payload)
+  const shown = reveal?.status === 'shown' ? reveal.contact : null
+  const contact = shown ?? lead
+  return (
+    <tr>
+      <td className="num nowrap">{formatDateTime(lead.createdAt)}</td>
+      <td>{contact.name || <span className="muted">-</span>}</td>
+      <td className="num nowrap">{formatPhone(contact.phone)}</td>
+      <td className="break">{contact.email || <span className="muted">-</span>}</td>
+      <td className="nowrap">{CHANNEL_LABELS[lead.channel] ?? lead.channel}</td>
+      <td>{lead.formTitle}</td>
+      <td className="truncate" title={extra}>
+        {extra}
+      </td>
+      <td className="nowrap">
+        {shown ? (
+          <Button size="sm" variant="ghost" onClick={onHide}>
+            가리기
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" busy={reveal?.status === 'loading'} onClick={onReveal}>
+            원문 보기
+          </Button>
+        )}
+        {reveal?.status === 'error' && (
+          <p className="small" role="alert">
+            {errorText(reveal.error)}
+          </p>
+        )}
+      </td>
+    </tr>
   )
 }

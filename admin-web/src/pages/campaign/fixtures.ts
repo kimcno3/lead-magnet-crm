@@ -40,6 +40,7 @@ export const channels: ChannelStats = {
   ],
 }
 
+/** 명단 API는 가린 값만 준다(ADR 0015). 원문은 leadContact로 따로 받는다. */
 export function leadPage(page: number, totalElements = 45): LeadPage {
   return {
     page,
@@ -52,9 +53,9 @@ export function leadPage(page: number, totalElements = 45): LeadPage {
         formId: 11,
         formTitle: '세미나 신청',
         channel: 'instagram',
-        name: `신청자${page}`,
-        phone: '01012345678',
-        email: 'lead@example.com',
+        name: `신*${page}`,
+        phone: '010-****-5678',
+        email: 'l***@example.com',
         payload: { company: '하늘상사' },
         createdAt: '2026-10-22T15:05:00Z',
       },
@@ -90,4 +91,8 @@ export const creatorStats: CreatorStats = {
       channels: [...linkChannels(zero), { channel: 'direct', visits: 600, visitors: 1, leads: 0, convertedVisitors: 0, conversionRate: 0 }],
     },
   ],
+}
+
+export function leadContact(page: number) {
+  return { name: `신청자${page}`, phone: '01012345678', email: 'lead@example.com' }
 }

@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 공개 폼 신청 접수. 폼이 열려 있는지(draft·없음 404, closed 410) 확인하고 fieldConfig로 검증한 뒤 저장한다.
  * 중복(같은 폼의 같은 전화번호·이메일)은 DB 부분 유니크 인덱스가 최종으로 막고(ON CONFLICT DO NOTHING) 409로 바꾼다 (ADR 0007).
+ * 연락처는 평문과 함께 암호문·HMAC 해시로도 저장한다(ADR 0015 expand 단계).
  */
 @Service
 public class LeadSubmissionService {
@@ -33,14 +34,16 @@ public class LeadSubmissionService {
     private final PublicFormService publicForms;
     private final LinkService links;
     private final LeadRepository leads;
+    private final ContactProtector protector;
     private final Clock clock;
     private final ObjectMapper objectMapper;
 
-    public LeadSubmissionService(PublicFormService publicForms, LinkService links, LeadRepository leads, Clock clock,
-            ObjectMapper objectMapper) {
+    public LeadSubmissionService(PublicFormService publicForms, LinkService links, LeadRepository leads,
+            ContactProtector protector, Clock clock, ObjectMapper objectMapper) {
         this.publicForms = publicForms;
         this.links = links;
         this.leads = leads;
+        this.protector = protector;
         this.clock = clock;
         this.objectMapper = objectMapper;
     }
@@ -51,7 +54,7 @@ public class LeadSubmissionService {
         Submission submission = SubmissionValidator.validate(form.getFieldConfig(), fields, consent);
         Attribution attribution = links.attribute(form.getId(), lm);
         Lead lead = Lead.receive(form.getId(), form.getCampaignId(), attribution, visitorId, submission,
-            clock.instant());
+            protector.protect(submission.name(), submission.phone(), submission.email()), clock.instant());
         if (!leads.insertIfAbsent(lead, toJson(lead.getPayload()))) {
             log.info("중복 신청 거절: formId={}, phone={}, email={}", form.getId(),
                 PiiMasker.maskPhone(submission.phone()), PiiMasker.maskEmail(submission.email()));

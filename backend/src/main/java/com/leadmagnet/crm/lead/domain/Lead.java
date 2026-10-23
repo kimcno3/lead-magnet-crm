@@ -19,6 +19,7 @@ import org.hibernate.type.SqlTypes;
 /**
  * 공개 폼으로 접수한 신청 한 건 (ADR 0008). 연락처 핵심 필드는 컬럼, 나머지 입력은 payload다.
  * 접수 뒤에는 바꾸지 않는다. 입력은 {@link SubmissionValidator}가 검증·정규화한 값만 받는다.
+ * 연락처는 평문 컬럼과 암호문·해시 컬럼에 함께 둔다(ADR 0015 expand 단계, 평문은 contract 단계에서 지운다).
  */
 @Entity
 @Table(name = "leads")
@@ -53,6 +54,23 @@ public class Lead {
     @Column(updatable = false, length = 254)
     private String email;
 
+    @Column(name = "name_enc", updatable = false)
+    private byte[] nameEnc;
+
+    @Column(name = "phone_enc", updatable = false)
+    private byte[] phoneEnc;
+
+    @Column(name = "email_enc", updatable = false)
+    private byte[] emailEnc;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "phone_hash", updatable = false, length = 64)
+    private String phoneHash;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "email_hash", updatable = false, length = 64)
+    private String emailHash;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, updatable = false, columnDefinition = "jsonb")
     private Map<String, Object> payload;
@@ -67,7 +85,7 @@ public class Lead {
     }
 
     private Lead(Long formId, Long campaignId, Attribution attribution, UUID visitorId, Submission submission,
-            Instant now) {
+            ProtectedContact contact, Instant now) {
         this.formId = formId;
         this.campaignId = campaignId;
         this.linkId = attribution.linkId();
@@ -76,15 +94,23 @@ public class Lead {
         this.name = submission.name();
         this.phone = submission.phone();
         this.email = submission.email();
+        this.nameEnc = contact.nameEnc();
+        this.phoneEnc = contact.phoneEnc();
+        this.emailEnc = contact.emailEnc();
+        this.phoneHash = contact.phoneHash();
+        this.emailHash = contact.emailHash();
         this.payload = Map.copyOf(submission.payload());
         this.consentAt = now;
         this.createdAt = now;
     }
 
-    /** 동의는 제출 시점에 확인했으므로 consentAt은 접수 시각이다. visitorId는 쿠키가 없거나 형식이 틀리면 null. */
+    /**
+     * 동의는 제출 시점에 확인했으므로 consentAt은 접수 시각이다. visitorId는 쿠키가 없거나 형식이 틀리면 null.
+     * contact는 같은 submission의 연락처를 암호화·해시한 값이다.
+     */
     public static Lead receive(Long formId, Long campaignId, Attribution attribution, UUID visitorId,
-            Submission submission, Instant now) {
-        return new Lead(formId, campaignId, attribution, visitorId, submission, now);
+            Submission submission, ProtectedContact contact, Instant now) {
+        return new Lead(formId, campaignId, attribution, visitorId, submission, contact, now);
     }
 
     public Long getId() {
@@ -121,6 +147,11 @@ public class Lead {
 
     public String getEmail() {
         return email;
+    }
+
+    /** 저장용 연락처(암호문·해시). 백필 전 행은 일부가 null일 수 있다. */
+    public ProtectedContact getProtectedContact() {
+        return new ProtectedContact(nameEnc, phoneEnc, emailEnc, phoneHash, emailHash);
     }
 
     public Map<String, Object> getPayload() {

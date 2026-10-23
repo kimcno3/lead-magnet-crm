@@ -929,6 +929,42 @@ paths:
                 $ref: "#/components/schemas/FormResponse"
       security:
       - bearer: []
+  /api/admin/leads/{id}/contact:
+    get:
+      tags:
+      - 명단
+      summary: 신청자 원문 연락처
+      description: "명단은 가린 값만 준다. 원문 이름·전화번호(숫자만)·이메일은 이 엔드포인트로 한 건씩 본다 (ADR 0015).\
+        \ 응답은 캐시하지 않는다(Cache-Control: no-store)."
+      operationId: getLeadContact
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: 원문 연락처
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LeadContactResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LeadContactResponse"
+        "404":
+          description: 없는 신청 (not_found)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LeadContactResponse"
+      security:
+      - bearer: []
   /api/admin/stats/campaigns:
     get:
       tags:
@@ -1662,6 +1698,15 @@ components:
           format: int64
         conversionRate:
           type: number
+    LeadContactResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
     CreatorCampaignStatsResponse:
       type: object
       properties:

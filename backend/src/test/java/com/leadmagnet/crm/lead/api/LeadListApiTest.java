@@ -27,7 +27,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-/** 캠페인별 명단. 최신순, 폼·채널 필터, 페이징. */
+/** 캠페인별 명단. 최신순, 폼·채널 필터, 페이징. 이름·전화번호·이메일은 가린 값만 돌려준다 (ADR 0015). */
 @IntegrationTest
 class LeadListApiTest {
 
@@ -78,39 +78,39 @@ class LeadListApiTest {
 
     @Test
     void 명단은_최신순이고_항목_모양이_계약과_같다() {
-        submit("form-a", "첫째", "010-1111-0001", instagramCode);
-        submit("form-b", "둘째", "010-1111-0002", null);
-        submit("form-a", "셋째", "010-1111-0003", null);
+        submit("form-a", "김첫째", "010-1111-0001", instagramCode);
+        submit("form-b", "이둘째", "010-1111-0002", null);
+        submit("form-a", "박셋째", "010-1111-0003", null);
 
         authed().get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
-            .body("items.name", contains("셋째", "둘째", "첫째"))
+            .body("items.name", contains("박*째", "이*째", "김*째"))
             .body("page", equalTo(0)).body("size", equalTo(20)).body("totalElements", equalTo(3))
             .body("totalPages", equalTo(1))
             .body("items[2].id", notNullValue()).body("items[2].formId", equalTo(formA))
             .body("items[2].formTitle", equalTo("봄 특강 신청")).body("items[2].channel", equalTo("instagram"))
-            .body("items[2].phone", equalTo("01011110001")).body("items[2].email", equalTo(null))
+            .body("items[2].phone", equalTo("010-****-0001")).body("items[2].email", equalTo(null))
             .body("items[2].payload", equalTo(Map.of())).body("items[2].createdAt", notNullValue())
             .body("items[0].channel", equalTo("direct"));
     }
 
     @Test
     void formId_필터로_한_폼의_신청만_본다() {
-        submit("form-a", "가", "010-1111-0001", null);
-        submit("form-b", "나", "010-1111-0002", null);
+        submit("form-a", "가나다", "010-1111-0001", null);
+        submit("form-b", "라마바", "010-1111-0002", null);
 
         authed().queryParam("formId", formB).get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
-            .body("items.name", contains("나")).body("totalElements", equalTo(1));
+            .body("items.name", contains("라*바")).body("totalElements", equalTo(1));
     }
 
     @Test
     void channel_필터로_채널별_신청만_본다() {
-        submit("form-a", "가", "010-1111-0001", instagramCode);
-        submit("form-a", "나", "010-1111-0002", null);
+        submit("form-a", "가나다", "010-1111-0001", instagramCode);
+        submit("form-a", "라마바", "010-1111-0002", null);
 
         authed().queryParam("channel", "instagram").get("/api/admin/campaigns/{id}/leads", campaign).then()
-            .statusCode(200).body("items.name", contains("가"));
+            .statusCode(200).body("items.name", contains("가*다"));
         authed().queryParam("channel", "direct").get("/api/admin/campaigns/{id}/leads", campaign).then()
-            .statusCode(200).body("items.name", contains("나"));
+            .statusCode(200).body("items.name", contains("라*바"));
         authed().queryParam("channel", "youtube").get("/api/admin/campaigns/{id}/leads", campaign).then()
             .statusCode(200).body("items", hasSize(0)).body("totalElements", equalTo(0)).body("totalPages", equalTo(0));
     }
@@ -118,14 +118,14 @@ class LeadListApiTest {
     @Test
     void 페이지와_크기로_나눠_본다() {
         for (int i = 1; i <= 5; i++) {
-            submit("form-a", "신청" + i, "010-2222-000" + i, null);
+            submit("form-a", "신청자" + i, "010-2222-000" + i, null);
         }
 
         authed().queryParam("size", 2).get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
-            .body("items.name", contains("신청5", "신청4")).body("size", equalTo(2)).body("totalElements", equalTo(5))
+            .body("items.name", contains("신*5", "신*4")).body("size", equalTo(2)).body("totalElements", equalTo(5))
             .body("totalPages", equalTo(3));
         authed().queryParams(Map.of("size", 2, "page", 2)).get("/api/admin/campaigns/{id}/leads", campaign).then()
-            .statusCode(200).body("items.name", contains("신청1")).body("page", equalTo(2));
+            .statusCode(200).body("items.name", contains("신*1")).body("page", equalTo(2));
         authed().queryParams(Map.of("size", 2, "page", 9)).get("/api/admin/campaigns/{id}/leads", campaign).then()
             .statusCode(200).body("items", hasSize(0)).body("totalElements", equalTo(5));
     }
@@ -134,11 +134,11 @@ class LeadListApiTest {
     void 다른_캠페인의_신청은_섞이지_않는다() {
         int otherCampaign = AdminFixtures.createCampaign(token, "다른 캠페인");
         AdminFixtures.createPublishedFormIn(token, otherCampaign, "form-c", AdminFixtures.FORM_HTML);
-        submit("form-a", "가", "010-1111-0001", null);
-        submit("form-c", "나", "010-1111-0002", null);
+        submit("form-a", "가나다", "010-1111-0001", null);
+        submit("form-c", "라마바", "010-1111-0002", null);
 
         authed().get("/api/admin/campaigns/{id}/leads", otherCampaign).then().statusCode(200)
-            .body("items.name", contains("나"));
+            .body("items.name", contains("라*바"));
     }
 
     @Test
@@ -154,8 +154,29 @@ class LeadListApiTest {
 
         authed().queryParam("formId", jdbc.queryForObject("SELECT id FROM forms WHERE slug='form-d'", Integer.class))
             .get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
-            .body("items[0].email", equalTo("a@b.co")).body("items[0].phone", equalTo(null))
+            .body("items[0].email", equalTo("a***@b.co")).body("items[0].phone", equalTo(null))
+            .body("items[0].name", equalTo(null))
             .body("items[0].payload.job", equalTo("student"));
+    }
+
+    @Test
+    void 명단은_암호문을_복호화해_가린다() {
+        submit("form-a", "홍길동", "010-1234-5678", null);
+        // 평문 컬럼을 바꿔도 명단은 암호문에서 읽는다.
+        jdbc.update("UPDATE leads SET name = '평문값', phone = '01099999999'");
+
+        authed().get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
+            .body("items[0].name", equalTo("홍*동")).body("items[0].phone", equalTo("010-****-5678"));
+    }
+
+    @Test
+    void 아직_백필되지_않은_행은_평문을_가려서_보여준다() {
+        jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, name, phone, email, consent_at) "
+            + "VALUES (?, ?, 'direct', '김영희', '01077776666', 'young@example.com', now())", formA, campaign);
+
+        authed().get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
+            .body("items[0].name", equalTo("김*희")).body("items[0].phone", equalTo("010-****-6666"))
+            .body("items[0].email", equalTo("y***@example.com"));
     }
 
     @Test

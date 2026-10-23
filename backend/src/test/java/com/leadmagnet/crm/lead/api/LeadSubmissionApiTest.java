@@ -10,6 +10,8 @@ import static org.hamcrest.Matchers.nullValue;
 
 import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
+import com.leadmagnet.crm.common.crypto.PiiCipher;
+import com.leadmagnet.crm.common.crypto.PiiHasher;
 import com.leadmagnet.crm.common.web.PublicPort;
 import com.leadmagnet.crm.support.AdminFixtures;
 import com.leadmagnet.crm.support.AdminLogin;
@@ -77,6 +79,12 @@ class LeadSubmissionApiTest {
     @Autowired
     PasswordEncoder passwordEncoder;
 
+    @Autowired
+    PiiCipher cipher;
+
+    @Autowired
+    PiiHasher hasher;
+
     String token;
     int formId;
 
@@ -139,6 +147,27 @@ class LeadSubmissionApiTest {
         assertThat(jdbc.queryForObject("SELECT payload->>'job' FROM leads", String.class)).isEqualTo("student");
         assertThat(jdbc.queryForList("SELECT jsonb_array_elements_text(payload->'interests') FROM leads", String.class))
             .containsExactly("x", "y");
+    }
+
+    @Test
+    void 정상_제출은_평문과_함께_암호문과_해시도_저장한다() {
+        submit("spring-2026", fields("name", "홍길동", "phone", PHONE, "email", " Kim@Example.com")).then().statusCode(201);
+
+        assertThat(leads()).singleElement().satisfies(row -> {
+            assertThat(cipher.decrypt((byte[]) row.get("name_enc"))).isEqualTo("홍길동");
+            assertThat(cipher.decrypt((byte[]) row.get("phone_enc"))).isEqualTo(PHONE_DIGITS);
+            assertThat(cipher.decrypt((byte[]) row.get("email_enc"))).isEqualTo("kim@example.com");
+            assertThat(row).containsEntry("phone_hash", hasher.hashPhone(PHONE_DIGITS))
+                .containsEntry("email_hash", hasher.hashEmail("kim@example.com"));
+        });
+    }
+
+    @Test
+    void 이메일이_없으면_이메일_암호문과_해시도_비운다() {
+        submit("spring-2026", fields("phone", PHONE, "name", "홍")).then().statusCode(201);
+
+        assertThat(leads()).singleElement().satisfies(row -> assertThat(row)
+            .containsEntry("email_enc", null).containsEntry("email_hash", null));
     }
 
     @Test
@@ -272,6 +301,21 @@ class LeadSubmissionApiTest {
         submit("spring-2026", fields("name", "홍", "phone", PHONE, "email", "kim@example.com")).then().statusCode(201);
 
         submit("spring-2026", fields("name", "김", "phone", "010-9999-8888", "email", "KIM@Example.COM"))
+            .then().statusCode(409).body("code", equalTo("duplicate_submission"));
+
+        assertThat(leads()).hasSize(1);
+    }
+
+    @Test
+    void 평문이_달라도_해시가_같으면_해시_인덱스가_409로_막는다() {
+        // 평문 인덱스에는 걸리지 않고 해시 인덱스에만 걸리는 행을 직접 넣는다(contract 이후 해시만 남은 상태와 같다).
+        jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, phone, email, phone_hash, email_hash, consent_at) "
+            + "SELECT id, campaign_id, 'direct', '01000000001', 'legacy@example.com', ?, ?, now() FROM forms WHERE id = ?",
+            hasher.hashPhone(PHONE_DIGITS), hasher.hashEmail("kim@example.com"), formId);
+
+        submit("spring-2026", fields("name", "홍", "phone", PHONE)).then().statusCode(409)
+            .body("code", equalTo("duplicate_submission"));
+        submit("spring-2026", fields("name", "김", "phone", "010-5555-6666", "email", "KIM@example.COM"))
             .then().statusCode(409).body("code", equalTo("duplicate_submission"));
 
         assertThat(leads()).hasSize(1);
