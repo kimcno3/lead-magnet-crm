@@ -22,3 +22,10 @@ dist/
 coverage/
 *.tsbuildinfo
 .claude/settings.local.json
+
+# E2E (Playwright)
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+e2e/.steps.jsonl
+e2e/.state.json

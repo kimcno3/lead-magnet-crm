@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>보안 프로브</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; }
+  pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; background: #f4f5f7; padding: 10px; border-radius: 8px; }
+</style>
+</head>
+<body>
+  <h2>보안 프로브</h2>
+  <p>업로드 HTML이 래퍼 밖으로 손을 뻗을 수 있는지 시험한다. 결과는 아래에 JSON으로 남는다.</p>
+  <form>
+    <label for="p-email">이메일</label>
+    <input id="p-email" type="email" name="email">
+    <button type="submit">보내기</button>
+  </form>
+  <pre id="probe">probe: not run</pre>
+
+  <script>
+    (function () {
+      var out = { done: false, violations: [] };
+      var pre = document.getElementById('probe');
+      function render() { pre.textContent = JSON.stringify(out, null, 2); }
+      function err(e) { return { ok: false, name: e && e.name, message: String(e && e.message || e) }; }
+
+      document.addEventListener('securitypolicyviolation', function (e) {
+        out.violations.push({ directive: e.effectiveDirective || e.violatedDirective, blockedURI: e.blockedURI });
+        render();
+      });
+
+      try { var t = parent.document.title; out.parentDocument = { ok: true, value: String(t) }; }
+      catch (e) { out.parentDocument = err(e); }
+
+      try { out.cookie = { ok: true, value: String(document.cookie) }; }
+      catch (e) { out.cookie = err(e); }
+
+      try { var ls = window.localStorage; out.localStorage = { ok: true, value: String(ls && ls.length) }; }
+      catch (e) { out.localStorage = err(e); }
+
+      out.origin = String(self.origin);
+      render();
+
+      function probeFetch(url) {
+        return fetch(url, { credentials: 'include' }).then(function (r) {
+          return { ok: r.ok, status: r.status, type: r.type };
+        }, function (e) { return err(e); });
+      }
+
+      function probeImage(url) {
+        return new Promise(function (resolve) {
+          var img = new Image();
+          img.onload = function () { resolve({ ok: true, width: img.naturalWidth }); };
+          img.onerror = function () { resolve({ ok: false, name: 'error', message: 'image load failed: ' + url }); };
+          img.src = url;
+        });
+      }
+
+      Promise.all([
+        probeFetch('http://localhost:8080/api/admin/auth/me'),
+        probeFetch('/api/admin/auth/me'),
+        probeImage('https://example.com/pixel.gif?leak=1')
+      ]).then(function (r) {
+        out.fetchAdminAbsolute = r[0];
+        out.fetchAdminRelative = r[1];
+        out.externalImage = r[2];
+        // violation 이벤트는 비동기로 올 수 있다. 다음 태스크에서 마감한다.
+        setTimeout(function () { out.done = true; render(); }, 0);
+      });
+    })();
+  </script>
+</body>
+</html>
