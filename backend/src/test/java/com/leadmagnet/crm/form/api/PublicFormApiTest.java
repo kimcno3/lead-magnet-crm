@@ -1,13 +1,16 @@
 package com.leadmagnet.crm.form.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.startsWith;
 
 import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.common.web.PublicPort;
+import com.leadmagnet.crm.form.domain.FormToken;
 import com.leadmagnet.crm.support.AdminFixtures;
 import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
@@ -34,6 +37,9 @@ class PublicFormApiTest {
 
     @Autowired
     PublicPort publicPort;
+
+    @Autowired
+    FormToken formToken;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -65,7 +71,19 @@ class PublicFormApiTest {
             .body("fields.name", equalTo(List.of("name", "phone")))
             .body("fields[0].required", equalTo(true))
             .body("fields[1].type", equalTo("tel"))
-            .body("html", equalTo(AdminFixtures.FORM_HTML));
+            .body("html", equalTo(AdminFixtures.FORM_HTML))
+            .body("ft", matchesPattern("^[A-Za-z0-9_-]{20,256}$"));
+    }
+
+    @Test
+    void 공개_API의_ft는_그_slug에_서명된_작성_시간_토큰이다() {
+        AdminFixtures.createPublishedForm(token, "spring-2026");
+        String ft = PublicOrigin.given(publicPort).get("/api/public/forms/spring-2026").then().statusCode(200)
+            .extract().path("ft");
+
+        assertThat(formToken.check(ft, "spring-2026", Instant.now().plusSeconds(3))).isEqualTo(FormToken.Check.VALID);
+        assertThat(formToken.check(ft, "autumn-2026", Instant.now().plusSeconds(3)))
+            .isEqualTo(FormToken.Check.SLUG_MISMATCH);
     }
 
     @Test

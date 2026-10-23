@@ -14,6 +14,8 @@ export default defineConfig(({ command }) => ({
   server: {
     port: 5173,
     headers: { 'Content-Security-Policy': devCsp() },
+    // 테스트가 저장소 루트의 docs/AI_FORM_PROMPT.md를 ?raw로 읽는다(프롬프트 일치 확인). 개발 서버에는 열지 않는다.
+    fs: process.env.VITEST ? { allow: ['.', '..'] } : undefined,
     proxy: {
       '/api/admin': backend,
       '/actuator/health': backend,

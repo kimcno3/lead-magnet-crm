@@ -8,6 +8,7 @@ import {
   formatPeriod,
   formatPhone,
   seoulDateToInstant,
+  summarizeAuditDetail,
   summarizePayload,
 } from './format'
 
@@ -107,5 +108,35 @@ describe('summarizePayload', () => {
   it('비어 있으면 대시', () => {
     expect(summarizePayload({})).toBe('-')
     expect(summarizePayload(null)).toBe('-')
+  })
+})
+
+describe('summarizeAuditDetail', () => {
+  it('필터·페이지·건수·가린 이메일을 한 줄로 보여주고 빈 필터는 뺀다', () => {
+    expect(summarizeAuditDetail({ formId: 11, channel: 'instagram', page: 0, size: 20 })).toBe(
+      '폼 #11 · 인스타그램 · 1페이지 · 페이지당 20건',
+    )
+    expect(summarizeAuditDetail({ formId: null, channel: null, reveal: true, count: 1234 })).toBe('1,234건')
+    expect(summarizeAuditDetail({ email: 'o***@example.com' })).toBe('이메일 o***@example.com')
+  })
+
+  it('보존 기간 파기는 실행 방식과 건수를 보여준다', () => {
+    expect(summarizeAuditDetail({ trigger: 'scheduled', count: 3 })).toBe('자동 실행(매일 03:00) · 3건')
+    expect(summarizeAuditDetail({ trigger: 'manual', count: 0, completed: true, interrupted: false })).toBe('수동 실행 · 0건')
+    expect(summarizeAuditDetail({ trigger: 'manual', count: 0, completed: true, interrupted: true })).toBe(
+      '수동 실행 · 0건 · 다른 실행이 처리 중이라 멈춤',
+    )
+    expect(
+      summarizeAuditDetail({ trigger: 'scheduled', count: 2, completed: false, interrupted: false, error: 'org.x.DbDown' }),
+    ).toBe('자동 실행(매일 03:00) · 2건 · 실패로 중단 · 오류 org.x.DbDown')
+  })
+
+  it('보존 기간 변경은 이전 값과 새 값을 보여준다', () => {
+    expect(summarizeAuditDetail({ oldRetentionDays: 365, newRetentionDays: 30 })).toBe('보존 365일 → 30일')
+  })
+
+  it('비어 있으면 대시, 모르는 키는 그대로', () => {
+    expect(summarizeAuditDetail({})).toBe('-')
+    expect(summarizeAuditDetail({ extra: 'x' })).toBe('extra: x')
   })
 })

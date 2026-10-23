@@ -1,6 +1,12 @@
 package com.leadmagnet.crm.auth.api;
 
+import com.leadmagnet.crm.common.web.AuditActors;
+import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.auth.application.AuthService;
+import com.leadmagnet.crm.common.error.DomainException;
+import com.leadmagnet.crm.common.error.ErrorCode;
+import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.auth.application.IssuedTokens;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -8,6 +14,7 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -27,19 +34,34 @@ public class AuthController {
 
     private final AuthService authService;
     private final RefreshTokenCookies cookies;
+    private final AuditService audit;
 
-    public AuthController(AuthService authService, RefreshTokenCookies cookies) {
+    public AuthController(AuthService authService, RefreshTokenCookies cookies, AuditService audit) {
         this.authService = authService;
         this.cookies = cookies;
+        this.audit = audit;
     }
 
-    @Operation(operationId = "login", summary = "로그인", description = "access token은 바디로, refresh token은 HttpOnly 쿠키(lm_refresh)로 준다.")
+    @Operation(operationId = "login", summary = "로그인", description = "access token은 바디로, refresh token은 HttpOnly 쿠키(lm_refresh)로 준다. 성공·실패는 감사 로그에 남는다(ADR 0016).")
     @ApiResponse(responseCode = "200", description = "로그인 성공")
     @ApiResponse(responseCode = "401", description = "invalid_credentials: 이메일 또는 비밀번호가 틀림")
     @ApiResponse(responseCode = "422", description = "validation_failed: 요청 형식 오류")
     @PostMapping("/login")
-    public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
-        return withRefreshCookie(authService.login(request.email(), request.password()));
+    public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
+        // 감사 기록은 로그인 트랜잭션이 끝난 뒤 남긴다. 기록이 실패해도 로그인 결과는 바뀌지 않는다(ADR 0016).
+        AuditActor actor = AuditActors.anonymous(httpRequest);
+        IssuedTokens tokens;
+        try {
+            tokens = authService.login(request.email(), request.password());
+        } catch (DomainException e) {
+            if (e.getErrorCode() == ErrorCode.INVALID_CREDENTIALS) {
+                audit.recordBestEffort(actor, AuditEvent.loginFailure(request.email()));
+            }
+            throw e;
+        }
+        audit.recordBestEffort(actor.withOperator(tokens.operatorId()), AuditEvent.loginSuccess(tokens.operatorId()));
+        return withRefreshCookie(tokens);
     }
 
     @Operation(operationId = "refreshToken", summary = "access token 재발급", description = "refresh 쿠키를 교체한다. 이미 쓴 토큰이 오면 그 로그인의 토큰을 모두 폐기한다.")

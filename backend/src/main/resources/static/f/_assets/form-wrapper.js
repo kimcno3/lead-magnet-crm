@@ -6,17 +6,33 @@
  *    iframe은 불투명 출처(origin "null")라 이 페이지의 DOM, 쿠키, 저장소에 닿지 못한다.
  * 3. 브리지가 보낸 lm:submit 메시지만 받아 필드와 동의를 검증한 뒤 공개 제출 API로 보낸다.
  * 서버나 업로드 HTML에서 온 값은 textContent와 srcdoc 속성으로만 넣는다(innerHTML 금지).
+ *
+ * 데이터 품질 방어(ADR 0019):
+ * - 브리지가 폼에 사람에게 보이지 않는 honeypot 입력 _lm_trap을 넣는다. 래퍼는 제출 fields에 _lm_trap을 항상 싣는다
+ *   (사람이면 빈 문자열). 밑줄로 시작하는 이름은 템플릿 필드 이름 규칙이 허용하지 않아 운영자 필드와 겹치지 않는다.
+ * - 폼 조회 응답의 작성 시간 토큰 ft를 제출에 그대로 싣는다. 서버가 422 invalid_form_token으로 거절하면
+ *   안내를 보여 주고 토큰을 새로 받아, 사람이 잠시 뒤 다시 제출하면 통과하게 한다.
  */
 (function () {
   "use strict";
 
   var SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
   var MAX_FRAME_HEIGHT = 10000;
+  var HONEYPOT = "_lm_trap";
 
   // iframe 안에서 도는 코드. 업로드 HTML과 같은 문서에 있으므로 이 스크립트가 보내는 값도 믿지 않고 래퍼에서 검증한다.
   var BRIDGE = "<script>(function () {\n" +
     "  'use strict';\n" +
     "  var form = document.querySelector('form');\n" +
+    "  if (form) {\n" +
+    "    var trap = document.createElement('input');\n" +
+    "    trap.type = 'text'; trap.name = '_lm_trap'; trap.value = '';\n" +
+    "    trap.setAttribute('autocomplete', 'off'); trap.setAttribute('tabindex', '-1'); trap.setAttribute('aria-hidden', 'true');\n" +
+    "    var hide = { position: 'absolute', left: '-10000px', top: 'auto', width: '1px', height: '1px',\n" +
+    "      overflow: 'hidden', opacity: '0', 'pointer-events': 'none' };\n" +
+    "    Object.keys(hide).forEach(function (p) { trap.style.setProperty(p, hide[p], 'important'); });\n" +
+    "    form.appendChild(trap);\n" +
+    "  }\n" +
     "  function reportHeight() {\n" +
     "    parent.postMessage({ type: 'lm:resize', height: document.documentElement.scrollHeight }, '*');\n" +
     "  }\n" +
@@ -54,6 +70,7 @@
 
   var slug = readSlug();
   var form = null;
+  var formToken = null;
   var submitting = false;
 
   function readSlug() {
@@ -130,7 +147,13 @@
       return { errors: ["입력값을 읽을 수 없습니다."] };
     }
     var clean = {};
+    var honeypot = "";
     Object.keys(fields).forEach(function (name) {
+      if (name === HONEYPOT) {
+        // 사람에게는 보이지 않는 입력이라 값이 있으면 봇이다. 판단은 서버가 하므로 값을 그대로 넘긴다.
+        honeypot = [].concat(fields[name]).join("");
+        return;
+      }
       var field = fieldByName(name);
       var value = fields[name];
       var valid = typeof value === "string" ||
@@ -146,6 +169,7 @@
         errors.push(labelOf(field.name) + " 항목을 입력해 주세요.");
       }
     });
+    clean[HONEYPOT] = honeypot;
     return { errors: errors, fields: clean };
   }
 
@@ -184,7 +208,7 @@
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ fields: checked.fields, consent: true, lm: lmParam() })
+      body: JSON.stringify({ fields: checked.fields, consent: true, lm: lmParam(), ft: formToken })
     }).then(function (response) {
       if (response.ok) {
         showResult(true, "신청이 접수되었습니다. 감사합니다.");
@@ -196,6 +220,10 @@
         var detail = problem && typeof problem.detail === "string" ? problem.detail : "신청을 처리하지 못했습니다.";
         showResult(false, detail, problemMessages(problem));
         replyToFrame(false);
+        if (problem && problem.code === "invalid_form_token") {
+          // 너무 빨리 제출했거나 오래 열어 둔 페이지다. 새 토큰을 받아 두면 사람이 다시 제출할 때 통과한다.
+          refreshToken();
+        }
       });
     }).catch(function () {
       showResult(false, "네트워크 오류로 신청하지 못했습니다. 잠시 후 다시 시도해 주세요.");
@@ -217,20 +245,35 @@
     }
   });
 
+  function fetchForm() {
+    return fetch("/api/public/forms/" + encodeURIComponent(slug), {
+      credentials: "same-origin",
+      headers: { "Accept": "application/json" }
+    });
+  }
+
+  function refreshToken() {
+    fetchForm().then(function (response) {
+      return response.ok ? response.json() : null;
+    }).then(function (data) {
+      if (data && typeof data.ft === "string") { formToken = data.ft; }
+    }).catch(function () {
+      // 다음 제출에서 다시 422가 나면 그때 또 받는다.
+    });
+  }
+
   function load() {
     if (!slug) {
       setStatus("신청 폼 주소가 올바르지 않습니다.");
       return;
     }
-    fetch("/api/public/forms/" + encodeURIComponent(slug), {
-      credentials: "same-origin",
-      headers: { "Accept": "application/json" }
-    }).then(function (response) {
+    fetchForm().then(function (response) {
       if (response.status === 410) { throw { userMessage: "마감된 신청입니다." }; }
       if (!response.ok) { throw { userMessage: "신청 폼을 찾을 수 없습니다." }; }
       return response.json();
     }).then(function (data) {
       form = { fields: Array.isArray(data.fields) ? data.fields : [] };
+      formToken = typeof data.ft === "string" ? data.ft : null;
       titleEl.textContent = data.title;
       document.title = data.title;
       consentText.textContent = data.consentText;

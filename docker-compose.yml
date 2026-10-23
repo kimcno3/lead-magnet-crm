@@ -29,9 +29,13 @@ services:
       ADMIN_SEED_EMAIL: ${ADMIN_SEED_EMAIL:-}
       ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET을 .env에 설정하세요}
+      LEAD_ENC_KEY: ${LEAD_ENC_KEY:?LEAD_ENC_KEY를 .env에 설정하세요}
+      LEAD_HMAC_KEY: ${LEAD_HMAC_KEY:?LEAD_HMAC_KEY를 .env에 설정하세요}
+      FORM_TOKEN_KEY: ${FORM_TOKEN_KEY:?FORM_TOKEN_KEY를 .env에 설정하세요}
       ADMIN_ORIGIN: ${ADMIN_ORIGIN:-http://localhost:5173}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8081}
+      RETENTION_ENABLED: ${RETENTION_ENABLED:-true}
     ports:
       - "${ADMIN_PORT:-8080}:8080"
       - "${PUBLIC_PORT:-8081}:8081"

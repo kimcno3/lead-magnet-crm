@@ -55,6 +55,9 @@ public abstract class ScenarioBase {
     protected PublicPort publicPort;
 
     @Autowired
+    protected MutableClock clock;
+
+    @Autowired
     protected JdbcTemplate jdbc;
 
     @Autowired
@@ -71,7 +74,7 @@ public abstract class ScenarioBase {
     }
 
     protected PublicVisitor newVisitor() {
-        return new PublicVisitor(publicPort);
+        return new PublicVisitor(publicPort, clock);
     }
 
     protected String publicOrigin() {

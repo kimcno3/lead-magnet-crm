@@ -17,7 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 공개 폼 신청 접수 (ADR 0002, 0007). CSP의 connect-src 'self' 때문에 sandbox된 업로드 HTML이 래퍼를 거치지 않고
  * 이 API를 직접 부를 수 있으므로 서버가 경계다: JSON만 받고, 동의와 필드 검증은 래퍼와 무관하게 서버에서 한다.
- * Origin: null 거절과 본문 크기 제한은 본문을 읽기 전에 {@code SubmissionGuardFilter}가 한다. 방문자 쿠키는 읽기만 하고 발급하지 않는다.
+ * Origin: null 거절, 본문 크기 제한, rate limit은 본문을 읽기 전에 {@code SubmissionGuardFilter}가 한다(검사 순서는 그 클래스와 ADR 0019).
+ * 방문자 쿠키는 읽기만 하고 발급하지 않는다.
  */
 @Tag(name = "공개 폼", description = "public 출처(:8081) 전용. 래퍼 스크립트가 호출한다 (ADR 0002)")
 @RestController
@@ -32,22 +33,25 @@ public class PublicSubmissionController {
     }
 
     @Operation(operationId = "submitForm", summary = "신청 제출", description = "Content-Type: application/json만 받는다. Origin: null(sandbox 프레임)은 거절한다. "
-        + "name·phone·email 필드는 컬럼으로, 나머지는 payload로 저장한다. 같은 폼의 같은 전화번호·이메일은 409.")
-    @ApiResponse(responseCode = "201", description = "접수됨 {status: received}")
+        + "name·phone·email 필드는 컬럼으로, 나머지는 payload로 저장한다. 같은 폼의 같은 전화번호·이메일은 409. "
+        + "검사 순서: 403 → 413 → 429 → 400·415 → 404·410 → 422 invalid_form_token → honeypot → 422 validation_failed → 409 (ADR 0019).")
+    @ApiResponse(responseCode = "201", description = "접수됨 {status: received}. honeypot(fields._lm_trap)이 채워진 제출도 같은 201이지만 저장하지 않는다")
     @ApiResponse(responseCode = "400", description = "malformed_request")
     @ApiResponse(responseCode = "403", description = "forbidden_origin")
     @ApiResponse(responseCode = "404", description = "없는 slug 또는 draft (not_found)")
     @ApiResponse(responseCode = "409", description = "duplicate_submission")
     @ApiResponse(responseCode = "410", description = "closed (gone)")
     @ApiResponse(responseCode = "415", description = "unsupported_media_type")
-    @ApiResponse(responseCode = "422", description = "validation_failed. errors[].code: unknown_field, required, "
+    @ApiResponse(responseCode = "422", description = "invalid_form_token(ft가 없거나 위조·다른 slug·발급 2초 미만·24시간 초과) 또는 "
+        + "validation_failed. errors[].code: unknown_field, required, "
         + "invalid_format, invalid_option, invalid_value, too_long, consent_required, contact_required")
+    @ApiResponse(responseCode = "429", description = "too_many_requests. IP 분당 10회·방문자 쿠키 분당 5회(기본값) 초과, Retry-After 헤더(초)")
     @PostMapping(path = "/api/public/forms/{slug}/submissions", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public SubmissionResponse submit(@PathVariable String slug, @RequestBody SubmissionRequest request,
             HttpServletRequest http) {
         submissions.submit(slug, request.fields(), request.consented(), request.lm(),
-            visitorCookie.read(http).orElse(null));
+            visitorCookie.read(http).orElse(null), request.ft());
         return SubmissionResponse.received();
     }
 }

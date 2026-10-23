@@ -16,6 +16,7 @@ import { formatDateTime } from '../../format'
 import { useAsync } from '../../hooks'
 import { CHANNEL_LABELS, publicBaseFrom } from '../../labels'
 import { FieldConfigEditor } from './FieldConfigEditor'
+import { CreatorLinks } from './CreatorLinks'
 import { NewFormDialog } from './NewFormDialog'
 
 export function FormsTab({ campaign, onChanged }: { campaign: Campaign; onChanged: () => void }) {
@@ -159,6 +160,12 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
         </div>
       </section>
 
+      {form.data?.publishedTemplateSha256 && form.data.publishedTemplateSha256 !== form.data.templateSha256 && (
+        <p className="note" role="status">
+          게시 시점 템플릿과 현재 템플릿이 다릅니다. 이 폼은 게시할 때의 내용 그대로 공개되고, 새 버전은 반영되지 않습니다.
+        </p>
+      )}
+
       <section className="panel-block" aria-label="공개 URL">
         <h3>공개 URL</h3>
         <div className="inline-row">
@@ -173,7 +180,7 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
       </section>
 
       <section className="panel-block" aria-label="배포 링크">
-        <h3>배포 링크</h3>
+        <h3>배포 링크 (크리에이터 없음)</h3>
         <ErrorMessage error={links.error} onRetry={links.reload} />
         {linkError && (
           <p className="form-error" role="alert">
@@ -192,7 +199,7 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
             </thead>
             <tbody>
               {LINK_CHANNELS.map((channel) => {
-                const link = links.data?.find((l) => l.channel === channel)
+                const link = links.data?.find((l) => l.channel === channel && !l.creator)
                 return (
                   <tr key={channel}>
                     <td className="nowrap">{CHANNEL_LABELS[channel]}</td>
@@ -224,6 +231,11 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
             </tbody>
           </table>
         </TableWrap>
+      </section>
+
+      <section className="panel-block">
+        <h3>크리에이터별 배포 링크</h3>
+        <CreatorLinks formId={summary.id} closed={status === 'closed'} links={links.data} onCreated={links.reload} />
       </section>
 
       <section className="panel-block" aria-label="필드 설정">

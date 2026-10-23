@@ -204,6 +204,94 @@ class TemplateApiTest {
             .contentType("application/problem+json").body("code", equalTo("not_found"));
     }
 
+    static final String WITH_WARNINGS = """
+        <!doctype html><html><head><title>t</title>
+        <link rel="stylesheet" href="https://cdn.example.com/a.css"></head><body>
+        <form><input type="tel" name="phone" required><button>신청</button></form></body></html>
+        """;
+
+    @Test
+    void 업로드_응답과_상세에_검사_경고가_들어_있고_경고가_있어도_201이다() {
+        int id = upload("w.html", WITH_WARNINGS, null).statusCode(201)
+            .body("inspection.code", org.hamcrest.Matchers.hasItems("external_stylesheet", "missing_label"))
+            .body("inspection.find { it.code == 'external_stylesheet' }.severity", equalTo("warning"))
+            .body("inspection.find { it.code == 'external_stylesheet' }.location",
+                org.hamcrest.Matchers.containsString("cdn.example.com"))
+            .extract().path("id");
+
+        authed().get("/api/admin/templates/" + id).then().statusCode(200)
+            .body("inspection.code", org.hamcrest.Matchers.hasItems("external_stylesheet", "missing_label"));
+        assertThat(jdbc.queryForObject("SELECT inspection IS NOT NULL FROM html_templates WHERE id = ?", Boolean.class, id))
+            .isTrue();
+    }
+
+    @Test
+    void 경고가_없으면_inspection은_빈_배열이다() {
+        upload("clean.html", FORM.replace("<form action=\"https://evil.example/x\">", "<form>")
+            .replace("<select name=\"plan\">", "<label for=\"pl\">플랜</label><select id=\"pl\" name=\"plan\">")
+            .replace("<input type=\"tel\" name=\"phone\" placeholder=\"010\">",
+                "<label for=\"ph\">전화</label><input id=\"ph\" type=\"tel\" name=\"phone\" required>"), null)
+            .statusCode(201).body("inspection", hasSize(0));
+    }
+
+    @Test
+    void 검사_API는_리포트만_주고_아무것도_저장하지_않는다() {
+        long before = jdbc.queryForObject("SELECT count(*) FROM html_templates", Long.class);
+
+        inspect("w.html", WITH_WARNINGS).statusCode(200)
+            .body("size", equalTo(WITH_WARNINGS.getBytes(StandardCharsets.UTF_8).length))
+            .body("fields", hasSize(1))
+            .body("fields[0].name", equalTo("phone"))
+            .body("inspection.code", org.hamcrest.Matchers.hasItem("external_stylesheet"));
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM html_templates", Long.class)).isEqualTo(before).isZero();
+    }
+
+    @Test
+    void 검사_API도_계약_오류는_업로드와_같은_422이고_저장하지_않는다() {
+        inspect("a.html", "<p>no form</p>").statusCode(422).contentType("application/problem+json")
+            .body("code", equalTo("template_form_count_invalid"));
+        inspect("a.txt", FORM).statusCode(422).body("code", equalTo("template_invalid_extension"));
+        inspect("a.html", "").statusCode(422).body("code", equalTo("template_empty"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM html_templates", Long.class)).isZero();
+    }
+
+    @Test
+    void 검사_API는_토큰_없이_부르면_401이다() {
+        given().multiPart("file", "a.html", FORM.getBytes(StandardCharsets.UTF_8), "text/html")
+            .when().post("/api/admin/templates/inspect").then().statusCode(401);
+    }
+
+    @Test
+    void 검사가_저장되지_않은_기존_템플릿은_상세를_열_때_계산한다() {
+        long id = jdbc.queryForObject("INSERT INTO html_templates (name, content, sha256, size, created_by, fields) "
+            + "VALUES ('legacy', ?, repeat('a', 64), 10, ?, '[]'::jsonb) RETURNING id", Long.class,
+            WITH_WARNINGS, operatorId);
+
+        authed().get("/api/admin/templates/" + id).then().statusCode(200)
+            .body("inspection.code", org.hamcrest.Matchers.hasItem("external_stylesheet"));
+        assertThat(jdbc.queryForObject("SELECT inspection IS NULL FROM html_templates WHERE id = ?", Boolean.class, id))
+            .as("GET은 아무것도 쓰지 않는다").isTrue();
+    }
+
+    @Test
+    void 검사_API는_512KB를_넘으면_413이고_UTF8이_아니면_422이다() {
+        String big = FORM + "<!--" + "a".repeat(600 * 1024) + "-->";
+        inspect("big.html", big).statusCode(413).contentType("application/problem+json")
+            .body("code", equalTo("template_too_large"));
+        given().auth().oauth2(token)
+            .multiPart("file", "a.html", "<form>안</form>".getBytes(java.nio.charset.Charset.forName("EUC-KR")), "text/html")
+            .when().post("/api/admin/templates/inspect")
+            .then().statusCode(422).body("code", equalTo("template_not_utf8"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM html_templates", Long.class)).isZero();
+    }
+
+    private ValidatableResponse inspect(String filename, String content) {
+        return given().auth().oauth2(token)
+            .multiPart("file", filename, content.getBytes(StandardCharsets.UTF_8), "text/html")
+            .when().post("/api/admin/templates/inspect").then();
+    }
+
     private io.restassured.specification.RequestSpecification authed() {
         return given().auth().oauth2(token).when();
     }

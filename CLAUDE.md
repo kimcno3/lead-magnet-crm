@@ -8,8 +8,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # 전체 로컬 실행 (postgres, backend :8080·:8081, admin-web :5173)
-# .env.example을 복사하면서 JWT_SECRET을 새로 만든다(자리표시 값으로는 기동하지 않는다)
-sed "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" .env.example > .env
+# .env.example을 복사하면서 JWT_SECRET, 개인정보 암호화 키 두 개, 폼 토큰 키를 새로 만든다(자리표시 값으로는 기동하지 않는다)
+sed -e "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" \
+    -e "s|^LEAD_ENC_KEY=.*|LEAD_ENC_KEY=$(openssl rand -base64 32)|" \
+    -e "s|^LEAD_HMAC_KEY=.*|LEAD_HMAC_KEY=$(openssl rand -base64 32)|" \
+    -e "s|^FORM_TOKEN_KEY=.*|FORM_TOKEN_KEY=$(openssl rand -base64 32)|" .env.example > .env
 docker compose up --build
 
 # backend (Gradle 툴체인이 JDK 21을 자동으로 받는다. 실행 JDK는 17 이상이면 된다)
@@ -48,19 +51,27 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
   - 에러는 `common/error`의 `ErrorCode`·`DomainException`을 던지면 `GlobalExceptionHandler`가 ProblemDetail(`code` 포함)로 바꾼다. Security 401·403도 같은 형식이다.
   - 캠페인·폼(ADR 0013): `campaign`과 `form` 애그리거트는 서로 id로만 참조한다. 폼의 `fieldConfig`는 생성 시 템플릿 `fields`를 복사한 스냅샷이며 `label`·`required`만 draft에서 수정할 수 있다. 상태 값은 DB CHECK에 맞춰 소문자로 저장하므로(`*StatusConverter`) enum에 `@Enumerated`를 쓰지 않는다.
   - 배포 링크(ADR 0006): `link` 패키지. 폼당 채널별 링크 하나는 DB 유니크가 아니라 `LinkService`가 지킨다. `/l/{code}`는 방문을 기록하지 않고 `/f/{slug}?lm={code}`로 302만 하며(방문자 쿠키만 발급), 채널 귀속은 `LinkService.attribute`/`resolveForForm`으로 한다. URL 앞부분은 `PUBLIC_BASE_URL`(`app.public-base-url`).
+  - 크리에이터(ADR 0014): `creator` 패키지(등록·수정·보관). 링크의 `creator_id`(NULL = 자체 링크)로 귀속하며 방문·신청의 크리에이터는 `link_id`로 유도한다(스키마에 없음). 폼 × 채널 × 크리에이터(없음 포함)당 링크 하나도 `LinkService`가 지키고, 보관된 크리에이터로는 새 링크를 만들 수 없다. 크리에이터별 지표(`StatsQuery`)는 `COALESCE(creator_id, 0)`을 키로 쓰며 0은 "직접·자체 링크"(자체 링크 + direct), 전환은 같은 크리에이터 안의 교집합이다.
   - 공개 폼(ADR 0002): `/f/{slug}`는 동적 값이 없는 고정 셸(`form/api/WrapperPages`)이고, `static/f/_assets/form-wrapper.js`가 `/api/public/forms/{slug}`로 받은 HTML을 sandbox iframe srcdoc에 넣는다. 셸에 서버 값을 끼워 넣지 않는다(CSP에 `'unsafe-inline'`이 있다).
   - 방문(`tracking`): `/f/{slug}` 200마다 `VisitRecorder`가 한 행을 남긴다. 방문자 id는 `tracking/api/VisitorIdCookie`(`lm_vid`, UUID v4가 아니면 새로 발급).
-  - 신청(ADR 0007, 0008): `lead` 패키지. 제출 `POST /api/public/forms/{slug}/submissions`는 서버가 신뢰 경계다(sandbox HTML이 CSP `connect-src 'self'`로 직접 부를 수 있다): JSON만 받고, `Origin: null`은 403 `forbidden_origin`, 동의와 fieldConfig 검증은 `lead/domain/SubmissionValidator`가 한다(오류는 `errors[{field,message,code}]`로 모아 422). 중복(같은 폼의 같은 phone/email)은 V2 부분 유니크 인덱스와 `INSERT ... ON CONFLICT DO NOTHING`으로 409 `duplicate_submission`; 유니크 위반 예외를 쓰지 않는 이유는 DB 오류 로그에 전화번호 원문이 실리기 때문이다. 방문자 쿠키는 `VisitorIdCookie.read`로 읽기만 하고 제출에서는 발급하지 않는다.
+  - 신청(ADR 0007, 0008): `lead` 패키지. 제출 `POST /api/public/forms/{slug}/submissions`는 서버가 신뢰 경계다(sandbox HTML이 CSP `connect-src 'self'`로 직접 부를 수 있다): JSON만 받고, `Origin: null`은 403 `forbidden_origin`, 동의와 fieldConfig 검증은 `lead/domain/SubmissionValidator`가 한다(오류는 `errors[{field,message,code}]`로 모아 422). 중복(같은 폼의 같은 phone/email)은 V4 해시 부분 유니크 인덱스(`(form_id, phone_hash)`, `(form_id, email_hash)`; V2 평문 인덱스는 V5에서 삭제)와 `INSERT ... ON CONFLICT DO NOTHING`으로 409 `duplicate_submission`; 유니크 위반 예외를 쓰지 않는 이유는 DB 오류 로그에 전화번호 원문이 실리기 때문이다. 방문자 쿠키는 `VisitorIdCookie.read`로 읽기만 하고 제출에서는 발급하지 않는다.
+  - 개인정보 암호화(ADR 0015, 평문 컬럼은 V5에서 삭제): `common/crypto`의 `PiiCipher`(AES-256-GCM, `version|iv|ciphertext+tag`)·`PiiHasher`(HMAC-SHA256 hex, 전화번호는 숫자만·이메일은 소문자로 정규화) 키는 `PiiCryptoProperties`(`LEAD_ENC_KEY`·`LEAD_HMAC_KEY`, base64 32바이트, 없거나 틀리면 기동 실패). 신청은 `*_enc`·`*_hash`만 쓰고 중복은 해시 부분 유니크 인덱스가 대상 없는 `ON CONFLICT DO NOTHING`으로 거른다. 암·복호화는 `lead/application/ContactProtector`에서만 하고, 명단은 가린 값(`PiiMasker.maskName`·`maskPhoneForDisplay`·`maskEmailForDisplay`), 원문은 `LeadContactService.reveal`(`GET /api/admin/leads/{id}/contact`)로만 준다. V5는 맨 앞 `DO` 가드로 백필 안 된 행이 있으면 중단한다. 웹 서버가 요청을 받기 전에(`SmartInitializingSingleton`, Flyway 이후) `common/crypto/PiiKeyCheck`가 `pii_key_check` 표식 행으로 현재 키가 기존 데이터의 키와 같은지 확인하고 다르면 기동을 멈춘다. 암호문은 컬럼 이름을 AAD로 묶는다(`PiiCipher.encrypt(value, column)`). 명단에서 복호화하지 못한 행은 `contactUnavailable`로 비우고 원문 API는 500으로 실패한다.
+  - 감사 로그(ADR 0016): `audit` 패키지(V6 `audit_logs`, 쓰기·조회만). 쓰기는 `audit/application/AuditService`로만 한다. 원문을 내주는 유스케이스(`LeadContactService.reveal`, `LeadExportService.start`)는 `recordRequired`(호출자 트랜잭션, 실패하면 요청도 실패), 명단 조회·로그인은 유스케이스 트랜잭션이 끝난 뒤 컨트롤러가 `recordBestEffort`(트랜잭션 안에서 부르면 예외, 실패하면 WARN만). 기록 모양은 `AuditEvent` 정적 팩토리. 요청 주체는 `common/web/AuditActors`(운영자 = JWT `sub`, IP = `getRemoteAddr()`만, X-Forwarded-For는 읽지 않음). 의존은 auth·lead·campaign → audit 한 방향이고 운영자 이메일은 audit의 포트 `OperatorDirectory`를 auth가 구현한다. `detail`에 신청자 원문을 넣지 않는다. 명단 CSV(`GET /api/admin/campaigns/{id}/leads.csv`)는 기록·범위(`id <= maxId`) 확정 뒤 keyset으로 스트리밍하고(`spring.mvc.async.request-timeout` 10분), 칸은 `common/Csv`(RFC 4180, 앞 공백 뒤 수식 시작 문자에 `'`)로 만든다.
+  - 게시 스냅샷(ADR 0018): `Form.publish`가 템플릿 `content`·`sha256`을 `forms.published_html`·`published_template_sha256`(V8)에 복사하고, 공개 API는 그것만 쓴다(`PublicFormService`는 `TemplateService`를 쓰지 않는다). 템플릿 새 버전은 `PUT /api/admin/templates/{id}`(`form/application/TemplateVersionService`)이고 draft 폼의 `field_config`만 다시 스냅샷한다. 게시·폼 수정과 새 버전 업로드는 템플릿 행 → 폼 행 순서로 `PESSIMISTIC_WRITE`를 잡는다. 이 순서를 어기면 교착이나 html·필드 불일치가 생긴다.
+  - 업로드 검사(ADR 0017): `template/domain/TemplateInspector`(Jsoup, 순수)가 계약 오류와 별개로 경고 `[{code, severity, message, location}]`를 낸다. 업로드를 막지 않고, `TemplateService.inspect`(저장 없음)를 업로드·`POST /api/admin/templates/inspect`·새 버전 업로드가 함께 쓴다. `html_templates.inspection`(V7)이 NULL인 기존 행은 `inspectionOf`가 읽을 때 계산하고 저장하지 않는다. 경고 코드를 바꾸면 `docs/AI_FORM_PROMPT.md` 대응표·TROUBLESHOOTING 3.1절·`admin-web/src/aiFormPrompt.ts`를 함께 맞춘다(테스트가 확인).
   - 지표(ADR 0005): `stats`는 엔티티 없이 `StatsQuery`(NamedParameterJdbcTemplate 네이티브 SQL, 지표 정의를 SQL 주석으로 인용)가 집계한다. 기간은 `stats/domain/DateRange`가 Asia/Seoul 날짜 `[from 00:00, to+1 00:00)`로 바꾸고 형식 오류·`from > to`는 422. 전환 방문자는 방문∩신청 `visitor_id` 교집합(채널별은 같은 채널 안), `visitor_id` NULL 신청은 전환에 넣지 않는다.
+  - 데이터 품질(ADR 0019): 봇 UA 방문은 `visits.is_bot`(V9, `tracking/domain/BotUserAgents`, 패턴은 `app.tracking.bot-user-agents`)으로 남기고 `StatsQuery`의 모든 방문 CTE가 `NOT v.is_bot`으로 뺀다. 제출은 `SubmissionGuardFilter`(403 → 413 → 429 rate limit, `common/web/RateLimiter` IP·`lm_vid` 버킷) → 404·410 → `FormTokenService.verify`(작성 시간 토큰 `ft`, `FORM_TOKEN_KEY`, 2초~24시간, 422 `invalid_form_token`) → honeypot `fields._lm_trap`(201, 저장 안 함, 밑줄 시작이라 템플릿 필드 이름과 겹치지 않음) → 필드 검증 순서다. 이 순서를 바꾸지 않는다. 테스트 제출은 `support/FormTokens.mature`로 토큰을 받는다(시계를 되돌려 받으므로 sleep 없음). `support/PublicOrigin`은 브라우저 User-Agent를 기본으로 싣는다(HTTP 라이브러리 UA는 봇 방문).
+  - 보존 기간 파기(ADR 0020): `campaigns.retention_days`(1~3650, 기본 365)가 지난 신청을 `Lead.anonymize`가 익명화한다(암호문·해시 NULL, payload는 키만, `anonymized_at`; 행·지표용 값·동의 문구는 남김). `lead/application/LeadRetentionService`가 배치마다 `pg_try_advisory_xact_lock`을 잡고 keyset으로 처리하며(못 잡으면 그 실행은 멈추고 `interrupted`), 실행마다 감사 `retention.anonymize` 한 줄(배치가 실패해도 부분 건수·`completed=false`를 먼저 기록한 뒤 예외). 보존 기간 변경은 `campaign.retention.update`. 스케줄링은 `common/SchedulingConfig`가 켜고, 파기 스케줄러(`lead/config/RetentionScheduler`, 매일 03:00 KST)만 `app.retention.enabled`로 켜고 끈다(테스트는 끔, 배치 2건). 수동 `POST /api/admin/retention/run[?dryRun=true]`. 파기된 신청은 원문 API 410 `lead_anonymized`, CSV 마지막 열 "파기". 동의 증빙(`consent_text`·`consent_sha256`, `lead/domain/ConsentEvidence`)은 신청 시 폼 문구를 복사하고 `GET /api/admin/leads/{id}/consent`(감사 기록 없음)로 본다. 테스트에서 경계 시각은 `MutableClock.freezeAt`.
   - 운영자 계정은 기동 시 `auth/application/OperatorSeeder`가 `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD`로 만든다(ADR 0009). 로그용 개인정보 마스킹은 `common/PiiMasker`.
-  - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. `RestAssured.port`는 admin 포트로 두고 public 포트 요청은 `PublicOrigin.given(publicPort)`로 보낸다. Docker가 떠 있어야 backend 테스트가 돈다.
+  - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. 단 `pii_key_check`는 일부러 넣지 않는다: 업무 데이터가 아니라 컨텍스트 기동 때 한 번 쓰는 키 확인 행이고, 공유 컨텍스트에서 지우면 다음 확인이 다른 키로 행을 새로 만들 수 있어 키 불일치 검사를 무력화한다(`PiiKeyCheckTest`는 행을 지운 뒤 `@AfterEach`에서 원래 키로 되돌린다). `RestAssured.port`는 admin 포트로 두고 public 포트 요청은 `PublicOrigin.given(publicPort)`로 보낸다. Docker가 떠 있어야 backend 테스트가 돈다.
   - 시나리오 테스트(`scenario` 테스트 패키지): `HappyPath`·`Failure`·`Isolation`이 두 포트를 오가며 로그인→업로드→배포→방문→신청→지표를 실제 HTTP로 잇는다. 기능별 테스트를 복제하지 않고 앞 단계 출력이 다음 입력이 되는지만 본다. 공통 도우미는 `support/ScenarioBase`, 방문자 쿠키를 들고 `/l/{code}` 302를 직접 따라가는 `support/PublicVisitor`. 지표는 테스트 주석에 손계산 표를 두고 정확히 비교한다.
 - `admin-web/`: React + Vite + TypeScript 관리자 SPA. 운영 시에는 nginx(`admin-web/nginx.conf`), 개발 시에는 Vite가 `/api/admin/`과 `/actuator/health`를 backend admin 포트로 프록시한다. 브라우저 입장에서는 admin-web 출처 하나뿐이어서 refresh 쿠키(SameSite=Strict, Path=/api/admin/auth)가 그대로 동작하고, public 출처(:8081)와는 출처가 다르다.
   - 관리자 UI(ADR 0011): `src/api/client.ts`가 access token을 모듈 메모리에만 두고 401 → refresh 한 번(동시 401은 공유) → 재시도를 맡는다. refresh의 네트워크 오류는 세션 종료(401)와 구분해 토큰을 지우지 않는다. 도메인별 호출은 `src/api/*.ts`, DTO 타입은 `src/api/types.ts`(백엔드 record와 같은 이름). 세션 복원·로그인 상태는 `src/auth/`(`AuthProvider`, `RequireAuth`).
-  - 화면은 `src/pages/`(로그인, 캠페인 목록·상세 + `campaign/` 탭 세 개, 템플릿 목록·상세), 공용 컴포넌트는 `src/components/`, 포맷(Asia/Seoul·ko-KR)은 `src/format.ts`, 화면 문구·코드별 안내는 `src/labels.ts`. 스타일은 `src/styles/`의 CSS 변수 토큰(라이브러리 없음).
+  - 화면은 `src/pages/`(로그인, 캠페인 목록·상세 + `campaign/` 탭 세 개, 크리에이터 목록·상세, 템플릿 목록·상세, 감사 로그), 공용 컴포넌트는 `src/components/`, 포맷(Asia/Seoul·ko-KR)은 `src/format.ts`, 화면 문구·코드별 안내는 `src/labels.ts`. 스타일은 `src/styles/`의 CSS 변수 토큰(라이브러리 없음).
   - 업로드 HTML 미리보기는 `components/SandboxPreview.tsx` 하나로만 렌더링한다. CSP 값은 `admin-web/csp.ts`가 원천이고 nginx.conf와 Vite dev 서버가 같은 값을 쓴다(`csp.test.ts`가 일치 확인, dev만 Fast Refresh nonce 추가).
   - 캠페인 상세의 탭·기간·명단 필터·페이지·펼친 폼은 URL 쿼리(`tab`, `from`, `to`, `form`, `channel`, `page`, `open`)에 둔다.
   - 공개 폼 URL 앞부분은 링크 응답 `url`에서 얻고 없으면 빌드 시 `VITE_PUBLIC_BASE_URL`(compose가 `PUBLIC_BASE_URL`을 빌드 인자로 넘김).
+  - 파일 다운로드(명단 CSV)는 토큰을 링크에 실을 수 없어 `client.ts`의 `apiDownload`(401 refresh 포함) → `saveDownload`(Blob, object URL)로 받는다.
   - 화면 테스트는 `src/test/http.ts`의 `mockBackend`(경로별 가짜 fetch, refresh·me 기본 응답 포함)와 `src/test/render.tsx`의 `renderPage`로 쓴다.
 - `docker-compose.yml`: postgres → backend → admin-web 순서로 헬스체크를 기다린다. 값은 루트 `.env`에서 읽는다.
 - `docs/`: `PLAN.md`(과제 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `OVERVIEW.md`(제출 개요), `api/openapi.yaml`, `ROADMAP.md`(범위 밖), `adr/`.
@@ -95,10 +106,10 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
 
 ## 코드 규칙
 
-- 백엔드 패키지는 도메인별로 나눈다: `auth, template, campaign, form, link, tracking, lead, stats, common`.
+- 백엔드 패키지는 도메인별로 나눈다: `auth, template, campaign, form, link, tracking, lead, stats, audit, creator, common`.
 - CRUD는 JPA, 집계는 네이티브 SQL. 지표 정의가 SQL에 그대로 보이게 쓴다.
 - 스키마는 Flyway로만 바꾼다(`ddl-auto`는 `validate`).
-- 에러 응답은 `ProblemDetail`로 통일한다(401, 403, 404, 409, 410, 413, 422).
+- 에러 응답은 `ProblemDetail`로 통일한다(401, 403, 404, 409, 410, 413, 422, 429).
 - 테스트는 Testcontainers의 실제 PostgreSQL로 돌린다. H2는 쓰지 않는다.
 - API는 springdoc-openapi 애너테이션으로 문서화한다.
 - 공개 폼 래퍼는 React와 분리된 vanilla JS로 만든다.

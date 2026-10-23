@@ -1,4 +1,4 @@
-import type { CampaignStatus, Channel, FormStatus } from './api/types'
+import type { AuditAction, CampaignStatus, Channel, CreatorStatus, FormStatus } from './api/types'
 
 export const CHANNEL_LABELS: Record<Channel, string> = {
   instagram: '인스타그램',
@@ -12,6 +12,14 @@ export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
   active: '진행 중',
   archived: '보관됨',
 }
+
+export const CREATOR_STATUS_LABELS: Record<CreatorStatus, string> = {
+  active: '협업 중',
+  archived: '보관됨',
+}
+
+/** 크리에이터별 지표에서 크리에이터 없는 링크와 direct를 묶은 행의 이름. */
+export const SELF_LINK_LABEL = '직접·자체 링크'
 
 export const FORM_STATUS_LABELS: Record<FormStatus, string> = {
   draft: '초안',
@@ -43,3 +51,27 @@ export function publicBaseFrom(linkUrl: string | undefined): string {
   }
   return PUBLIC_BASE_URL
 }
+
+/** 감사 로그 action 이름 (ADR 0016). */
+export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  'lead.list': '명단 조회',
+  'lead.contact.view': '원문 열람',
+  'lead.export': 'CSV 다운로드(마스킹)',
+  'lead.export.reveal': 'CSV 다운로드(원문)',
+  'auth.login.success': '로그인 성공',
+  'auth.login.failure': '로그인 실패',
+  'retention.anonymize': '보존 기간 파기',
+  'campaign.retention.update': '보존 기간 변경',
+}
+
+/** 보존 기간 파기 감사 기록의 실행 방식 (ADR 0020). */
+export const RETENTION_TRIGGER_LABELS: Record<string, string> = {
+  scheduled: '자동 실행(매일 03:00)',
+  manual: '수동 실행',
+}
+
+/** 캠페인 보존 기간 기본값·범위(일). 백엔드 Campaign과 같다. */
+export const RETENTION_DAYS = { default: 365, min: 1, max: 3650 } as const
+
+/** 보존 기간이 지나 파기된 신청 표시. */
+export const ANONYMIZED_LABEL = '파기됨'

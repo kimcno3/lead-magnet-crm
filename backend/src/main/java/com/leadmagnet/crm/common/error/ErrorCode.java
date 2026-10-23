@@ -7,6 +7,7 @@ public enum ErrorCode {
 
     MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "malformed_request", "요청 형식이 올바르지 않습니다"),
     VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "validation_failed", "입력값이 올바르지 않습니다"),
+    INVALID_FORM_TOKEN(HttpStatus.UNPROCESSABLE_ENTITY, "invalid_form_token", "잠시 후 다시 제출해 주세요"),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "unauthorized", "인증이 필요합니다"),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "invalid_credentials", "이메일 또는 비밀번호가 올바르지 않습니다"),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "invalid_refresh_token", "다시 로그인해야 합니다"),
@@ -31,10 +32,14 @@ public enum ErrorCode {
     INVALID_FORM_TRANSITION(HttpStatus.CONFLICT, "invalid_form_transition", "허용하지 않는 폼 상태 전이입니다"),
     FORM_NOT_EDITABLE(HttpStatus.CONFLICT, "form_not_editable", "초안 상태의 폼만 내용을 수정할 수 있습니다"),
     SLUG_TAKEN(HttpStatus.CONFLICT, "slug_taken", "이미 사용 중인 slug입니다"),
-    LINK_EXISTS(HttpStatus.CONFLICT, "link_exists", "이 폼에는 해당 채널의 링크가 이미 있습니다"),
+    LINK_EXISTS(HttpStatus.CONFLICT, "link_exists", "이 폼에는 같은 채널·크리에이터의 링크가 이미 있습니다"),
     FORM_CLOSED(HttpStatus.CONFLICT, "form_closed", "마감된 폼에는 링크를 만들 수 없습니다"),
+    CREATOR_ALREADY_ARCHIVED(HttpStatus.CONFLICT, "creator_already_archived", "이미 보관된 크리에이터입니다"),
+    CREATOR_ARCHIVED(HttpStatus.CONFLICT, "creator_archived", "보관된 크리에이터로는 새 링크를 만들 수 없습니다"),
     DUPLICATE_SUBMISSION(HttpStatus.CONFLICT, "duplicate_submission", "이미 신청한 연락처입니다"),
     GONE(HttpStatus.GONE, "gone", "마감되어 더 이상 사용할 수 없습니다"),
+    LEAD_ANONYMIZED(HttpStatus.GONE, "lead_anonymized", "보존 기간이 지나 연락처를 파기한 신청입니다"),
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "too_many_requests", "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "서버 오류가 발생했습니다");
 
     private static final String TYPE_PREFIX = "https://leadmagnet.example/problems/";
@@ -63,6 +68,7 @@ public enum ErrorCode {
             case 413 -> PAYLOAD_TOO_LARGE;
             case 415 -> UNSUPPORTED_MEDIA_TYPE;
             case 422 -> VALIDATION_FAILED;
+            case 429 -> TOO_MANY_REQUESTS;
             default -> status >= 500 ? INTERNAL_ERROR : MALFORMED_REQUEST;
         };
     }

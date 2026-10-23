@@ -60,6 +60,14 @@ public class Form {
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    /** 게시 시점에 복사한 템플릿 원문. 공개 폼은 이것만 쓴다 (ADR 0018). draft는 null이다. */
+    @Column(name = "published_html", columnDefinition = "text")
+    private String publishedHtml;
+
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "published_template_sha256", length = 64, columnDefinition = "char(64)")
+    private String publishedTemplateSha256;
+
     @Column(name = "closed_at")
     private Instant closedAt;
 
@@ -93,13 +101,41 @@ public class Form {
         return new Form(campaignId, templateId, slug, title, consentText, templateFields, now);
     }
 
-    public void publish(Instant now) {
+    /**
+     * 게시하면서 그 시점의 템플릿 원문과 sha256을 폼에 복사한다. 이후 템플릿이 바뀌어도 공개 폼은 이 값을 쓴다.
+     * 필드 기준(fieldConfig)은 draft일 때 템플릿과 맞춰 둔 값 그대로 굳는다.
+     */
+    public void publish(Instant now, String templateHtml, String templateSha256) {
         if (status != FormStatus.DRAFT) {
             throw new DomainException(ErrorCode.INVALID_FORM_TRANSITION);
         }
         status = FormStatus.PUBLISHED;
+        publishedHtml = templateHtml;
+        publishedTemplateSha256 = templateSha256;
         publishedAt = now;
         updatedAt = now;
+    }
+
+    /**
+     * 템플릿에 새 버전이 올라왔을 때 draft 폼의 필드를 새 필드로 다시 만든다. 이름이 같은 필드는 운영자가 바꾼
+     * label·required만 유지한다(이전 템플릿 값과 달라진 것이 운영자 수정이다). 나머지는 새 템플릿 값을 따른다.
+     * 필드의 type이 바뀌었으면 옛 입력에 대한 수정이라 의미가 달라지므로 유지하지 않고 새 템플릿 값을 쓴다.
+     */
+    public void resnapshotFields(List<FormField> previousTemplateFields, List<FormField> newTemplateFields, Instant now) {
+        if (status != FormStatus.DRAFT) {
+            throw new DomainException(ErrorCode.FORM_NOT_EDITABLE);
+        }
+        this.fieldConfig = newTemplateFields.stream().map(next -> {
+            FormField current = fieldConfig.stream().filter(f -> f.name().equals(next.name())).findFirst().orElse(null);
+            FormField previous = previousTemplateFields.stream().filter(f -> f.name().equals(next.name())).findFirst().orElse(null);
+            if (current == null || previous == null || !current.type().equals(next.type())) {
+                return next;
+            }
+            String label = current.label() != null && !current.label().equals(previous.label()) ? current.label() : next.label();
+            boolean required = current.required() != previous.required() ? current.required() : next.required();
+            return new FormField(next.name(), next.type(), required, label, next.options());
+        }).toList();
+        this.updatedAt = now;
     }
 
     public void close(Instant now) {
@@ -237,6 +273,14 @@ public class Form {
 
     public Instant getPublishedAt() {
         return publishedAt;
+    }
+
+    public String getPublishedHtml() {
+        return publishedHtml;
+    }
+
+    public String getPublishedTemplateSha256() {
+        return publishedTemplateSha256;
     }
 
     public Instant getClosedAt() {

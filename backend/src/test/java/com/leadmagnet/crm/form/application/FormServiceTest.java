@@ -34,11 +34,11 @@ class FormServiceTest {
 
     @BeforeEach
     void setUp() {
-        Campaign campaign = Campaign.create("c", null, null, null, 1L, clock.instant());
+        Campaign campaign = Campaign.create("c", null, null, null, null, 1L, clock.instant());
         when(campaigns.findById(1L)).thenReturn(Optional.of(campaign));
         HtmlTemplate template = HtmlTemplate.create("t", "<form></form>",
-            List.of(new FormField("name", "text", true, "이름", null)), 1L, clock.instant());
-        when(templates.get(2L)).thenReturn(template);
+            List.of(new FormField("name", "text", true, "이름", null)), List.of(), 1L, clock.instant());
+        when(templates.getForUpdate(2L)).thenReturn(template);
     }
 
     @Test

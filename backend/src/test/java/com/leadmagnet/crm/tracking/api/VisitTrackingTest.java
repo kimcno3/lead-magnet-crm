@@ -134,6 +134,27 @@ class VisitTrackingTest {
     }
 
     @Test
+    void 사람_브라우저_방문은_is_bot이_false다() {
+        PublicOrigin.given(publicPort)
+            .header("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile Instagram")
+            .get("/f/spring-2026").then().statusCode(200);
+
+        assertThat(botFlags()).containsExactly(false);
+    }
+
+    @Test
+    void 봇_User_Agent_방문은_is_bot으로_기록하고_방문자_쿠키는_똑같이_발급한다() {
+        for (String ua : List.of("facebookexternalhit/1.1", "Mozilla/5.0 (compatible; kakaotalk-scrap/1.0)",
+                "Mozilla/5.0 (compatible; Googlebot/2.1)", "curl/8.4.0")) {
+            Response response = PublicOrigin.given(publicPort).header("User-Agent", ua).get("/f/spring-2026");
+            response.then().statusCode(200);
+            assertThat(response.getCookie("lm_vid")).as(ua).matches(UUID_V4);
+        }
+
+        assertThat(botFlags()).containsExactly(true, true, true, true);
+    }
+
+    @Test
     void referrer와_user_agent는_512자까지만_저장한다() {
         PublicOrigin.given(publicPort)
             .header("Referer", "https://example.com/" + "r".repeat(600))
@@ -182,6 +203,10 @@ class VisitTrackingTest {
             assertThat(row).containsEntry("visitor_id", UUID.fromString(visitor));
             assertThat(row).containsEntry("channel", "x");
         });
+    }
+
+    private List<Boolean> botFlags() {
+        return jdbc.queryForList("SELECT is_bot FROM visits ORDER BY id", Boolean.class);
     }
 
     private List<Map<String, Object>> visits() {

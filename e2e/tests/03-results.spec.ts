@@ -96,8 +96,8 @@ test('명단 탭', async () => {
   await step(
     {
       area: AREA,
-      name: '신청자 명단',
-      assertion: '총 2명. 이현우 010-1234-5678 인스타그램, 박서연 010-9876-5432 스레드(전화번호는 하이픈 형식)',
+      name: '신청자 명단(가린 값)',
+      assertion: '총 2명. 이*우 010-****-5678 h***@example.com 인스타그램, 박*연 010-****-5432 s***@example.com 스레드(명단은 가린 값만 보인다)',
       screenshot: '12-leads',
       page,
     },
@@ -106,16 +106,61 @@ test('명단 탭', async () => {
       await expect(page.getByRole('group', { name: '명단 필터' })).toContainText('총 2명')
       const rows = page.getByRole('table', { name: '신청자 명단' }).locator('tbody tr')
       await expect(rows).toHaveCount(2)
-      const a = rows.filter({ hasText: '이현우' })
+      // 원문 보기 뒤에도 같은 줄을 가리키도록 이름이 아니라 채널로 줄을 찾는다.
+      const a = rows.filter({ hasText: '인스타그램' })
+      await expect(a.locator('td').nth(1)).toHaveText('이*우')
+      await expect(a.locator('td').nth(2)).toHaveText('010-****-5678')
+      await expect(a.locator('td').nth(3)).toHaveText('h***@example.com')
+      await expect(a.locator('td').nth(5)).toHaveText(state.formTitle!)
+      const b = rows.filter({ hasText: '스레드' })
+      await expect(b.locator('td').nth(1)).toHaveText('박*연')
+      await expect(b.locator('td').nth(2)).toHaveText('010-****-5432')
+      await expect(b.locator('td').nth(3)).toHaveText('s***@example.com')
+      record(await Promise.all((await rows.all()).map((r) => r.locator('td').allTextContents())))
+    },
+  )
+  await step(
+    {
+      area: AREA,
+      name: '원문 보기와 가리기',
+      assertion: '이현우 줄의 원문 보기 → 이현우 010-1234-5678 hyunwoo@example.com, 박서연 줄은 가린 채, 가리기 → 다시 이*우',
+      page,
+    },
+    async (record) => {
+      const rows = page.getByRole('table', { name: '신청자 명단' }).locator('tbody tr')
+      const a = rows.filter({ hasText: '인스타그램' })
+      const b = rows.filter({ hasText: '스레드' })
+      await a.getByRole('button', { name: '원문 보기' }).click()
+      await expect(a.locator('td').nth(1)).toHaveText('이현우')
       await expect(a.locator('td').nth(2)).toHaveText('010-1234-5678')
       await expect(a.locator('td').nth(3)).toHaveText('hyunwoo@example.com')
-      await expect(a.locator('td').nth(4)).toHaveText('인스타그램')
-      await expect(a.locator('td').nth(5)).toHaveText(state.formTitle!)
-      const b = rows.filter({ hasText: '박서연' })
-      await expect(b.locator('td').nth(2)).toHaveText('010-9876-5432')
-      await expect(b.locator('td').nth(3)).toHaveText('seoyeon@example.com')
-      await expect(b.locator('td').nth(4)).toHaveText('스레드')
-      record(await Promise.all((await rows.all()).map((r) => r.locator('td').allTextContents())))
+      await expect(b.locator('td').nth(2)).toHaveText('010-****-5432')
+      await a.getByRole('button', { name: '가리기' }).click()
+      await expect(a.locator('td').nth(1)).toHaveText('이*우')
+      // 결과 파일(results.json)에는 원문을 남기지 않는다. 원문이 보였는지 여부와 가린 값만 기록한다.
+      record({
+        revealedMatchedExpected: true,
+        otherRowStayedMasked: (await b.locator('td').nth(2).textContent()) === '010-****-5432',
+        afterHide: await a.locator('td').nth(1).textContent(),
+      })
+    },
+  )
+  await step(
+    {
+      area: AREA,
+      name: '동의 문구 보기',
+      assertion: '이현우 줄의 동의 문구 보기 → 폼을 만들 때 넣은 동의 문구 원문과 64자 sha256, 동의 시각을 대화상자로 보여준다',
+      page,
+    },
+    async (record) => {
+      const rows = page.getByRole('table', { name: '신청자 명단' }).locator('tbody tr')
+      await rows.filter({ hasText: '인스타그램' }).getByRole('button', { name: '동의 문구 보기' }).click()
+      const dialog = page.getByRole('dialog', { name: '동의 문구' })
+      await expect(dialog).toContainText('가이드 발송과 상담 안내를 위해 이름·연락처·이메일을 수집하며, 신청일로부터 1년간 보관합니다.')
+      await expect(dialog.getByText(/^[0-9a-f]{64}$/)).toBeVisible()
+      record({ sha256Shown: true })
+      await dialog.getByRole('button', { name: '닫기' }).click()
+      await expect(dialog).toBeHidden()
     },
   )
 })

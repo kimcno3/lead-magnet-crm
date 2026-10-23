@@ -19,6 +19,10 @@ public class Campaign {
 
     static final int MAX_NAME_LENGTH = 100;
     static final int MAX_DESCRIPTION_LENGTH = 2000;
+    /** 신청 보존 기간(일) 기본값과 범위 (ADR 0020). DB CHECK ck_campaigns_retention_days와 같다. */
+    public static final int DEFAULT_RETENTION_DAYS = 365;
+    public static final int MIN_RETENTION_DAYS = 1;
+    public static final int MAX_RETENTION_DAYS = 3650;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,6 +44,9 @@ public class Campaign {
     @Column(name = "ends_at")
     private Instant endsAt;
 
+    @Column(name = "retention_days", nullable = false)
+    private int retentionDays;
+
     @Column(name = "created_by", nullable = false, updatable = false)
     private Long createdBy;
 
@@ -52,8 +59,12 @@ public class Campaign {
     protected Campaign() {
     }
 
-    private Campaign(String name, String description, Instant startsAt, Instant endsAt, Long createdBy, Instant now) {
+    private Campaign(String name, String description, Instant startsAt, Instant endsAt, Integer retentionDays,
+            Long createdBy, Instant now) {
         validate(name, description, startsAt, endsAt);
+        int days = retentionDays != null ? retentionDays : DEFAULT_RETENTION_DAYS;
+        validateRetention(days);
+        this.retentionDays = days;
         this.name = name.trim();
         this.description = description;
         this.startsAt = startsAt;
@@ -64,18 +75,23 @@ public class Campaign {
         this.updatedAt = now;
     }
 
-    public static Campaign create(String name, String description, Instant startsAt, Instant endsAt, Long createdBy,
-            Instant now) {
-        return new Campaign(name, description, startsAt, endsAt, createdBy, now);
+    /** retentionDays가 null이면 {@value #DEFAULT_RETENTION_DAYS}일이다. */
+    public static Campaign create(String name, String description, Instant startsAt, Instant endsAt,
+            Integer retentionDays, Long createdBy, Instant now) {
+        return new Campaign(name, description, startsAt, endsAt, retentionDays, createdBy, now);
     }
 
     /** null인 인자는 바꾸지 않는다. 합친 결과가 규칙을 어기면 아무것도 바꾸지 않고 검증 실패를 던진다. */
-    public void update(String name, String description, Instant startsAt, Instant endsAt, Instant now) {
+    public void update(String name, String description, Instant startsAt, Instant endsAt, Integer retentionDays,
+            Instant now) {
         String newName = name != null ? name : this.name;
         String newDescription = description != null ? description : this.description;
         Instant newStartsAt = startsAt != null ? startsAt : this.startsAt;
         Instant newEndsAt = endsAt != null ? endsAt : this.endsAt;
+        int newRetentionDays = retentionDays != null ? retentionDays : this.retentionDays;
         validate(newName, newDescription, newStartsAt, newEndsAt);
+        validateRetention(newRetentionDays);
+        this.retentionDays = newRetentionDays;
         this.name = newName.trim();
         this.description = newDescription;
         this.startsAt = newStartsAt;
@@ -113,6 +129,13 @@ public class Campaign {
         }
     }
 
+    private static void validateRetention(int days) {
+        if (days < MIN_RETENTION_DAYS || days > MAX_RETENTION_DAYS) {
+            throw invalid("retentionDays",
+                "retentionDays는 " + MIN_RETENTION_DAYS + "~" + MAX_RETENTION_DAYS + "일이어야 합니다");
+        }
+    }
+
     private static DomainException invalid(String field, String detail) {
         return DomainException.validation(field, detail);
     }
@@ -139,6 +162,11 @@ public class Campaign {
 
     public Instant getEndsAt() {
         return endsAt;
+    }
+
+    /** 신청 보존 기간(일). 신청 시각에서 이만큼(일 × 24시간)이 지나면 익명화한다(ADR 0020). */
+    public int getRetentionDays() {
+        return retentionDays;
     }
 
     public Long getCreatedBy() {

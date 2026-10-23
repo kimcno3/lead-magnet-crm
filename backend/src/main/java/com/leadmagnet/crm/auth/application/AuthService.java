@@ -54,6 +54,7 @@ public class AuthService {
         this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
+    /** 감사 기록(성공·실패)은 이 트랜잭션이 끝난 뒤 컨트롤러가 남긴다(ADR 0016). */
     @Transactional
     public IssuedTokens login(String email, String password) {
         Optional<Operator> found = operators.findByEmail(Operator.normalizeEmail(email));
@@ -109,7 +110,7 @@ public class AuthService {
         String rawRefreshToken = newRefreshToken();
         refreshTokens.save(RefreshToken.issue(operator.getId(), rawRefreshToken, familyId, clock.instant(),
             REFRESH_TOKEN_TTL));
-        return new IssuedTokens(accessTokenIssuer.issue(operator), AccessTokenIssuer.TTL.toSeconds(),
+        return new IssuedTokens(operator.getId(), accessTokenIssuer.issue(operator), AccessTokenIssuer.TTL.toSeconds(),
             rawRefreshToken);
     }
 

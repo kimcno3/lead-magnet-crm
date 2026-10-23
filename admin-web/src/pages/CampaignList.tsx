@@ -14,6 +14,8 @@ import { PageHeader } from '../components/PageHeader'
 import { SkeletonRows, TableWrap } from '../components/Table'
 import { formatNumber, formatPercent, formatPeriod, seoulDateToInstant } from '../format'
 import { useAsync, useFocusFirstInvalid } from '../hooks'
+import { RETENTION_DAYS } from '../labels'
+import { RetentionDaysField } from '../components/RetentionDaysField'
 
 /** 지표는 보조 정보다. 지표 조회가 실패해도 목록은 보여주고 오류만 따로 돌려준다. */
 async function loadRows() {
@@ -124,6 +126,7 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
   const [description, setDescription] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [retentionDays, setRetentionDays] = useState(String(RETENTION_DAYS.default))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -133,6 +136,7 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
     setDescription('')
     setStartDate('')
     setEndDate('')
+    setRetentionDays(String(RETENTION_DAYS.default))
     setErrors({})
     setFormError(null)
   }
@@ -148,6 +152,7 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
         description: description.trim() || null,
         startsAt: seoulDateToInstant(startDate, 'start'),
         endsAt: seoulDateToInstant(endDate, 'end'),
+        retentionDays: Number(retentionDays),
       })
       reset()
       onCreated(created.id)
@@ -201,6 +206,7 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
           </Field>
         </div>
         <p className="muted small">날짜는 서울 시각 기준이며 종료일 하루 끝까지 포함합니다.</p>
+        <RetentionDaysField value={retentionDays} onChange={setRetentionDays} error={errors.retentionDays} />
         {formError && (
           <p className="form-error" role="alert">
             {formError}

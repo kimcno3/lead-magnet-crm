@@ -65,12 +65,14 @@
 
 - operators: id, email(unique), password_hash, created_at
 - refresh_tokens: id, operator_id, token_hash, family_id, expires_at, revoked_at
-- html_templates: id, name, content, sha256, fields(jsonb), size, created_by, created_at
-- campaigns: id, name, description, status, starts_at, ends_at
-- forms: id, campaign_id, template_id, slug(unique), title, field_config(jsonb), consent_text, status(draft|published|closed)
-- distribution_links: id, form_id, channel(instagram|x|youtube|threads), code(unique), utm_*
-- visits: id, form_id, link_id, channel, visitor_id, referrer, user_agent, occurred_at
-- leads: id, form_id, campaign_id, link_id, channel, visitor_id, name, phone, email, payload(jsonb), consent_at, created_at
+- html_templates: id, name, content, sha256, fields(jsonb), inspection(jsonb, 업로드 검사 경고, ADR 0017), size, version(새 버전마다 +1), created_by, created_at, updated_at (ADR 0018)
+- campaigns: id, name, description, status, starts_at, ends_at, retention_days(신청 보존 기간 일 수, 1~3650, 기본 365, ADR 0020)
+- forms: id, campaign_id, template_id, slug(unique), title, field_config(jsonb), consent_text, status(draft|published|closed), published_html·published_template_sha256(게시 시점 템플릿 스냅샷, ADR 0018)
+- creators: id, name, handle, memo, status(active|archived), created_by, created_at, updated_at (ADR 0014)
+- distribution_links: id, form_id, creator_id(nullable), channel(instagram|x|youtube|threads), code(unique), utm_*
+- visits: id, form_id, link_id, channel, visitor_id, referrer, user_agent, is_bot(봇 UA 방문, 지표에서 제외, ADR 0019), occurred_at
+- leads: id, form_id, campaign_id, link_id, channel, visitor_id, name_enc·phone_enc·email_enc(AES-GCM), phone_hash·email_hash(중복 판정용 HMAC), payload(jsonb), consent_at, consent_text·consent_sha256(신청 시점 동의 문구 증빙, ADR 0020), anonymized_at(보존 기간 파기 시각, ADR 0020), created_at (평문 연락처 컬럼은 없다, ADR 0015)
+- audit_logs: id, operator_id, action, target_type, target_id, campaign_id, detail(jsonb), ip, user_agent, created_at (명단 열람·다운로드 기록, ADR 0016)
 
 ### 지표 정의 (ADR로 확정할 가정)
 
@@ -172,9 +174,9 @@
 
 이번 범위 밖의 작업은 [ROADMAP.md](ROADMAP.md)에 둔다.
 
-### ADR 목록 (예정)
+### ADR 목록
 
-0001 기술 스택, 0002 HTML 격리, 0003 인증, 0004 HTML 폼 계약, 0005 지표 정의, 0006 채널 귀속, 0007 중복 신청 정책, 0008 신청 데이터 저장 구조, 0009 운영자 시드, 0010 단일 앱·포트 분리, 0011 관리자 UI, 0012 브랜치·환경 전략
+0001 기술 스택, 0002 HTML 격리, 0003 인증, 0004 HTML 폼 계약, 0005 지표 정의, 0006 채널 귀속, 0007 중복 신청 정책, 0008 신청 데이터 저장 구조, 0009 운영자 시드, 0010 단일 앱·포트 분리, 0011 관리자 UI, 0012 브랜치·환경 전략, 0013 캠페인·폼 상태 모델, 0014 크리에이터 귀속, 0015 개인정보 암호화, 0016 감사 로그와 명단 CSV 다운로드, 0017 업로드 HTML 검사 리포트, 0018 게시 시 템플릿 스냅샷과 새 버전 업로드, 0019 데이터 품질 방어, 0020 보존 기간 파기와 동의 문구 증빙
 
 ### 결과 설명 초안 (docs/OVERVIEW.md와 제출 메일용)
 

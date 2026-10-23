@@ -17,3 +17,10 @@
 | [0011](0011-admin-ui.md) | 관리자 UI | 승인 |
 | [0012](0012-branch-environment.md) | 브랜치·환경 전략 | 승인 |
 | [0013](0013-campaign-form-status.md) | 캠페인·폼 상태 모델 | 승인 |
+| [0014](0014-creator-attribution.md) | 크리에이터 귀속 | 승인 |
+| [0015](0015-pii-encryption.md) | 개인정보 암호화 | 승인 |
+| [0016](0016-audit-log.md) | 감사 로그와 명단 CSV 다운로드 | 승인 |
+| [0017](0017-template-inspection.md) | 업로드 HTML 검사 리포트 | 승인 |
+| [0018](0018-publish-snapshot.md) | 게시 시 템플릿 스냅샷과 새 버전 업로드 | 승인 |
+| [0019](0019-data-quality-defense.md) | 데이터 품질 방어: 봇 방문 제외, honeypot, 작성 시간 토큰, 제출 rate limit | 승인 |
+| [0020](0020-retention-and-consent-evidence.md) | 보존 기간 파기(익명화)와 동의 문구 증빙 | 승인 |

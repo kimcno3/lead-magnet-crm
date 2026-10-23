@@ -7,6 +7,11 @@ spring:
     multipart:
       max-file-size: 1MB
       max-request-size: 1MB
+  mvc:
+    async:
+      # 비동기 응답(명단 CSV 스트리밍, StreamingResponseBody)의 제한 시간. 기본값(Tomcat 30초)이면 큰 명단 다운로드가
+      # 중간에 끊긴다. 일반 API는 비동기를 쓰지 않아 영향이 없다 (ADR 0016)
+      request-timeout: 10m
   jpa:
     open-in-view: false
     hibernate:
@@ -34,9 +39,30 @@ app:
     admin-origin: ${ADMIN_ORIGIN:http://localhost:5173}
     # refresh 쿠키와 방문자 쿠키(lm_vid)의 Secure 속성
     cookie-secure: ${COOKIE_SECURE:false}
+  pii:
+    # 필수. 신청자 개인정보 암호화 키와 중복 판정 HMAC 키. 각각 base64로 인코딩한 32바이트, 서로 달라야 한다 (ADR 0015)
+    enc-key: ${LEAD_ENC_KEY}
+    hmac-key: ${LEAD_HMAC_KEY}
+  form-token:
+    # 필수. 공개 폼 작성 시간 토큰(ft) HMAC-SHA256 서명 키. base64로 인코딩한 32바이트 (ADR 0019)
+    key: ${FORM_TOKEN_KEY}
   public:
     # 신청 제출 본문 최대 바이트(64KB). 넘으면 413 (lead/config/SubmissionGuardFilter)
     max-submission-bytes: 65536
+    # 신청 제출 rate limit(인메모리 토큰 버킷, 인스턴스별). 넘으면 429 + Retry-After (ADR 0019)
+    rate-limit:
+      ip-per-minute: 10
+      visitor-per-minute: 5
+      max-keys: 10000
+  # 봇 방문 User-Agent 패턴(대소문자 무시 부분 문자열). 비우면 tracking/domain/BotUserAgents.DEFAULT_PATTERNS.
+  # 설정하면 기본 목록을 대신한다. 예: app.tracking.bot-user-agents[0]=googlebot (ADR 0019)
+  tracking:
+    bot-user-agents: []
+  retention:
+    # 보존 기간 파기 스케줄러(매일 03:00 Asia/Seoul). false면 끈다(수동 실행 API는 그대로 쓸 수 있다). 배치 크기는 한 트랜잭션에
+    # 익명화할 최대 신청 수 (ADR 0020)
+    enabled: ${RETENTION_ENABLED:true}
+    batch-size: 500
   template:
     # 업로드 HTML 최대 바이트(512KB). multipart 한도(1MB)와의 사이 크기는 애플리케이션이 413으로 막는다 (ADR 0004)
     max-bytes: 524288

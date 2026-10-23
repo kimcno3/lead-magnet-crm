@@ -38,32 +38,58 @@ public class HtmlTemplate {
     @Column(nullable = false, columnDefinition = "jsonb")
     private List<FormField> fields;
 
+    /** 업로드 시점의 검사 경고. null이면 아직 계산하지 않은 기존 행이다(ADR 0017). */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private List<InspectionWarning> inspection;
+
     @Column(nullable = false)
     private int size;
 
     @Column(name = "created_by", nullable = false, updatable = false)
     private Long createdBy;
 
+    /** 새 버전을 올릴 때마다 1씩 오른다 (ADR 0018). */
+    @Column(nullable = false)
+    private int version;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
     protected HtmlTemplate() {
     }
 
-    private HtmlTemplate(String name, String content, List<FormField> fields, Long createdBy, Instant createdAt) {
-        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+    private HtmlTemplate(String name, String content, List<FormField> fields, List<InspectionWarning> inspection,
+            Long createdBy, Instant createdAt) {
         this.name = name;
+        this.createdBy = createdBy;
+        this.createdAt = createdAt;
+        this.version = 1;
+        applyContent(content, fields, inspection, createdAt);
+    }
+
+    private void applyContent(String content, List<FormField> fields, List<InspectionWarning> inspection, Instant now) {
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         this.content = content;
         this.sha256 = sha256Hex(bytes);
         this.fields = List.copyOf(fields);
+        this.inspection = List.copyOf(inspection);
         this.size = bytes.length;
-        this.createdBy = createdBy;
-        this.createdAt = createdAt;
+        this.updatedAt = now;
     }
 
-    public static HtmlTemplate create(String name, String content, List<FormField> fields, Long createdBy,
-            Instant createdAt) {
-        return new HtmlTemplate(name, content, fields, createdBy, createdAt);
+    /** 새 버전: 내용·sha256·필드·크기·검사 결과를 바꾸고 버전을 올린다. 이름과 만든 사람은 그대로다. */
+    public void newVersion(String content, List<FormField> fields, List<InspectionWarning> inspection, Instant now) {
+        applyContent(content, fields, inspection, now);
+        this.version++;
+    }
+
+    public static HtmlTemplate create(String name, String content, List<FormField> fields,
+            List<InspectionWarning> inspection, Long createdBy, Instant createdAt) {
+        return new HtmlTemplate(name, content, fields, inspection, createdBy, createdAt);
     }
 
     private static String sha256Hex(byte[] bytes) {
@@ -94,6 +120,11 @@ public class HtmlTemplate {
         return fields;
     }
 
+    /** 저장된 검사 경고. 기존 행은 null이다. 화면에는 {@code TemplateService.inspectionOf}로 얻는다. */
+    public List<InspectionWarning> getInspection() {
+        return inspection;
+    }
+
     public int getSize() {
         return size;
     }
@@ -102,7 +133,15 @@ public class HtmlTemplate {
         return createdBy;
     }
 
+    public int getVersion() {
+        return version;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 }

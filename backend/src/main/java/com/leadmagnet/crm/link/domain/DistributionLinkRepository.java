@@ -1,5 +1,6 @@
 package com.leadmagnet.crm.link.domain;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,7 +9,11 @@ public interface DistributionLinkRepository extends JpaRepository<DistributionLi
 
     Optional<DistributionLink> findByCode(String code);
 
-    boolean existsByFormIdAndChannel(Long formId, Channel channel);
+    boolean existsByFormIdAndChannelAndCreatorIdIsNull(Long formId, Channel channel);
+
+    boolean existsByFormIdAndChannelAndCreatorId(Long formId, Channel channel, Long creatorId);
 
     List<DistributionLink> findAllByFormId(Long formId);
+
+    List<DistributionLink> findAllByFormIdIn(Collection<Long> formIds);
 }

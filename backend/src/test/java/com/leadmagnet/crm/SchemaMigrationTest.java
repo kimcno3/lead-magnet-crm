@@ -54,29 +54,79 @@ class SchemaMigrationTest {
             formId, linkId, UUID.randomUUID());
         jdbc.update("INSERT INTO visits (form_id, channel, visitor_id) VALUES (?, 'direct', ?)",
             formId, UUID.randomUUID());
-        jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, phone, payload, consent_at) "
-            + "SELECT id, campaign_id, 'direct', '01012345678', '{\"memo\":\"hi\"}'::jsonb, now() FROM forms WHERE id = ?",
-            formId);
+        jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, phone_enc, phone_hash, payload, consent_at) "
+            + "SELECT id, campaign_id, 'direct', '\\x01'::bytea, repeat('a', 64), '{\"memo\":\"hi\"}'::jsonb, now() "
+            + "FROM forms WHERE id = ?", formId);
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM visits", Long.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT payload->>'memo' FROM leads", String.class)).isEqualTo("hi");
     }
 
     @Test
-    void V2_마이그레이션이_같은_폼의_같은_전화번호와_이메일을_막고_NULL은_허용한다() {
+    void V3_마이그레이션이_크리에이터를_추가하고_기존_링크는_크리에이터_없음으로_남긴다() {
         Boolean applied = jdbc.queryForObject(
-            "SELECT success FROM flyway_schema_history WHERE version = '2'", Boolean.class);
+            "SELECT success FROM flyway_schema_history WHERE version = '3'", Boolean.class);
         assertThat(applied).isTrue();
-        String insert = "INSERT INTO leads (form_id, campaign_id, channel, phone, email, consent_at) "
-            + "SELECT id, campaign_id, 'direct', %s, %s, now() FROM forms WHERE id = " + formId;
-        jdbc.update(insert.formatted("'01011112222'", "'a@example.com'"));
+        assertThat(jdbc.queryForObject("SELECT creator_id FROM distribution_links WHERE id = ?", Long.class, linkId))
+            .isNull();
+        long creatorId = insertId("INSERT INTO creators (name, created_by) VALUES ('하늘', " + operatorId + ") RETURNING id");
+        assertThat(jdbc.queryForObject("SELECT status FROM creators WHERE id = ?", String.class, creatorId))
+            .isEqualTo("active");
+        jdbc.update("INSERT INTO distribution_links (form_id, channel, code, creator_id) VALUES (?, 'instagram', 'cre123', ?)",
+            formId, creatorId);
 
-        assertRejected(insert.formatted("'01011112222'", "'b@example.com'"));
-        assertRejected(insert.formatted("'01033334444'", "'a@example.com'"));
-        jdbc.update(insert.formatted("'01033334444'", "NULL"));
-        jdbc.update(insert.formatted("NULL", "'c@example.com'"));
-        jdbc.update(insert.formatted("'01055556666'", "NULL"));
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM leads", Long.class)).isEqualTo(4);
+        assertRejected("UPDATE creators SET status = 'deleted' WHERE id = " + creatorId);
+        assertRejected("INSERT INTO distribution_links (form_id, channel, code, creator_id) VALUES ("
+            + formId + ", 'x', 'cre999', 99999)");
+    }
+
+    @Test
+    void V4_마이그레이션이_암호문과_해시_컬럼을_더하고_같은_폼의_같은_해시를_막는다() {
+        Boolean applied = jdbc.queryForObject(
+            "SELECT success FROM flyway_schema_history WHERE version = '4'", Boolean.class);
+        assertThat(applied).isTrue();
+        String hashA = "a".repeat(64);
+        String hashB = "b".repeat(64);
+        String insert = "INSERT INTO leads (form_id, campaign_id, channel, phone_hash, email_hash, "
+            + "phone_enc, consent_at) SELECT id, campaign_id, 'direct', %s, %s, '\\x01'::bytea, now() "
+            + "FROM forms WHERE id = " + formId;
+        jdbc.update(insert.formatted("'" + hashA + "'", "'" + hashB + "'"));
+
+        assertRejected(insert.formatted("'" + hashA + "'", "NULL"));
+        assertRejected(insert.formatted("NULL", "'" + hashB + "'"));
+        jdbc.update(insert.formatted("NULL", "NULL"));
+        jdbc.update(insert.formatted("NULL", "NULL"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM leads", Long.class)).isEqualTo(3);
+    }
+
+    @Test
+    void V5_마이그레이션이_평문_컬럼과_평문_인덱스를_지운다() {
+        Boolean applied = jdbc.queryForObject(
+            "SELECT success FROM flyway_schema_history WHERE version = '5'", Boolean.class);
+        assertThat(applied).isTrue();
+        assertThat(jdbc.queryForList("SELECT column_name FROM information_schema.columns "
+            + "WHERE table_name = 'leads'", String.class)).doesNotContain("name", "phone", "email");
+        assertThat(jdbc.queryForList("SELECT indexname FROM pg_indexes WHERE tablename = 'leads'", String.class))
+            .doesNotContain("ux_leads_form_phone", "ux_leads_form_email")
+            .contains("ux_leads_form_phone_hash", "ux_leads_form_email_hash");
+    }
+
+    @Test
+    void V11_마이그레이션이_link_id_인덱스를_만든다() {
+        assertThat(jdbc.queryForObject("SELECT success FROM flyway_schema_history WHERE version = '11'", Boolean.class))
+            .isTrue();
+        assertThat(jdbc.queryForList("SELECT indexname FROM pg_indexes WHERE tablename = 'visits'", String.class))
+            .contains("ix_visits_link_id");
+        assertThat(jdbc.queryForList("SELECT indexname FROM pg_indexes WHERE tablename = 'leads'", String.class))
+            .contains("ix_leads_link_id");
+    }
+
+    @Test
+    void V5_이후에도_연락처_암호문이_하나도_없는_신청은_거부한다() {
+        assertRejected("INSERT INTO leads (form_id, campaign_id, channel, name_enc, consent_at) "
+            + "SELECT id, campaign_id, 'direct', '\\x01'::bytea, now() FROM forms WHERE id = " + formId);
+        jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, email_enc, consent_at) "
+            + "SELECT id, campaign_id, 'direct', '\\x01'::bytea, now() FROM forms WHERE id = " + formId);
     }
 
     @Test
@@ -106,12 +156,6 @@ class SchemaMigrationTest {
             + formId + ", " + linkId + ", 'direct', gen_random_uuid())");
         assertRejected("INSERT INTO visits (form_id, channel, visitor_id) VALUES ("
             + formId + ", 'instagram', gen_random_uuid())");
-    }
-
-    @Test
-    void 연락처가_없는_신청은_거부한다() {
-        assertRejected("INSERT INTO leads (form_id, campaign_id, channel, name, consent_at) "
-            + "SELECT id, campaign_id, 'direct', '홍길동', now() FROM forms WHERE id = " + formId);
     }
 
     @Test

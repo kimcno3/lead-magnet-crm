@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
+import com.leadmagnet.crm.creator.application.CreatorService;
 import com.leadmagnet.crm.form.application.FormService;
 import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.form.domain.Slug;
@@ -31,12 +32,13 @@ class LinkServiceTest {
 
     DistributionLinkRepository links = mock(DistributionLinkRepository.class);
     FormService forms = mock(FormService.class);
+    CreatorService creators = mock(CreatorService.class);
     LinkService service;
     Form form;
 
     @BeforeEach
     void setUp() {
-        service = new LinkService(links, forms, new RandomLinkCodeGenerator(), Clock.fixed(Instant.parse("2026-11-01T00:00:00Z"), ZoneOffset.UTC));
+        service = new LinkService(links, forms, creators, new RandomLinkCodeGenerator(), Clock.fixed(Instant.parse("2026-11-01T00:00:00Z"), ZoneOffset.UTC));
         form = Form.create(1L, 1L, new Slug("spring-2026"), "제목", "동의", List.of(), Instant.now());
         when(forms.get(7L)).thenReturn(form);
     }
@@ -48,7 +50,7 @@ class LinkServiceTest {
             .thenThrow(new DataIntegrityViolationException("ux_distribution_links_code"))
             .thenAnswer(inv -> inv.getArgument(0));
 
-        DistributionLink created = service.create(7L, "x");
+        DistributionLink created = service.create(7L, "x", null).link();
 
         assertThat(created.getChannel()).isEqualTo(Channel.X);
         verify(links, times(3)).saveAndFlush(any());
@@ -58,7 +60,7 @@ class LinkServiceTest {
     void 다섯_번_모두_충돌하면_500이다() {
         when(links.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("ux_distribution_links_code"));
 
-        assertThatThrownBy(() -> service.create(7L, "x"))
+        assertThatThrownBy(() -> service.create(7L, "x", null))
             .isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INTERNAL_ERROR));
         verify(links, times(5)).saveAndFlush(any());
@@ -68,7 +70,7 @@ class LinkServiceTest {
     void 코드_충돌이_아닌_무결성_오류는_재시도하지_않고_그대로_던진다() {
         when(links.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("fk_violation"));
 
-        assertThatThrownBy(() -> service.create(7L, "x")).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> service.create(7L, "x", null)).isInstanceOf(DataIntegrityViolationException.class);
         verify(links, times(1)).saveAndFlush(any());
     }
 

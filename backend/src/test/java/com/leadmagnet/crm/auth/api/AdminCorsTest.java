@@ -50,8 +50,18 @@ class AdminCorsTest {
     void 허용하지_않은_메서드의_프리플라이트는_거부한다() {
         given()
             .header("Origin", "http://localhost:5173")
-            .header("Access-Control-Request-Method", "PUT")
+            .header("Access-Control-Request-Method", "TRACE")
             .when().options("/api/admin/auth/login")
             .then().statusCode(403);
+    }
+
+    @Test
+    void 템플릿_새_버전_업로드를_위해_PUT_프리플라이트는_허용한다() {
+        given()
+            .header("Origin", "http://localhost:5173")
+            .header("Access-Control-Request-Method", "PUT")
+            .when().options("/api/admin/templates/1")
+            .then().statusCode(200)
+            .header("Access-Control-Allow-Methods", containsString("PUT"));
     }
 }
