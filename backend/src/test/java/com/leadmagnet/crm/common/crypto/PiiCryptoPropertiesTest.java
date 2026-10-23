@@ -73,7 +73,7 @@ class PiiCryptoPropertiesTest {
     void 키_id를_주지_않으면_1이고_이전_키는_없다() {
         PiiCryptoProperties properties = bind(ENC, HMAC);
 
-        assertThat(properties.encKeyId()).isEqualTo(1);
+        assertThat(properties.currentKeyId()).isEqualTo(1);
         assertThat(properties.encKeyRing()).containsOnlyKeys(1);
         assertThat(properties.hmacPreviousKeyBytes()).isEmpty();
         assertThat(properties.batchSize()).isEqualTo(500);
@@ -84,7 +84,7 @@ class PiiCryptoPropertiesTest {
         PiiCryptoProperties properties = bind(Map.of("enc-key-id", "3",
             "enc-previous-keys", " 1:" + PREV1_B64 + " , 2:" + PREV2_B64 + " ", "hmac-previous-key", HMAC_PREV_B64));
 
-        assertThat(properties.encKeyId()).isEqualTo(3);
+        assertThat(properties.currentKeyId()).isEqualTo(3);
         assertThat(properties.encKeyRing()).containsOnlyKeys(1, 2, 3);
         assertThat(properties.encKeyRing().get(3)).isEqualTo(PiiCipherTest.KEY);
         assertThat(properties.encKeyRing().get(1)).isEqualTo(PREV1);
@@ -100,7 +100,10 @@ class PiiCryptoPropertiesTest {
             assertThatThrownBy(() -> bind(Map.of("enc-key-id", id))).isInstanceOf(BindException.class)
                 .rootCause().hasMessageContaining("LEAD_ENC_KEY_ID");
         }
-        assertThatThrownBy(() -> bind(Map.of("enc-key-id", "abc"))).isInstanceOf(BindException.class);
+        assertThatThrownBy(() -> bind(Map.of("enc-key-id", "abc"))).isInstanceOf(BindException.class)
+            .rootCause().hasMessageContaining("LEAD_ENC_KEY_ID는 1~255여야 합니다");
+        assertThatThrownBy(() -> bind(Map.of("enc-key-id", "1.5"))).isInstanceOf(BindException.class)
+            .rootCause().hasMessageContaining("LEAD_ENC_KEY_ID는 1~255여야 합니다");
     }
 
     @Test
@@ -150,8 +153,9 @@ class PiiCryptoPropertiesTest {
 
     @Test
     void 빈_이전_키_설정은_없는_것으로_본다() {
-        PiiCryptoProperties properties = bind(Map.of("enc-previous-keys", " ", "hmac-previous-key", ""));
+        PiiCryptoProperties properties = bind(Map.of("enc-key-id", " ", "enc-previous-keys", " ", "hmac-previous-key", ""));
 
+        assertThat(properties.currentKeyId()).isEqualTo(1);
         assertThat(properties.encKeyRing()).containsOnlyKeys(1);
         assertThat(properties.hmacPreviousKeyBytes()).isEmpty();
     }

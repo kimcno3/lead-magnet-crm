@@ -17,7 +17,8 @@ import org.springframework.stereotype.Component;
  *       신청을 모두 다시 암호화한 뒤에 마지막으로 현재 키로 바꾼다({@link #reencryptMarker()}). 그래서 이전 키를 지운 뒤에도
  *       기동한다면 이전 키로 남은 신청이 없다는 뜻이다.</li>
  *   <li>HMAC 키: 표식이 현재 키 해시면 통과. LEAD_HMAC_PREVIOUS_KEY가 있고 표식이 이전 키 해시면 {@link PiiHashRotation}들로
- *       모든 해시를 바꾼 뒤 표식을 마지막에 바꾼다. 중간에 실패하면 표식이 이전 키로 남아 다음 기동이 이어서 끝낸다.</li>
+ *       모든 해시를 바꾼 뒤 표식을 마지막에 바꾼다. 중간에 실패하면 표식이 이전 키로 남아 다음 기동이 이어서 끝낸다.
+ *       표식이 이미 현재 키여도 이전 키가 설정돼 있으면 같은 재계산을 한 번 더 돌려 늦게 들어온 이전 키 해시 행을 고친다.</li>
  * </ul>
  * 오류 메시지와 로그에는 키 값을 싣지 않는다.
  *
@@ -86,7 +87,11 @@ public class PiiKeyCheck implements SmartInitializingSingleton {
         String current = hasher.hash(MARKER);
         if (current.equals(stored.hmac())) {
             if (previousHasher != null) {
-                log.info("HMAC 키 교체는 이미 끝났습니다. LEAD_HMAC_PREVIOUS_KEY를 지우고 다시 기동하세요");
+                // 표식은 이미 새 키다. 교체 뒤 이전 키로 돌던 인스턴스가 쓴 행이 남아 있을 수 있어 같은(멱등) 재계산을 한 번 더
+                // 돌린다. 새 키 해시인 행은 건너뛰므로 남은 것이 없으면 아무것도 바꾸지 않는다.
+                long healed = rotateRows();
+                log.info("HMAC 키 교체는 이미 끝났습니다(이전 키 해시로 남아 있던 행 {}건을 바꿈). "
+                    + "LEAD_HMAC_PREVIOUS_KEY를 지우고 다시 기동하세요", healed);
             }
             log.info("개인정보 키 확인: 기존 데이터와 맞는 키");
             return Result.VERIFIED;
@@ -120,14 +125,19 @@ public class PiiKeyCheck implements SmartInitializingSingleton {
 
     private void rotateHmac(String previousMarker, String currentMarker) {
         log.info("HMAC 키 교체 시작: 중복 판정 해시를 새 키로 다시 계산합니다");
-        long total = 0;
-        for (PiiHashRotation rotation : rotations) {
-            total += rotation.rotate(previousHasher, hasher);
-        }
+        long total = rotateRows();
         // 표식은 마지막에 바꾼다. 여기까지 오지 못하면 다음 기동이 이전 키 해시인 행만 골라 이어서 바꾼다.
         jdbc.update("UPDATE pii_key_check SET hmac_check = ? WHERE id = 1 AND hmac_check = ?", currentMarker,
             previousMarker);
         log.info("HMAC 키 교체 완료: 해시를 바꾼 행 {}건. LEAD_HMAC_PREVIOUS_KEY를 지우고 다시 기동하세요", total);
+    }
+
+    private long rotateRows() {
+        long total = 0;
+        for (PiiHashRotation rotation : rotations) {
+            total += rotation.rotate(previousHasher, hasher);
+        }
+        return total;
     }
 
     private Stored read() {

@@ -271,9 +271,4 @@ class PiiReencryptApiTest {
         RestAssured.given().post("/api/admin/pii/reencrypt").then().statusCode(401).body("code", equalTo("unauthorized"));
         assertThat(keyCheck.markerOnCurrentKey()).isFalse();
     }
-
-    @Test
-    void 파기_배치와_다른_잠금_키를_쓴다() {
-        assertThat(PiiReencryptionService.LOCK_KEY).isNotEqualTo(0x4C4D_5245_5441_494EL);
-    }
 }

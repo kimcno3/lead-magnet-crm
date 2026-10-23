@@ -162,6 +162,21 @@ class LeadHmacRotationTest {
     }
 
     @Test
+    void 교체가_끝난_뒤에도_이전_키가_남아_있으면_이전_키_해시로_늦게_들어온_행을_마저_바꾼다() {
+        assertThat(rotating().verify()).isEqualTo(Result.HMAC_ROTATED);
+        // 교체 뒤 이전 키로 돌던 인스턴스가 쓴 신청처럼 한 행을 이전 키 해시로 되돌린다.
+        long straggler = jdbc.queryForObject("SELECT min(id) FROM leads", Long.class);
+        jdbc.update("UPDATE leads SET phone_hash = ?, email_hash = ? WHERE id = ?",
+            oldHasher.hashPhone(digits(PHONES[0])), oldHasher.hashEmail("user0@example.com"), straggler);
+
+        assertThat(rotating().verify()).isEqualTo(Result.VERIFIED);
+
+        assertThat(hashes().getFirst()).containsEntry("phone_hash", newHasher.hashPhone(digits(PHONES[0])))
+            .containsEntry("email_hash", newHasher.hashEmail("user0@example.com"));
+        assertThat(markerHmac()).isEqualTo(newHasher.hash("lead-magnet-crm:pii-key-check"));
+    }
+
+    @Test
     void 중간에_실패해도_다시_기동하면_바뀐_행은_건너뛰고_이어서_끝낸다(CapturedOutput output) {
         long third = jdbc.queryForObject("SELECT max(id) FROM leads", Long.class);
         byte[] original = jdbc.queryForObject("SELECT phone_enc FROM leads WHERE id = ?", byte[].class, third);

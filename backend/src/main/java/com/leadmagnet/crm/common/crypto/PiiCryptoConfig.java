@@ -9,7 +9,7 @@ public class PiiCryptoConfig {
 
     @Bean
     PiiCipher piiCipher(PiiCryptoProperties properties) {
-        return new PiiCipher(properties.encKeyId(), properties.encKeyRing());
+        return new PiiCipher(properties.currentKeyId(), properties.encKeyRing());
     }
 
     @Bean

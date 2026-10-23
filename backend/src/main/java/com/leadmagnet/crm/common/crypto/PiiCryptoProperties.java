@@ -16,30 +16,28 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *
  * @param encKey          현재 AES-256-GCM 키(LEAD_ENC_KEY). 새로 쓰는 값은 이 키로 암호화한다
  * @param hmacKey         중복 판정 HMAC-SHA256 키(LEAD_HMAC_KEY)
- * @param encKeyId        현재 암호화 키의 id(LEAD_ENC_KEY_ID, 1~255, 기본 1). 암호문 형식 2에 들어간다
+ * @param encKeyId        현재 암호화 키의 id(LEAD_ENC_KEY_ID, 1~255, 비우면 1). 암호문 형식 2에 들어간다
  * @param encPreviousKeys 이전 암호화 키(LEAD_ENC_PREVIOUS_KEYS, 선택). {@code id:base64,id:base64}. 읽기에만 쓴다
  * @param hmacPreviousKey 이전 HMAC 키(LEAD_HMAC_PREVIOUS_KEY, 선택). 설정된 채 기동하면 모든 해시를 현재 키로 바꾼다
  * @param batchSize       재암호화·HMAC 교체에서 한 트랜잭션에 처리할 최대 행 수(기본 500)
  */
 @ConfigurationProperties(prefix = "app.pii")
-public record PiiCryptoProperties(String encKey, String hmacKey, Integer encKeyId, String encPreviousKeys,
+public record PiiCryptoProperties(String encKey, String hmacKey, String encKeyId, String encPreviousKeys,
         String hmacPreviousKey, Integer batchSize) implements SecretKeyMaterial {
 
     private static final String PREVIOUS_KEYS_RULE =
         "LEAD_ENC_PREVIOUS_KEYS는 쉼표로 구분한 id:base64 목록이어야 합니다(id는 1~255, 키는 base64로 인코딩한 32바이트)";
 
     public PiiCryptoProperties {
-        encKeyId = encKeyId == null ? 1 : encKeyId;
+        encKeyId = encKeyId == null || encKeyId.isBlank() ? "1" : encKeyId.trim();
         batchSize = batchSize == null ? 500 : batchSize;
-        if (encKeyId < PiiCipher.MIN_KEY_ID || encKeyId > PiiCipher.MAX_KEY_ID) {
-            throw new IllegalArgumentException("LEAD_ENC_KEY_ID는 1~255여야 합니다");
-        }
+        int currentKeyId = parseKeyId(encKeyId);
         if (batchSize < 1) {
             throw new IllegalArgumentException("app.pii.batch-size는 1 이상이어야 합니다");
         }
         decode("LEAD_ENC_KEY", encKey);
         decode("LEAD_HMAC_KEY", hmacKey);
-        Map<Integer, byte[]> previous = parsePrevious(encPreviousKeys, encKeyId);
+        Map<Integer, byte[]> previous = parsePrevious(encPreviousKeys, currentKeyId);
         if (!isBlank(hmacPreviousKey)) {
             decode("LEAD_HMAC_PREVIOUS_KEY", hmacPreviousKey);
         }
@@ -54,10 +52,15 @@ public record PiiCryptoProperties(String encKey, String hmacKey, Integer encKeyI
         return decode("LEAD_HMAC_KEY", hmacKey);
     }
 
+    /** 현재 암호화 키 id(1~255). */
+    public int currentKeyId() {
+        return parseKeyId(encKeyId);
+    }
+
     /** 키 id → 암호화 키. 현재 키와 이전 키를 모두 담는다. */
     public Map<Integer, byte[]> encKeyRing() {
-        Map<Integer, byte[]> ring = new LinkedHashMap<>(parsePrevious(encPreviousKeys, encKeyId));
-        ring.put(encKeyId, encKeyBytes());
+        Map<Integer, byte[]> ring = new LinkedHashMap<>(parsePrevious(encPreviousKeys, currentKeyId()));
+        ring.put(currentKeyId(), encKeyBytes());
         return Collections.unmodifiableMap(ring);
     }
 
@@ -75,13 +78,28 @@ public record PiiCryptoProperties(String encKey, String hmacKey, Integer encKeyI
     /** 현재·이전 암호화 키와 현재·이전 HMAC 키 모두. 다른 비밀(JWT_SECRET·FORM_TOKEN_KEY)과 겹치면 안 된다. */
     @Override
     public List<byte[]> candidates() {
-        return allKeys(encKey, hmacKey, parsePrevious(encPreviousKeys, encKeyId), hmacPreviousKey);
+        return allKeys(encKey, hmacKey, parsePrevious(encPreviousKeys, currentKeyId()), hmacPreviousKey);
     }
 
     @Override
     public String toString() {
         return "PiiCryptoProperties[encKey=***, hmacKey=***, encKeyId=" + encKeyId + ", encPreviousKeys=***, "
             + "hmacPreviousKey=***, batchSize=" + batchSize + "]";
+    }
+
+    /** 숫자가 아니어도 Spring 변환 오류 대신 같은 안내를 내려고 문자열로 받아 검사한다. */
+    private static int parseKeyId(String value) {
+        String rule = "LEAD_ENC_KEY_ID는 1~255여야 합니다";
+        int id;
+        try {
+            id = Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(rule);
+        }
+        if (id < PiiCipher.MIN_KEY_ID || id > PiiCipher.MAX_KEY_ID) {
+            throw new IllegalArgumentException(rule);
+        }
+        return id;
     }
 
     private static List<byte[]> allKeys(String encKey, String hmacKey, Map<Integer, byte[]> previous,
