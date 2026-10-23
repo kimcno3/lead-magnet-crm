@@ -98,6 +98,29 @@ class SlidingWindowLimiterTest {
     }
 
     @Test
+    void 동시에_자리를_요청해도_한도만큼만_준다() throws Exception {
+        SlidingWindowLimiter limiter = limiter(5, 100);
+        int threads = 32;
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        java.util.List<java.util.concurrent.Future<Boolean>> results = new java.util.ArrayList<>();
+        for (int i = 0; i < threads; i++) {
+            results.add(pool.submit(() -> {
+                start.await();
+                return limiter.tryAcquire("a").allowed();
+            }));
+        }
+        start.countDown();
+        int allowed = 0;
+        for (var result : results) {
+            allowed += result.get(10, java.util.concurrent.TimeUnit.SECONDS) ? 1 : 0;
+        }
+        pool.shutdown();
+
+        assertThat(allowed).isEqualTo(5);
+    }
+
+    @Test
     void 한도와_창과_키_상한은_양수여야_한다() {
         assertThatThrownBy(() -> new SlidingWindowLimiter(0, Duration.ofMinutes(1), 1, clock))
             .isInstanceOf(IllegalArgumentException.class);

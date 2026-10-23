@@ -31,7 +31,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.DynamicPropertyRegistry;
 
 /**
- * 로그인 시도 제한 (ADR 0021). 다른 테스트는 한도를 크게 두므로 이 클래스만 낮은 한도(이메일 3, IP 5, 창 15분)로 따로 띄운다.
+ * 로그인 시도 제한 (ADR 0021). 다른 테스트는 한도를 크게 두므로 이 클래스만 낮은 한도((이메일, IP) 쌍 3, IP 5, 창 15분; 이메일 전체 50은 기본값)로 따로 띄운다.
  * 신뢰 프록시는 테스트 클라이언트(루프백)가 아닌 대역으로 두어, 이 컨텍스트의 X-Forwarded-For는 모두 위조된 값이다.
  * 기록은 컨텍스트 안에서 계속 살아 있으므로 각 테스트 전에 시계를 창보다 길게 옮긴다(되돌리지 않는다: 이 컨텍스트의 Clock은
  * 이 클래스만 쓴다).
@@ -46,7 +46,7 @@ class LoginThrottleApiTest {
 
     @DynamicPropertySource
     static void lowLimits(DynamicPropertyRegistry registry) {
-        registry.add("app.auth.login-throttle.email-max-failures", () -> 3);
+        registry.add("app.auth.login-throttle.email-ip-max-failures", () -> 3);
         registry.add("app.auth.login-throttle.ip-max-failures", () -> 5);
         registry.add("app.trusted-proxies", () -> "192.0.2.0/24");
     }
@@ -90,7 +90,7 @@ class LoginThrottleApiTest {
     }
 
     @Test
-    void 이메일별_실패가_한도에_닿으면_올바른_비밀번호도_429와_Retry_After이고_토큰을_주지_않는다() {
+    void 같은_이메일과_IP의_실패가_한도에_닿으면_올바른_비밀번호도_429와_Retry_After이고_토큰을_주지_않는다() {
         failTimes(EMAIL, 3);
 
         Response locked = login(EMAIL, PASSWORD);
@@ -146,6 +146,17 @@ class LoginThrottleApiTest {
     }
 
     @Test
+    void IP_한도만_닿은_잠금_기록에는_이메일을_넣지_않는다() {
+        for (int i = 0; i < 5; i++) {
+            login("user" + i + "@example.com", WRONG).then().statusCode(401);
+        }
+
+        String detail = jdbc.queryForObject(
+            "SELECT detail::text FROM audit_logs WHERE action = 'auth.login.locked'", String.class);
+        assertThat(detail).contains("\"scopes\": [\"ip\"]").doesNotContain("email\"", "user4", "u***");
+    }
+
+    @Test
     void IP별_한도는_이메일과_무관하고_신뢰하지_않는_피어의_위조_XFF로_우회할_수_없다() {
         for (int i = 0; i < 5; i++) {
             given().contentType(ContentType.JSON).header("X-Forwarded-For", "203.0.113." + i)
@@ -176,7 +187,7 @@ class LoginThrottleApiTest {
         assertThat(row.get("operator_id")).isNull();
         assertThat(row.get("target_type")).isEqualTo("operator");
         assertThat((String) row.get("detail"))
-            .contains("\"email\": \"o***@example.com\"", "\"scopes\": [\"email\"]", "\"windowMinutes\": 15")
+            .contains("\"email\": \"o***@example.com\"", "\"scopes\": [\"email_ip\"]", "\"windowMinutes\": 15")
             .doesNotContain(EMAIL);
         assertThat((String) row.get("ip")).isIn("127.0.0.1", "0:0:0:0:0:0:0:1");
     }
@@ -192,7 +203,7 @@ class LoginThrottleApiTest {
         login(email, PASSWORD).then().statusCode(429);
 
         assertThat(output.getAll())
-            .contains("로그인 시도 제한 시작: 범위=[email]")
+            .contains("로그인 시도 제한 시작: 범위=[email_ip]")
             .contains("로그인 시도 제한 거절: 지난 기록 이후")
             .doesNotContain(email, PASSWORD, WRONG);
     }

@@ -114,8 +114,8 @@ paths:
       - 인증
       summary: 로그인
       description: "access token은 바디로, refresh token은 HttpOnly 쿠키(lm_refresh)로 준다\
-        . 성공·실패는 감사 로그에 남는다(ADR 0016). 이메일별·IP별 실패가 창(기본 15분) 안에서 한도(기본 5회·20회)에 닿\
-        으면 비밀번호를 확인하지 않고 429를 준다. 없는 이메일도 같은 규칙이다(ADR 0021)."
+        . 성공·실패는 감사 로그에 남는다(ADR 0016). (이메일, IP) 쌍·이메일 전체·IP별 실패가 창(기본 15분) 안에서 한도\
+        (기본 5회·50회·20회)에 닿으면 비밀번호를 확인하지 않고 429를 준다. 없는 이메일도 같은 규칙이다(ADR 0021)."
       operationId: login
       requestBody:
         content:
@@ -133,15 +133,15 @@ paths:
         "401":
           description: "invalid_credentials: 이메일 또는 비밀번호가 틀림"
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/TokenResponse"
+                $ref: "#/components/schemas/ProblemDetail"
         "422":
           description: "validation_failed: 요청 형식 오류"
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/TokenResponse"
+                $ref: "#/components/schemas/ProblemDetail"
         "429":
           description: "too_many_login_attempts: 로그인 시도 제한. Retry-After 헤더(초) 뒤에 다\
             시 시도한다"
@@ -152,9 +152,9 @@ paths:
               schema:
                 type: integer
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/TokenResponse"
+                $ref: "#/components/schemas/ProblemDetail"
   /api/admin/auth/logout:
     post:
       tags:

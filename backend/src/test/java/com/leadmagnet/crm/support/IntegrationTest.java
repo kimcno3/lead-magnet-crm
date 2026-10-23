@@ -21,7 +21,8 @@ import org.springframework.context.annotation.Import;
         "LEAD_ENC_KEY=" + IntegrationTest.TEST_ENC_KEY, "LEAD_HMAC_KEY=" + IntegrationTest.TEST_HMAC_KEY,
         "FORM_TOKEN_KEY=" + IntegrationTest.TEST_FORM_TOKEN_KEY,
         "app.public.rate-limit.ip-per-minute=100000", "app.public.rate-limit.visitor-per-minute=100000",
-        "app.auth.login-throttle.email-max-failures=100000", "app.auth.login-throttle.ip-max-failures=100000",
+        "app.auth.login-throttle.email-ip-max-failures=100000", "app.auth.login-throttle.email-max-failures=100000",
+        "app.auth.login-throttle.ip-max-failures=100000",
         "app.trusted-proxies=127.0.0.1/32,::1/128",
         "app.ports.public-port=0", "app.retention.enabled=false", "app.retention.batch-size=2"})
 @Import(TestcontainersConfiguration.class)

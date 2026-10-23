@@ -53,6 +53,17 @@ class TrustedProxiesTest {
     }
 
     @Test
+    void 기본값은_admin_web_고정_주소만_믿고_docker_게이트웨이는_믿지_않는다() {
+        // 공개된 포트로 들어온 연결은 Docker Desktop·userland-proxy에서 게이트웨이(172.16.57.1) 주소로 보인다
+        TrustedProxies defaults = TrustedProxies.parse(List.of("172.16.57.10/32"));
+
+        assertThat(defaults.contains("172.16.57.10")).isTrue();
+        assertThat(defaults.contains("172.16.57.1")).isFalse();
+        assertThat(defaults.resolve("172.16.57.1", List.of("203.0.113.7"))).isEqualTo("172.16.57.1");
+        assertThat(defaults.resolve("172.16.57.10", List.of("203.0.113.7"))).isEqualTo("203.0.113.7");
+    }
+
+    @Test
     void 비어_있으면_아무도_신뢰하지_않는다() {
         TrustedProxies none = TrustedProxies.parse(List.of(" ", ""));
 

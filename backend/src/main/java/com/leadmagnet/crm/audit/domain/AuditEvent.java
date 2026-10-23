@@ -56,12 +56,15 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
 
     /**
      * 로그인 시도 제한이 걸린 시점(ADR 0021). 잠금이 시작될 때 한 줄만 남기고 그 뒤의 거절(429)은 감사 로그에 쓰지 않는다
-     * (ADR 0016 결과 절). scopes는 한도에 닿은 범위(email, ip), windowMinutes는 창 길이. 이메일은 가린 값만 남긴다.
+     * (ADR 0016 결과 절). scopes는 한도에 닿은 범위(email_ip, email, ip), windowMinutes는 창 길이. 이메일은 가린 값만
+     * 남기고, IP 한도만 닿았으면(이메일과 무관한 잠금) 이메일을 넣지 않는다.
      */
     public static AuditEvent loginLocked(String rawEmail, List<String> scopes, long windowMinutes) {
         String email = rawEmail == null ? "" : rawEmail.trim();
         Map<String, Object> detail = new LinkedHashMap<>();
-        detail.put("email", PiiMasker.maskEmail(email));
+        if (!scopes.equals(List.of("ip"))) {
+            detail.put("email", PiiMasker.maskEmail(email));
+        }
         detail.put("scopes", List.copyOf(scopes));
         detail.put("windowMinutes", windowMinutes);
         return new AuditEvent(AuditAction.AUTH_LOGIN_LOCKED, TARGET_OPERATOR, null, null, detail);

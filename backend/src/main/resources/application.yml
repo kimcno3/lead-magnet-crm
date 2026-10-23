@@ -39,15 +39,18 @@ app:
     admin-origin: ${ADMIN_ORIGIN:http://localhost:5173}
     # refresh 쿠키와 방문자 쿠키(lm_vid)의 Secure 속성
     cookie-secure: ${COOKIE_SECURE:false}
-    # 로그인 시도 제한(인메모리 슬라이딩 윈도, 인스턴스별). 창 안에서 이메일별·IP별 실패가 한도에 닿으면 429 + Retry-After (ADR 0021)
+    # 로그인 시도 제한(인메모리 슬라이딩 윈도, 인스턴스별). 창 안에서 (이메일, IP) 쌍·이메일 전체·IP별 실패가 한도에 닿으면
+    # 429 + Retry-After (ADR 0021). 이메일 전체 상한은 여러 IP로 나눠 대입할 때만 닿는 값이다
     login-throttle:
-      email-max-failures: 5
+      email-ip-max-failures: 5
+      email-max-failures: 50
       ip-max-failures: 20
       window: 15m
       max-keys: 10000
-  # admin 포트에서 X-Forwarded-For를 믿을 직전 피어(쉼표 구분 IP·CIDR). 기본은 docker compose 네트워크 대역(docker-compose.yml과 같음).
-  # 비우면 아무도 신뢰하지 않는다. public 포트는 이 값과 무관하게 XFF를 읽지 않는다 (ADR 0021, common/web/ClientIpFilter)
-  trusted-proxies: ${TRUSTED_PROXIES:172.16.57.0/24}
+  # admin 포트에서 X-Forwarded-For를 믿을 직전 피어(쉼표 구분 IP·CIDR). 기본은 docker compose에서 admin-web nginx의 고정 주소
+  # (docker-compose.yml과 같음, 네트워크 게이트웨이 172.16.57.1은 포함하지 않는다). 비우면 아무도 신뢰하지 않는다.
+  # public 포트는 이 값과 무관하게 XFF를 읽지 않는다 (ADR 0021, common/web/ClientIpFilter)
+  trusted-proxies: ${TRUSTED_PROXIES:172.16.57.10/32}
   pii:
     # 필수. 신청자 개인정보 암호화 키와 중복 판정 HMAC 키. 각각 base64로 인코딩한 32바이트, 서로 달라야 한다 (ADR 0015)
     enc-key: ${LEAD_ENC_KEY}

@@ -67,7 +67,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
 
 /** 로그인 시도 제한 감사 기록의 범위 (ADR 0021). */
 export const LOGIN_LOCK_SCOPE_LABELS: Record<string, string> = {
-  email: '이메일',
+  email_ip: '이메일+IP',
+  email: '이메일 전체',
   ip: 'IP',
 }
 
