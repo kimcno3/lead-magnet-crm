@@ -192,5 +192,6 @@ describe('감사 로그', () => {
     expect(within(select).getByRole('option', { name: '폼 마감' })).toHaveAttribute('value', 'form.close')
     expect(within(select).getByRole('option', { name: '템플릿 새 버전' })).toHaveAttribute('value', 'template.version.upload')
     expect(within(select).getByRole('option', { name: '크리에이터 보관' })).toHaveAttribute('value', 'creator.archive')
+    expect(within(select).getByRole('option', { name: '개인정보 재암호화' })).toHaveAttribute('value', 'pii.reencrypt')
   })
 })

@@ -333,6 +333,7 @@ export const AUDIT_ACTIONS = [
   'form.close',
   'template.version.upload',
   'creator.archive',
+  'pii.reencrypt',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 
