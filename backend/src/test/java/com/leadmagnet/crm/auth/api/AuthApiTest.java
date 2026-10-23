@@ -11,11 +11,14 @@ import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.auth.domain.RefreshToken;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
+import com.leadmagnet.crm.support.MutableClock;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,7 +49,15 @@ class AuthApiTest {
     @Autowired
     PasswordEncoder passwordEncoder;
 
+    @Autowired
+    MutableClock clock;
+
     long operatorId;
+
+    @AfterEach
+    void resetClock() {
+        clock.reset();
+    }
 
     @BeforeEach
     void setUp() {
@@ -195,6 +206,30 @@ class AuthApiTest {
         jdbc.update("UPDATE refresh_tokens SET expires_at = now() - interval '1 second'");
 
         refresh(token).then().statusCode(401).body("code", equalTo("invalid_refresh_token"));
+    }
+
+    @Test
+    void Clock이_14일을_넘기면_refresh_token은_만료되어_401이다() {
+        String token = login(EMAIL, PASSWORD).getCookie(COOKIE);
+
+        clock.advance(Duration.ofDays(14).minusMinutes(1));
+        String rotated = refresh(token).then().statusCode(200).extract().cookie(COOKIE);
+
+        // 교체된 토큰도 교체 시점부터 14일이다
+        clock.advance(Duration.ofDays(14).plusSeconds(1));
+        refresh(rotated).then().statusCode(401).body("code", equalTo("invalid_refresh_token"));
+    }
+
+    @Test
+    void Clock이_15분을_넘기면_access_token은_만료되어_401이다() {
+        String accessToken = login(EMAIL, PASSWORD).path("accessToken");
+        given().auth().oauth2(accessToken).when().get("/api/admin/auth/me").then().statusCode(200);
+
+        // 디코더의 기본 허용 오차 60초를 넘긴다
+        clock.advance(Duration.ofMinutes(15).plusSeconds(61));
+
+        given().auth().oauth2(accessToken).when().get("/api/admin/auth/me")
+            .then().statusCode(401).body("code", equalTo("unauthorized"));
     }
 
     @Test

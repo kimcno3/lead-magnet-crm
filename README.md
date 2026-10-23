@@ -5,7 +5,8 @@
 필요한 것: Docker (Compose v2)
 
 ```bash
-cp .env.example .env
+# .env.example을 복사하면서 JWT_SECRET을 새로 만든다(자리표시 값으로는 기동하지 않는다)
+sed "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" .env.example > .env
 docker compose up --build
 ```
 

@@ -8,7 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # 전체 로컬 실행 (postgres, backend :8080·:8081, admin-web :5173)
-cp .env.example .env
+# .env.example을 복사하면서 JWT_SECRET을 새로 만든다(자리표시 값으로는 기동하지 않는다)
+sed "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" .env.example > .env
 docker compose up --build
 
 # backend (Gradle 툴체인이 JDK 21을 자동으로 받는다. 실행 JDK는 17 이상이면 된다)
