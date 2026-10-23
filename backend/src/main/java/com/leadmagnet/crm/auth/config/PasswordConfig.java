@@ -1,4 +1,4 @@
-package com.leadmagnet.crm.auth;
+package com.leadmagnet.crm.auth.config;
 
 import java.util.Map;
 import org.springframework.context.annotation.Bean;
