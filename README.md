@@ -38,3 +38,16 @@ npm run build
 ```
 
 브라우저 E2E(Playwright, Chromium)는 `docker compose up --build -d`로 전체 시스템을 띄운 뒤 `cd e2e && npm ci && npx playwright install chromium && npm test`로 돌린다. 화면은 `docs/e2e/screenshots/`, 단계별 결과는 `docs/e2e/results.json`에 남는다.
+
+## 문서
+
+| 문서 | 내용 |
+|---|---|
+| [docs/GUIDE.md](docs/GUIDE.md) | 사용 가이드: 화면별 사용법, AI로 신청 폼 HTML 만들 때의 조건, 유스케이스 |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | 문제 해결: 실행·로그인·업로드·신청·지표 증상별 원인과 해결, 오류 코드표 |
+| [docs/WORKPLAN.md](docs/WORKPLAN.md) | 작업 계획과 진행 현황, 다음 작업 |
+| [docs/OVERVIEW.md](docs/OVERVIEW.md) | 설계 개요: 아키텍처, 보안 설계, 테스트 전략 |
+| [docs/PLAN.md](docs/PLAN.md) | 과제 해석과 초기 계획 |
+| [docs/adr/](docs/adr/README.md) | 결정 기록(ADR) |
+| [docs/api/openapi.yaml](docs/api/openapi.yaml) | API 명세 |
+| [docs/e2e/](docs/e2e/results.json) | 브라우저 E2E 결과와 스크린샷 |
