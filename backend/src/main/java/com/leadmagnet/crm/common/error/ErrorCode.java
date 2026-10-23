@@ -31,8 +31,10 @@ public enum ErrorCode {
     INVALID_FORM_TRANSITION(HttpStatus.CONFLICT, "invalid_form_transition", "허용하지 않는 폼 상태 전이입니다"),
     FORM_NOT_EDITABLE(HttpStatus.CONFLICT, "form_not_editable", "초안 상태의 폼만 내용을 수정할 수 있습니다"),
     SLUG_TAKEN(HttpStatus.CONFLICT, "slug_taken", "이미 사용 중인 slug입니다"),
-    LINK_EXISTS(HttpStatus.CONFLICT, "link_exists", "이 폼에는 해당 채널의 링크가 이미 있습니다"),
+    LINK_EXISTS(HttpStatus.CONFLICT, "link_exists", "이 폼에는 같은 채널·크리에이터의 링크가 이미 있습니다"),
     FORM_CLOSED(HttpStatus.CONFLICT, "form_closed", "마감된 폼에는 링크를 만들 수 없습니다"),
+    CREATOR_ALREADY_ARCHIVED(HttpStatus.CONFLICT, "creator_already_archived", "이미 보관된 크리에이터입니다"),
+    CREATOR_ARCHIVED(HttpStatus.CONFLICT, "creator_archived", "보관된 크리에이터로는 새 링크를 만들 수 없습니다"),
     DUPLICATE_SUBMISSION(HttpStatus.CONFLICT, "duplicate_submission", "이미 신청한 연락처입니다"),
     GONE(HttpStatus.GONE, "gone", "마감되어 더 이상 사용할 수 없습니다"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "서버 오류가 발생했습니다");

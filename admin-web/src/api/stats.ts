@@ -1,5 +1,5 @@
 import { apiRequest } from './client'
-import type { CampaignListStats, CampaignStats, ChannelStats } from './types'
+import type { CampaignListStats, CampaignStats, ChannelStats, CreatorStats } from './types'
 
 export interface Period {
   from?: string | null
@@ -16,4 +16,8 @@ export function campaignStats(campaignId: number, period: Period): Promise<Campa
 
 export function channelStats(campaignId: number, period: Period): Promise<ChannelStats> {
   return apiRequest(`/api/admin/campaigns/${campaignId}/stats/channels`, { query: { ...period } })
+}
+
+export function creatorStats(campaignId: number, period: Period): Promise<CreatorStats> {
+  return apiRequest(`/api/admin/campaigns/${campaignId}/stats/creators`, { query: { ...period } })
 }

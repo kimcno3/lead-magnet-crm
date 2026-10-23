@@ -1,4 +1,4 @@
-import type { CampaignStatus, Channel, FormStatus } from './api/types'
+import type { CampaignStatus, Channel, CreatorStatus, FormStatus } from './api/types'
 
 export const CHANNEL_LABELS: Record<Channel, string> = {
   instagram: '인스타그램',
@@ -12,6 +12,14 @@ export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
   active: '진행 중',
   archived: '보관됨',
 }
+
+export const CREATOR_STATUS_LABELS: Record<CreatorStatus, string> = {
+  active: '협업 중',
+  archived: '보관됨',
+}
+
+/** 크리에이터별 지표에서 크리에이터 없는 링크와 direct를 묶은 행의 이름. */
+export const SELF_LINK_LABEL = '직접·자체 링크'
 
 export const FORM_STATUS_LABELS: Record<FormStatus, string> = {
   draft: '초안',

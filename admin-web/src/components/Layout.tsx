@@ -20,6 +20,9 @@ export function Layout() {
               <NavLink to="/campaigns">캠페인</NavLink>
             </li>
             <li>
+              <NavLink to="/creators">크리에이터</NavLink>
+            </li>
+            <li>
               <NavLink to="/templates">템플릿</NavLink>
             </li>
           </ul>

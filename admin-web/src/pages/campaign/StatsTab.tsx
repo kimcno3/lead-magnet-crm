@@ -1,33 +1,21 @@
 import { useSearchParams } from 'react-router'
 import { campaignStats, channelStats } from '../../api/stats'
-import { Button } from '../../components/Button'
 import { ErrorMessage } from '../../components/ErrorMessage'
-import { Field } from '../../components/Field'
+import { PeriodFilter } from '../../components/PeriodFilter'
 import { SkeletonRows, TableWrap } from '../../components/Table'
 import { formatNumber, formatPercent } from '../../format'
 import { useAsync } from '../../hooks'
 import { CHANNEL_LABELS } from '../../labels'
+import { CreatorStatsTable } from './CreatorStatsTable'
 
 export function StatsTab({ campaignId }: { campaignId: number }) {
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const from = params.get('from') ?? ''
   const to = params.get('to') ?? ''
   const period = { from: from || null, to: to || null }
 
   const total = useAsync(() => campaignStats(campaignId, period), [campaignId, from, to])
   const byChannel = useAsync(() => channelStats(campaignId, period), [campaignId, from, to])
-
-  function setPeriod(key: 'from' | 'to', value: string) {
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (value) next.set(key, value)
-        else next.delete(key)
-        return next
-      },
-      { replace: true },
-    )
-  }
 
   const kpis = total.data
     ? [
@@ -42,20 +30,7 @@ export function StatsTab({ campaignId }: { campaignId: number }) {
 
   return (
     <>
-      <div className="toolbar" role="group" aria-label="기간 필터">
-        <Field label="시작일">
-          {(p) => <input {...p} type="date" value={from} max={to || undefined} onChange={(e) => setPeriod('from', e.target.value)} />}
-        </Field>
-        <Field label="종료일">
-          {(p) => <input {...p} type="date" value={to} min={from || undefined} onChange={(e) => setPeriod('to', e.target.value)} />}
-        </Field>
-        {(from || to) && (
-          <Button size="sm" variant="ghost" onClick={() => setParams({}, { replace: true })}>
-            전체 기간
-          </Button>
-        )}
-        <p className="toolbar-note muted small">{from || to ? '날짜는 서울 시각 기준이며 양 끝 날짜를 포함합니다' : '전체 기간'}</p>
-      </div>
+      <PeriodFilter />
 
       <ErrorMessage error={total.error} onRetry={total.reload} />
       <ul className={`kpis${total.loading ? ' is-stale' : ''}`} aria-label="핵심 지표" aria-busy={total.loading}>
@@ -120,6 +95,8 @@ export function StatsTab({ campaignId }: { campaignId: number }) {
       </TableWrap>
         </>
       )}
+
+      <CreatorStatsTable campaignId={campaignId} period={period} />
     </>
   )
 }

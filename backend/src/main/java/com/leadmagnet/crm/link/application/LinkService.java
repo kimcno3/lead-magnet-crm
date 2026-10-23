@@ -2,6 +2,8 @@ package com.leadmagnet.crm.link.application;
 
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
+import com.leadmagnet.crm.creator.application.CreatorService;
+import com.leadmagnet.crm.creator.domain.Creator;
 import com.leadmagnet.crm.form.application.FormService;
 import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.form.domain.FormStatus;
@@ -14,6 +16,8 @@ import com.leadmagnet.crm.link.domain.LinkCodeGenerator;
 import java.time.Clock;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -32,32 +36,45 @@ public class LinkService {
 
     private final DistributionLinkRepository links;
     private final FormService forms;
+    private final CreatorService creators;
     private final LinkCodeGenerator codes;
     private final Clock clock;
 
-    public LinkService(DistributionLinkRepository links, FormService forms, LinkCodeGenerator codes, Clock clock) {
+    public LinkService(DistributionLinkRepository links, FormService forms, CreatorService creators,
+            LinkCodeGenerator codes, Clock clock) {
         this.links = links;
         this.forms = forms;
+        this.creators = creators;
         this.codes = codes;
         this.clock = clock;
     }
 
-    /** 폼당 채널별 링크는 하나. draft·published 폼에만 만들 수 있다. */
+    /**
+     * 폼 × 채널 × 크리에이터(없음 포함)당 링크는 하나(ADR 0006·0014). draft·published 폼에만 만들 수 있고,
+     * creatorId가 있으면 그 크리에이터가 있어야 하며(없으면 404) 보관되지 않아야 한다(409 creator_archived).
+     */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public DistributionLink create(long formId, String requestedChannel) {
+    public LinkDetail create(long formId, String requestedChannel, Long creatorId) {
         Form form = forms.get(formId);
         Channel channel = Channel.parse(requestedChannel);
+        Creator creator = creatorId == null ? null : creators.get(creatorId);
         if (form.getStatus() == FormStatus.CLOSED) {
             throw new DomainException(ErrorCode.FORM_CLOSED);
         }
-        if (links.existsByFormIdAndChannel(formId, channel)) {
+        if (creator != null && creator.isArchived()) {
+            throw new DomainException(ErrorCode.CREATOR_ARCHIVED);
+        }
+        boolean exists = creatorId == null
+            ? links.existsByFormIdAndChannelAndCreatorIdIsNull(formId, channel)
+            : links.existsByFormIdAndChannelAndCreatorId(formId, channel, creatorId);
+        if (exists) {
             throw new DomainException(ErrorCode.LINK_EXISTS);
         }
         for (int i = 0; i < CODE_ATTEMPTS; i++) {
-            DistributionLink link = DistributionLink.create(formId, channel, codes.next(), form.getSlug(),
+            DistributionLink link = DistributionLink.create(formId, channel, creatorId, codes.next(), form.getSlug(),
                 clock.instant());
             try {
-                return links.saveAndFlush(link);
+                return new LinkDetail(links.saveAndFlush(link), creator);
             } catch (DataIntegrityViolationException e) {
                 if (!String.valueOf(e.getMostSpecificCause().getMessage()).contains(CODE_INDEX)) {
                     throw e;
@@ -67,12 +84,20 @@ public class LinkService {
         throw new DomainException(ErrorCode.INTERNAL_ERROR);
     }
 
-    /** 채널 순서(instagram, x, youtube, threads)로 정렬한 폼의 링크. 폼이 없으면 404. */
+    /**
+     * 폼의 링크와 크리에이터. 크리에이터 없는 링크가 먼저, 그다음 크리에이터 id(등록) 순이고,
+     * 같은 크리에이터 안에서는 채널 순서(instagram, x, youtube, threads)다. 폼이 없으면 404.
+     */
     @Transactional(readOnly = true)
-    public List<DistributionLink> list(long formId) {
+    public List<LinkDetail> list(long formId) {
         forms.get(formId);
-        return links.findAllByFormId(formId).stream()
-            .sorted(Comparator.comparing(DistributionLink::getChannel))
+        List<DistributionLink> found = links.findAllByFormId(formId);
+        Map<Long, Creator> byId = creators.findAllById(
+            found.stream().map(DistributionLink::getCreatorId).filter(Objects::nonNull).distinct().toList());
+        return found.stream()
+            .sorted(Comparator.comparing(DistributionLink::getCreatorId, Comparator.nullsFirst(Comparator.naturalOrder()))
+                .thenComparing(DistributionLink::getChannel))
+            .map(l -> new LinkDetail(l, l.getCreatorId() == null ? null : byId.get(l.getCreatorId())))
             .toList();
     }
 
@@ -108,6 +133,10 @@ public class LinkService {
             return Optional.empty();
         }
         return links.findByCode(code);
+    }
+
+    /** 링크와 그 크리에이터(크리에이터 없는 링크면 null). */
+    public record LinkDetail(DistributionLink link, Creator creator) {
     }
 
     public record RedirectTarget(String slug, String code) {

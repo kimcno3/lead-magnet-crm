@@ -80,6 +80,24 @@ class SchemaMigrationTest {
     }
 
     @Test
+    void V3_마이그레이션이_크리에이터를_추가하고_기존_링크는_크리에이터_없음으로_남긴다() {
+        Boolean applied = jdbc.queryForObject(
+            "SELECT success FROM flyway_schema_history WHERE version = '3'", Boolean.class);
+        assertThat(applied).isTrue();
+        assertThat(jdbc.queryForObject("SELECT creator_id FROM distribution_links WHERE id = ?", Long.class, linkId))
+            .isNull();
+        long creatorId = insertId("INSERT INTO creators (name, created_by) VALUES ('하늘', " + operatorId + ") RETURNING id");
+        assertThat(jdbc.queryForObject("SELECT status FROM creators WHERE id = ?", String.class, creatorId))
+            .isEqualTo("active");
+        jdbc.update("INSERT INTO distribution_links (form_id, channel, code, creator_id) VALUES (?, 'instagram', 'cre123', ?)",
+            formId, creatorId);
+
+        assertRejected("UPDATE creators SET status = 'deleted' WHERE id = " + creatorId);
+        assertRejected("INSERT INTO distribution_links (form_id, channel, code, creator_id) VALUES ("
+            + formId + ", 'x', 'cre999', 99999)");
+    }
+
+    @Test
     void 허용되지_않은_채널의_배포_링크는_거부한다() {
         assertRejected("INSERT INTO distribution_links (form_id, channel, code) VALUES (" + formId + ", 'tiktok', 'zzz999')");
     }

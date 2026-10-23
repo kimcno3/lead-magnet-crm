@@ -20,6 +20,14 @@ function renderAt(path: string) {
 }
 
 describe('App 라우팅', () => {
+  it('크리에이터 메뉴는 목록과 상세 화면으로 간다', async () => {
+    mockBackend((url) => (url.pathname === '/api/admin/creators' ? json([]) : url.pathname === '/api/admin/creators/3' ? json({ id: 3, name: '김하늘', handle: null, memo: null, status: 'active', createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' }) : url.pathname === '/api/admin/creators/3/stats' ? json({ creatorId: 3, name: '김하늘', status: 'active', from: null, to: null, campaigns: [] }) : undefined))
+    renderAt('/creators')
+    expect(await screen.findByRole('heading', { name: '크리에이터', level: 1 })).toBeInTheDocument()
+    renderAt('/creators/3')
+    expect(await screen.findByRole('heading', { name: '김하늘', level: 1 })).toBeInTheDocument()
+  })
+
   it('세션 복원에 실패하면 로그인 화면으로 보낸다', async () => {
     mockBackend((url) => (url.pathname === '/api/admin/auth/refresh' ? json({ code: 'invalid_refresh_token' }, 401) : undefined))
     renderAt('/templates')
@@ -31,6 +39,7 @@ describe('App 라우팅', () => {
     renderAt('/templates')
     expect(await screen.findByText('ops@example.com')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '캠페인' })).toHaveAttribute('href', '/campaigns')
+    expect(screen.getByRole('link', { name: '크리에이터' })).toHaveAttribute('href', '/creators')
     expect(screen.getByRole('heading', { name: '템플릿', level: 1 })).toBeInTheDocument()
   })
 
