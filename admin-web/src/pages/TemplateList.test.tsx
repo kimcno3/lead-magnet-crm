@@ -6,7 +6,7 @@ import { json, mockBackend, requestsTo } from '../test/http'
 import { renderPage } from '../test/render'
 import { TemplateListPage } from './TemplateList'
 
-const summary = { id: 3, name: '세미나 신청서', size: 2048, fieldCount: 4, createdAt: '2026-10-20T01:00:00Z' }
+const summary = { id: 3, name: '세미나 신청서', size: 2048, fieldCount: 4, version: 2, createdAt: '2026-10-20T01:00:00Z', updatedAt: '2026-10-22T01:00:00Z' }
 
 beforeEach(() => clearSession())
 afterEach(() => vi.unstubAllGlobals())

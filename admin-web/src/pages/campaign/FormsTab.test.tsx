@@ -23,6 +23,8 @@ const form: Form = {
   publishedAt: '2026-10-01T00:00:00Z',
   closedAt: null,
   createdAt: '2026-09-30T00:00:00Z',
+  publishedTemplateSha256: 'a'.repeat(64),
+  templateSha256: 'a'.repeat(64),
 }
 
 const igLink: DistributionLink = {
@@ -45,12 +47,12 @@ const skyIgLink: DistributionLink = {
   url: 'https://go.example.com/l/Sky00001',
 }
 
-function backend(initial: DistributionLink[] = [igLink]) {
+function backend(initial: DistributionLink[] = [igLink], current: Form = form) {
   const links: DistributionLink[] = [...initial]
   const fetchMock = mockBackend((url, init) => {
     if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
     if (url.pathname === '/api/admin/creators') return json([sky, sea])
-    if (url.pathname === '/api/admin/forms/11') return json(form)
+    if (url.pathname === '/api/admin/forms/11') return json(current)
     if (url.pathname === '/api/admin/forms/11/links') {
       if (init?.method === 'POST') {
         const { channel, creatorId } = JSON.parse(String(init.body))
@@ -67,6 +69,26 @@ function backend(initial: DistributionLink[] = [igLink]) {
 }
 
 describe('폼 탭', () => {
+  it('게시 시점 템플릿과 현재 템플릿의 sha256이 다르면 안내를 보여준다', async () => {
+    backend([igLink], { ...form, templateSha256: 'b'.repeat(64) })
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+
+    expect(await screen.findByText(/게시 시점 템플릿과 현재 템플릿이 다릅니다/)).toBeInTheDocument()
+  })
+
+  it('sha256이 같거나 아직 게시하지 않은 폼에는 안내가 없다', async () => {
+    backend()
+    const { unmount } = renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    await screen.findByRole('table', { name: '채널별 배포 링크' })
+    expect(screen.queryByText(/게시 시점 템플릿과 현재 템플릿이 다릅니다/)).toBeNull()
+    unmount()
+
+    backend([igLink], { ...form, status: 'draft', publishedTemplateSha256: null, templateSha256: 'b'.repeat(64) })
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    await screen.findByRole('table', { name: '채널별 배포 링크' })
+    expect(screen.queryByText(/게시 시점 템플릿과 현재 템플릿이 다릅니다/)).toBeNull()
+  })
+
   it('폼 행을 펼치면 공개 URL과 채널 네 개의 배포 링크를 보여준다', async () => {
     backend()
     renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms')

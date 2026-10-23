@@ -82,12 +82,15 @@ export function TemplateListPage() {
                   <th scope="col" className="num">
                     필드 수
                   </th>
-                  <th scope="col">등록일</th>
+                  <th scope="col" className="num">
+                    버전
+                  </th>
+                  <th scope="col">수정일</th>
                 </tr>
               </thead>
               <tbody aria-busy={loading}>
                 {!data && loading ? (
-                  <SkeletonRows columns={4} />
+                  <SkeletonRows columns={5} />
                 ) : (
                   data?.map((t) => (
                     <tr key={t.id}>
@@ -98,7 +101,8 @@ export function TemplateListPage() {
                       </td>
                       <td className="num">{formatBytes(t.size)}</td>
                       <td className="num">{formatNumber(t.fieldCount)}</td>
-                      <td className="num">{formatDateTime(t.createdAt)}</td>
+                      <td className="num">v{t.version}</td>
+                      <td className="num">{formatDateTime(t.updatedAt)}</td>
                     </tr>
                   ))
                 )}

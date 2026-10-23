@@ -90,6 +90,11 @@ public class TemplateService {
         return templates.findById(id).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
     }
 
+    /** 행을 잠그고 읽는다. 호출한 트랜잭션이 끝날 때까지 다른 게시·새 버전 업로드는 기다린다. */
+    public HtmlTemplate getForUpdate(long id) {
+        return templates.findByIdForUpdate(id).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
+    }
+
     private static String baseName(String filename) {
         String value = filename == null ? "" : filename;
         return value.substring(Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\')) + 1);

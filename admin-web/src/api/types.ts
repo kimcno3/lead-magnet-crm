@@ -78,6 +78,10 @@ export interface Form {
   publishedAt: string | null
   closedAt: string | null
   createdAt: string
+  /** 게시 시점에 복사한 템플릿의 sha256. draft는 null (ADR 0018). */
+  publishedTemplateSha256: string | null
+  /** 템플릿의 현재 sha256. publishedTemplateSha256과 다르면 게시한 뒤 새 버전이 올라온 것이다. */
+  templateSha256: string
 }
 
 export interface CreateFormRequest {
@@ -123,7 +127,9 @@ export interface TemplateSummary {
   name: string
   size: number
   fieldCount: number
+  version: number
   createdAt: string
+  updatedAt: string
 }
 
 export type InspectionSeverity = 'warning' | 'info'
@@ -143,7 +149,22 @@ export interface Template {
   sha256: string
   fields: FormField[]
   inspection: InspectionWarning[]
+  version: number
   createdAt: string
+  updatedAt: string
+}
+
+/** PUT /api/admin/templates/{id} 응답. 새 필드로 다시 스냅샷한 draft 폼 수를 함께 준다. */
+export interface TemplateVersionResult {
+  id: number
+  name: string
+  size: number
+  sha256: string
+  fields: FormField[]
+  inspection: InspectionWarning[]
+  version: number
+  updatedAt: string
+  affectedDraftForms: number
 }
 
 /** POST /api/admin/templates/inspect 응답. 저장하지 않은 리포트다. */
