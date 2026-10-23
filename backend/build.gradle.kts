@@ -45,6 +45,8 @@ tasks.withType<Test> {
     systemProperty("openapi.verify", System.getProperty("openapi.verify", "false"))
     // 내보내기 대상은 작업 디렉터리가 아니라 프로젝트 위치 기준으로 정한다
     systemProperty("openapi.output", layout.projectDirectory.file("../docs/api/openapi.yaml").asFile.canonicalPath)
+    // AiFormPromptDocTest: 관리자 화면의 프롬프트 상수 파일 위치
+    systemProperty("aiformprompt.ts", layout.projectDirectory.file("../admin-web/src/aiFormPrompt.ts").asFile.canonicalPath)
 }
 
 tasks.jar {

@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ApiError } from '../api/client'
 import { inspectTemplate, listTemplates, uploadTemplate } from '../api/templates'
@@ -21,13 +21,18 @@ export function TemplateListPage() {
   const { data, error, loading, reload } = useAsync(listTemplates, [])
   const [uploadOpen, setUploadOpen] = useState(false)
   const [copyStatus, setCopyStatus] = useState<string>()
+  const [copyFailed, setCopyFailed] = useState(false)
 
   async function copyPrompt() {
+    // 먼저 비워서 같은 문구를 다시 띄워도 화면 읽기 도구가 다시 읽게 한다.
+    setCopyStatus(undefined)
+    setCopyFailed(false)
     try {
       await navigator.clipboard.writeText(AI_FORM_PROMPT)
       setCopyStatus('복사했습니다')
     } catch {
-      setCopyStatus('복사하지 못했습니다. docs/AI_FORM_PROMPT.md에서 직접 복사해 주세요')
+      setCopyFailed(true)
+      setCopyStatus('복사하지 못했습니다. 아래 글을 선택해 직접 복사해 주세요')
     }
   }
 
@@ -47,6 +52,12 @@ export function TemplateListPage() {
           </>
         }
       />
+      {copyFailed && (
+        <div className="note">
+          <label htmlFor="ai-prompt-text">AI 프롬프트 (전체 선택 후 복사)</label>
+          <textarea id="ai-prompt-text" readOnly rows={8} value={AI_FORM_PROMPT} onFocus={(e) => e.currentTarget.select()} style={{ width: '100%' }} />
+        </div>
+      )}
       <ErrorMessage error={error} onRetry={reload} />
       {data && data.length === 0 ? (
         <EmptyState
@@ -112,6 +123,13 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const [failure, setFailure] = useState<{ guide?: string; detail: string; code?: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [report, setReport] = useState<TemplateInspection | null>(null)
+  const [inspecting, setInspecting] = useState(false)
+  const reportHeading = useRef<HTMLHeadingElement>(null)
+
+  // 검사 결과가 나타나면 제목으로 포커스를 옮겨 읽게 한다.
+  useEffect(() => {
+    if (report) reportHeading.current?.focus()
+  }, [report])
 
   function close() {
     setReport(null)
@@ -179,8 +197,13 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
   }
 
   /** 아무것도 저장하지 않고 검사 결과만 다이얼로그에 보여준다. */
-  function onInspect() {
-    return run(async (f) => setReport(await inspectTemplate(f, name)))
+  async function onInspect() {
+    setInspecting(true)
+    try {
+      await run(async (f) => setReport(await inspectTemplate(f, name)))
+    } finally {
+      setInspecting(false)
+    }
   }
 
   return (
@@ -191,8 +214,8 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
       footer={
         <>
           <Button onClick={close}>취소</Button>
-          <Button onClick={onInspect} disabled={busy}>
-            검사만 하기
+          <Button onClick={onInspect} busy={inspecting} disabled={busy}>
+            {inspecting ? '검사 중…' : '검사만 하기'}
           </Button>
           <Button variant="primary" type="submit" form="upload-form" busy={busy}>
             {busy ? '업로드 중…' : '업로드'}
@@ -224,8 +247,8 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
           {(p) => <input {...p} type="text" name="name" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />}
         </Field>
         {report && (
-          <section aria-labelledby="inspect-heading" className="inspect-result">
-            <h3 id="inspect-heading" className="section-title">
+          <section aria-labelledby="inspect-heading" className="inspect-result" role="status">
+            <h3 id="inspect-heading" className="section-title" tabIndex={-1} ref={reportHeading}>
               검사 결과
             </h3>
             <p className="note">

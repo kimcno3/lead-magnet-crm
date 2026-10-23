@@ -1,8 +1,12 @@
 package com.leadmagnet.crm.template.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 class TemplateInspectorTest {
@@ -210,5 +214,109 @@ class TemplateInspectorTest {
         String html = page("<script src=\"https://a.example/x.js\"></script><link rel=\"stylesheet\" href=\"https://a.example/x.css\">",
             "<img src=\"https://a.example/i.png\">");
         assertThat(codes(html)).containsExactlyInAnyOrder("external_script", "external_stylesheet", "external_image");
+    }
+
+    // ---------- 성능·상한 ----------
+
+    private static void within2s(String html) {
+        long start = System.nanoTime();
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () -> TemplateInspector.inspect(html));
+        System.out.printf("inspect %d bytes: %d ms%n", html.length(), (System.nanoTime() - start) / 1_000_000);
+    }
+
+    @Test
+    void 닫히지_않는_url_여러_개도_선형_시간에_끝난다() {
+        within2s(page("<style>" + "url(".repeat(120_000) + "</style>", ""));
+        within2s(page("<style>" + "url(".repeat(16_000) + "</style>", ""));
+    }
+
+    @Test
+    void 닫히지_않는_font_face_여러_개도_선형_시간에_끝난다() {
+        within2s(page("<style>" + "@font-face{".repeat(40_000) + "</style>", ""));
+    }
+
+    @Test
+    void 닫히지_않는_주석_import_srcset도_선형_시간에_끝난다() {
+        within2s(page("<style>" + "/*".repeat(200_000) + "</style>", ""));
+        within2s(page("<style>" + "@import ".repeat(60_000) + "</style>", ""));
+        within2s(page("", "<img srcset=\"" + "a ,".repeat(100_000) + "\">"));
+        within2s(page("<script>" + "fetch ".repeat(80_000) + "</script>", ""));
+        within2s(page("<style>@font-face{src:url(data:font/woff;base64," + ".woff".repeat(80_000) + ")}</style>", ""));
+    }
+
+    @Test
+    void 한_코드의_경고는_20건까지만_담고_나머지는_외_N건_한_줄로_요약한다() {
+        String imgs = IntStream.range(0, 50).mapToObj(i -> "<img src=\"https://i.example/" + i + ".png\">")
+            .collect(Collectors.joining());
+        List<InspectionWarning> found = TemplateInspector.inspect(page("", imgs));
+
+        List<InspectionWarning> images = found.stream().filter(w -> w.code().equals("external_image")).toList();
+        assertThat(images).hasSize(21);
+        InspectionWarning summary = images.get(images.size() - 1);
+        assertThat(summary.message()).isEqualTo("외 30건");
+        assertThat(summary.severity()).isEqualTo(Severity.WARNING);
+        assertThat(images.subList(0, 20)).extracting(InspectionWarning::location).allMatch(l -> l.contains("https://i.example/"));
+    }
+
+    @Test
+    void 전체_경고는_100건을_넘지_않는다() {
+        StringBuilder body = new StringBuilder();
+        for (int i = 0; i < 60; i++) {
+            body.append("<img src=\"https://i.example/").append(i).append(".png\">")
+                .append("<script src=\"https://s.example/").append(i).append(".js\"></script>")
+                .append("<video poster=\"https://p.example/").append(i).append(".png\"></video>")
+                .append("<input name=\"f").append(i).append("\">");
+        }
+        body.append("<link rel=\"stylesheet\" href=\"https://c.example/a.css\">");
+        List<InspectionWarning> found = TemplateInspector.inspect(page("", body.toString()));
+
+        assertThat(found.size()).isLessThanOrEqualTo(TemplateInspector.MAX_TOTAL);
+        assertThat(found).extracting(InspectionWarning::message).anyMatch(m -> m.startsWith("외 "));
+    }
+
+    @Test
+    void 이상한_입력에도_예외를_던지지_않는다() {
+        List<String> inputs = List.of("", "<", "<<<>>>", "<form", "<style>url(", "<style>@import", "<img srcset=\",\">",
+            "<svg><use xlink:href=\"//x\"/></svg>", "\u0000\u0000", "<script>fetch(", "<form><input name></form>",
+            "<style>@font-face{", "<link rel>", "<img src=\"http", page("<style>url(\"", ""));
+        for (String input : inputs) {
+            assertThat(TemplateInspector.inspect(input)).isNotNull();
+        }
+    }
+
+    // ---------- 보강 ----------
+
+    @Test
+    void 스킴_안의_탭_개행과_앞_공백으로_가려도_외부로_본다() {
+        assertThat(codes(page("<script src=\"ht\ttps://x.example/a.js\"></script>", ""))).contains("external_script");
+        assertThat(codes(page("<script src=\"  \n https://x.example/a.js\"></script>", ""))).contains("external_script");
+        assertThat(codes(page("", "<img src=\"java\nscript:x\">"))).isEmpty();
+    }
+
+    @Test
+    void iframe_object_embed_svg_image_use와_xlink_href의_외부_URL도_찾는다() {
+        assertThat(codes(page("", "<iframe src=\"https://x.example/\"></iframe>"))).containsExactly("external_image");
+        assertThat(codes(page("", "<object data=\"https://x.example/a.svg\"></object>"))).containsExactly("external_image");
+        assertThat(codes(page("", "<embed src=\"//x.example/a.swf\">"))).containsExactly("external_image");
+        assertThat(codes(page("", "<svg><image href=\"https://x.example/a.png\"/></svg>"))).containsExactly("external_image");
+        assertThat(codes(page("", "<svg><use href=\"https://x.example/s.svg#a\"/></svg>"))).containsExactly("external_image");
+        assertThat(codes(page("", "<svg><use xlink:href=\"https://x.example/s.svg#a\"/></svg>"))).containsExactly("external_image");
+        assertThat(codes(page("", "<svg><use href=\"#a\"/></svg>"))).isEmpty();
+    }
+
+    @Test
+    void 이름에_policy_terms가_들어간_일반_체크박스는_동의로_보지_않는다() {
+        String body = "<label><input type=\"checkbox\" name=\"insurance_policy\" value=\"a\"> 보험 가입</label>"
+            + "<label><input type=\"checkbox\" name=\"terms_of_trade\" value=\"b\"> 거래 조건</label>";
+        assertThat(codes(page("", body))).isEmpty();
+    }
+
+    @Test
+    void 자바스크립트가_아닌_script_type은_fetch_검사에서_뺀다() {
+        for (String type : List.of("application/json", "application/ld+json", "text/template", "text/x-handlebars")) {
+            assertThat(codes(page("<script type=\"" + type + "\">{\"a\": \"fetch(\"}</script>", ""))).isEmpty();
+        }
+        assertThat(codes(page("<script type=\"module\">fetch('/x')</script>", ""))).contains("fetch_in_script");
+        assertThat(codes(page("<script type=\"text/javascript\">fetch('/x')</script>", ""))).contains("fetch_in_script");
     }
 }

@@ -144,7 +144,8 @@ describe('템플릿 목록', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'AI 프롬프트 복사' }))
 
-    expect(await screen.findByText('복사하지 못했습니다. docs/AI_FORM_PROMPT.md에서 직접 복사해 주세요')).toBeInTheDocument()
+    expect(await screen.findByText('복사하지 못했습니다. 아래 글을 선택해 직접 복사해 주세요')).toBeInTheDocument()
+    expect(screen.getByLabelText(/AI 프롬프트/)).toHaveValue(AI_FORM_PROMPT)
   })
 
   it('검사만 하기는 /inspect만 부르고 저장하지 않으며 결과를 다이얼로그에 보여준다', async () => {
@@ -196,5 +197,38 @@ describe('템플릿 목록', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '검사만 하기' }))
     expect(await within(dialog).findByText('업로드할 HTML 파일을 골라 주세요')).toBeInTheDocument()
     expect(requestsTo(fetchMock, '/api/admin/templates/inspect')).toHaveLength(0)
+  })
+
+  it('검사 결과가 나오면 결과 제목으로 포커스가 가고 상태 영역으로 알린다', async () => {
+    mockBackend((url, init) => {
+      if (url.pathname === '/api/admin/templates/inspect' && init?.method === 'POST') {
+        return json({ name: 'form', size: 31, fields: [], inspection: [{ code: 'external_image', severity: 'warning', message: '외 3건', location: '' }] })
+      }
+      return url.pathname === '/api/admin/templates' ? json([summary]) : undefined
+    })
+    renderPage('/templates', <TemplateListPage />)
+    const dialog = await openUpload()
+    fireEvent.change(within(dialog).getByLabelText(/HTML 파일/), { target: { files: [htmlFile()] } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '검사만 하기' }))
+
+    const status = await within(dialog).findByRole('status')
+    expect(within(status).getByText('외 3건')).toBeInTheDocument()
+    await waitFor(() => expect(within(status).getByRole('heading', { name: '검사 결과' })).toHaveFocus())
+  })
+
+  it('검사만 하기가 413이면 크기 안내를 보여주고 검사 중 문구는 끝나면 돌아온다', async () => {
+    mockBackend((url, init) => {
+      if (url.pathname === '/api/admin/templates/inspect' && init?.method === 'POST') {
+        return json({ status: 413, code: 'template_too_large', detail: '크기 초과' }, 413)
+      }
+      return url.pathname === '/api/admin/templates' ? json([summary]) : undefined
+    })
+    renderPage('/templates', <TemplateListPage />)
+    const dialog = await openUpload()
+    fireEvent.change(within(dialog).getByLabelText(/HTML 파일/), { target: { files: [htmlFile()] } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '검사만 하기' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('512KB 이하 파일만 올릴 수 있습니다')
+    expect(within(dialog).getByRole('button', { name: '검사만 하기' })).toBeEnabled()
   })
 })

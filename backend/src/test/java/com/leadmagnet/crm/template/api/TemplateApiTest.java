@@ -274,6 +274,18 @@ class TemplateApiTest {
             .as("GET은 아무것도 쓰지 않는다").isTrue();
     }
 
+    @Test
+    void 검사_API는_512KB를_넘으면_413이고_UTF8이_아니면_422이다() {
+        String big = FORM + "<!--" + "a".repeat(600 * 1024) + "-->";
+        inspect("big.html", big).statusCode(413).contentType("application/problem+json")
+            .body("code", equalTo("template_too_large"));
+        given().auth().oauth2(token)
+            .multiPart("file", "a.html", "<form>안</form>".getBytes(java.nio.charset.Charset.forName("EUC-KR")), "text/html")
+            .when().post("/api/admin/templates/inspect")
+            .then().statusCode(422).body("code", equalTo("template_not_utf8"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM html_templates", Long.class)).isZero();
+    }
+
     private ValidatableResponse inspect(String filename, String content) {
         return given().auth().oauth2(token)
             .multiPart("file", filename, content.getBytes(StandardCharsets.UTF_8), "text/html")

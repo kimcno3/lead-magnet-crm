@@ -36,6 +36,18 @@ class AiFormPromptDocTest {
     }
 
     @Test
+    void 관리자_화면의_프롬프트_상수는_문서의_프롬프트와_같다() throws IOException {
+        String path = System.getProperty("aiformprompt.ts");
+        assertThat(path).as("Gradle이 aiformprompt.ts를 넘긴다(IDE 실행이면 -Daiformprompt.ts=<경로>)").isNotBlank();
+        String ts = Files.readString(Path.of(path));
+        int start = ts.indexOf("= `") + 3;
+        int end = ts.lastIndexOf('`');
+        assertThat(start).isGreaterThan(2);
+
+        assertThat(ts.substring(start, end)).isEqualTo(block(Files.readString(DOC), "text"));
+    }
+
+    @Test
     void 대응표와_문제_해결_문서는_모든_경고_코드를_설명한다() throws IOException {
         String doc = Files.readString(DOC);
         String troubleshooting = Files.readString(TROUBLESHOOTING);

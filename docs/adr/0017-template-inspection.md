@@ -15,18 +15,21 @@
 |---|---|---|
 | `external_script` | warning | 외부 `<script src>` (`modulepreload`, `preload as=script` 포함) |
 | `external_stylesheet` | warning | 외부 `<link rel=stylesheet>`, CSS `@import`, `preload as=style` |
-| `external_image` | warning | `img`·`source`·`video`·`audio`·`input[type=image]`의 `src`, 모든 `srcset`, `poster`, `<link rel=icon>` 계열, CSS `url()` |
+| `external_image` | warning | `img`·`source`·`video`·`audio`·`input[type=image]`의 `src`, 모든 `srcset`, `poster`, `<link rel=icon>` 계열, `iframe`·`embed`의 `src`, `object[data]`, SVG `image`·`use`의 `href`/`xlink:href`, CSS `url()` |
 | `external_font` | warning | `@font-face`의 외부 `url()`, 폰트 확장자(`woff/woff2/ttf/otf/eot`) URL, `preload as=font` |
 | `large_inline_image` | warning | 위 위치의 `data:` URI 길이 합계가 200KB 초과 |
 | `missing_label` | warning | 라벨 없는 필드(`label for`, 감싼 `label`, `aria-label`, `aria-labelledby` 중 어느 것도 없음; hidden·버튼 제외, 같은 name은 첫 입력 기준) |
 | `contact_not_required` | warning | 연락처 입력(`phone`·`email`, 선택지 타입 제외)이 있는데 그중 `required`가 하나도 없음 |
 | `form_action_external` | info | form `action`이 외부 URL (래퍼가 제출을 받아 무시됨) |
 | `fetch_in_script` | info | 인라인 스크립트의 `fetch(`, `XMLHttpRequest`, `sendBeacon`, `WebSocket`, `EventSource` 토큰 (토큰당 한 건) |
-| `consent_in_html` | info | 이름이 `agree|consent|privacy|terms|policy`이거나 라벨에 `동의|개인정보|약관`이 있는 체크박스 |
+| `consent_in_html` | info | 이름이 `agree|consent|privacy`이거나 라벨에 `동의|개인정보|약관`이 있는 체크박스 |
 
 - 외부 URL은 `http:`, `https:`, 프로토콜 상대 `//`로 시작하는 값이다. 상대 경로와 `data:`는 외부가 아니다. CSS는 주석을 지운 뒤 `@import` → `@font-face` 블록 → 나머지 `url()` 순서로 본다. `<style>`과 `style=""` 모두 본다.
 - 분류 기준: `@import`는 파일 종류와 무관하게 `external_stylesheet`(구글 폰트 CSS도 스타일시트다), `@font-face`와 폰트 파일 URL은 `external_font`, 나머지 `url()`은 `external_image`. 같은 `(code, location)`은 한 번만 담는다.
-- `fetch_in_script`는 의도적으로 단순한 토큰 스캔이다. 주석·문자열 속 단어도 잡히고 난독화된 호출은 놓친다. 보안 경계가 아니라(경계는 CSP `connect-src 'self'`) 운영자에게 주는 힌트이므로 참고(info)로만 낸다. `form_action_external`, `consent_in_html`도 동작에 해가 없어 참고다.
+- URL 앞의 공백·제어 문자와 안의 탭·개행은 브라우저처럼 무시하고 스킴을 본다(`ht\ttps:` 우회 방지).
+- 입력 크기에 비례해 시간이 늘도록, CSS는 정규식 대신 `indexOf` 스캐너로 훑고(닫는 `)`·`}`가 없으면 멈춤) 문서당 CSS·인라인 스크립트 검사량을 512KB로 묶는다. 닫히지 않는 `url(` 12만 개(480KB)가 정규식 역추적으로 약 300초 걸리던 것을 20ms 안으로 줄였고 회귀 테스트가 2초 제한으로 지킨다.
+- 결과 크기: 코드당 20건까지만 담고 넘으면 `외 N건` 한 줄(message, location은 빈 문자열)로 요약한다. 전체는 최대 100건이다.
+- `fetch_in_script`는 JS가 아닌 `<script type>`(JSON, 템플릿 등; 비어 있음·`text/javascript`·`application/javascript`·`module`만 검사)은 보지 않는다. 의도적으로 단순한 토큰 스캔이다. 주석·문자열 속 단어도 잡히고 난독화된 호출은 놓친다. 보안 경계가 아니라(경계는 CSP `connect-src 'self'`) 운영자에게 주는 힌트이므로 참고(info)로만 낸다. `form_action_external`, `consent_in_html`도 동작에 해가 없어 참고다.
 - `contact_not_required`를 "각 연락처 입력이 required"가 아니라 "연락처 입력 중 required가 하나도 없음"으로 정한 이유: 서버는 phone·email 중 하나만 오면 받으므로(`SubmissionValidator`) 이메일이 선택인 흔한 폼에 경고하면 오탐이다.
 
 **저장과 기존 데이터**

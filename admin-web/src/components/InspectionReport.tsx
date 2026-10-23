@@ -39,9 +39,11 @@ function InspectionGroup({ label, hint, items }: { label: string; hint: string; 
               <span className="mono" translate="no">
                 {w.code}
               </span>
-              <span className="mono inspection-location" translate="no">
-                {w.location}
-              </span>
+              {w.location && (
+                <span className="mono inspection-location" translate="no">
+                  {w.location}
+                </span>
+              )}
             </p>
           </li>
         ))}

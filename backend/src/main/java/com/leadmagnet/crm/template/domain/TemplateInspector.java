@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -22,6 +21,9 @@ public final class TemplateInspector {
 
     /** data URI 합계가 이 값(200KB)을 넘으면 large_inline_image. */
     public static final int LARGE_INLINE_BYTES = 200 * 1024;
+
+    public static final int MAX_PER_CODE = 20;
+    public static final int MAX_TOTAL = 100;
 
     static final String EXTERNAL_SCRIPT = "external_script";
     static final String EXTERNAL_STYLESHEET = "external_stylesheet";
@@ -38,19 +40,16 @@ public final class TemplateInspector {
     private static final Set<String> OPTION_TYPES = Set.of("select", "radio", "checkbox");
     private static final Set<String> NON_FIELD_TYPES = Set.of("submit", "button", "reset", "image", "hidden");
 
-    private static final Pattern CSS_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
-    private static final Pattern CSS_IMPORT =
-        Pattern.compile("@import\\s+(?:url\\(\\s*)?[\"']?([^\"')\\s;]+)[^;]*;?", Pattern.CASE_INSENSITIVE);
-    private static final Pattern CSS_FONT_FACE =
-        Pattern.compile("@font-face\\s*\\{[^}]*\\}", Pattern.CASE_INSENSITIVE);
-    private static final Pattern CSS_URL =
-        Pattern.compile("url\\(\\s*([\"']?)(.*?)\\1\\s*\\)", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-    private static final Pattern FONT_FILE = Pattern.compile("\\.(woff2?|ttf|otf|eot)(?:[?#].*)?$", Pattern.CASE_INSENSITIVE);
     private static final Pattern SRCSET_SPLIT = Pattern.compile(",\\s+|(?<=[wx]),");
+    private static final List<String> FONT_EXTENSIONS = List.of(".woff2", ".woff", ".ttf", ".otf", ".eot");
+    /** 문서 하나에서 CSS·인라인 스크립트로 훑는 글자 수 상한. 거대한 입력에도 검사 시간을 묶는다. */
+    private static final int MAX_SCAN_CHARS = 512 * 1024;
+    private static final int MAX_TOKEN = 2048;
+    private static final Set<String> JS_TYPES = Set.of("", "text/javascript", "application/javascript", "module");
 
     private static final Map<String, Pattern> NETWORK_TOKENS = tokens();
     private static final Pattern CONSENT_NAME =
-        Pattern.compile("agree|consent|privacy|terms|policy", Pattern.CASE_INSENSITIVE);
+        Pattern.compile("agree|consent|privacy", Pattern.CASE_INSENSITIVE);
     private static final Pattern CONSENT_LABEL = Pattern.compile("동의|개인정보|약관");
 
     private TemplateInspector() {
@@ -103,6 +102,22 @@ public final class TemplateInspector {
                 countInline(out, url);
             }
         }
+        for (Element el : document.select("iframe[src], embed[src]")) {
+            external(out, EXTERNAL_IMAGE, el.attr("src"), "<" + el.tagName() + " src=\"%s\">");
+        }
+        for (Element el : document.select("object[data]")) {
+            external(out, EXTERNAL_IMAGE, el.attr("data"), "<object data=\"%s\">");
+        }
+        for (Element el : document.select("image[href], use[href]")) {
+            external(out, EXTERNAL_IMAGE, el.attr("href"), "<" + el.tagName() + " href=\"%s\">");
+            countInline(out, el.attr("href"));
+        }
+        for (Element el : document.getAllElements()) {
+            if (el.hasAttr("xlink:href")) {
+                external(out, EXTERNAL_IMAGE, el.attr("xlink:href"), "<" + el.tagName() + " xlink:href=\"%s\">");
+                countInline(out, el.attr("xlink:href"));
+            }
+        }
         for (Element el : document.select("[poster]")) {
             external(out, EXTERNAL_IMAGE, el.attr("poster"), "<" + el.tagName() + " poster=\"%s\">");
             countInline(out, el.attr("poster"));
@@ -136,29 +151,144 @@ public final class TemplateInspector {
         countInline(out, href);
     }
 
+    /** CSS를 indexOf로만 훑는다(정규식 역추적 없음). 닫는 기호가 없으면 거기서 멈춘다. */
     private static void inspectCss(String rawCss, String where, Collector out) {
-        String css = CSS_COMMENT.matcher(rawCss).replaceAll(" ");
-        Matcher imports = CSS_IMPORT.matcher(css);
-        while (imports.find()) {
-            external(out, EXTERNAL_STYLESHEET, imports.group(1), where + " @import %s");
+        String css = out.takeBudget(rawCss);
+        if (css.isEmpty()) {
+            return;
         }
-        css = imports.replaceAll(" ");
-        Matcher fontFaces = CSS_FONT_FACE.matcher(css);
-        while (fontFaces.find()) {
-            scanUrls(fontFaces.group(), EXTERNAL_FONT, where + " @font-face %s", out, false);
+        css = stripComments(css);
+
+        // @import: 문장을 떼어 내며 URL을 모은다.
+        StringBuilder withoutImports = new StringBuilder(css.length());
+        int pos = 0;
+        while (true) {
+            int at = indexOfIgnoreCase(css, "@import", pos);
+            if (at < 0) {
+                break;
+            }
+            withoutImports.append(css, pos, at);
+            int p = skipSpaces(css, at + 7);
+            if (startsWithIgnoreCase(css, "url(", p)) {
+                p = skipSpaces(css, p + 4);
+            }
+            if (p < css.length() && (css.charAt(p) == '"' || css.charAt(p) == '\'')) {
+                p++;
+            }
+            int end = p;
+            while (end < css.length() && end - p < MAX_TOKEN && !isUrlEnd(css.charAt(end))) {
+                end++;
+            }
+            external(out, EXTERNAL_STYLESHEET, css.substring(p, end), where + " @import %s");
+            int semi = css.indexOf(';', end);
+            pos = semi < 0 ? end : semi + 1;
         }
-        css = fontFaces.replaceAll(" ");
-        scanUrls(css, EXTERNAL_IMAGE, where + " url(%s)", out, true);
+        withoutImports.append(css, Math.min(pos, css.length()), css.length());
+        css = withoutImports.toString();
+
+        // @font-face { ... } 블록 안의 url()은 폰트다.
+        StringBuilder rest = new StringBuilder(css.length());
+        pos = 0;
+        while (true) {
+            int at = indexOfIgnoreCase(css, "@font-face", pos);
+            if (at < 0) {
+                break;
+            }
+            int open = skipSpaces(css, at + 10);
+            if (open >= css.length() || css.charAt(open) != '{') {
+                rest.append(css, pos, at + 10);
+                pos = at + 10;
+                continue;
+            }
+            int close = css.indexOf('}', open);
+            if (close < 0) {
+                break;
+            }
+            rest.append(css, pos, at);
+            scanUrls(css.substring(open, close), EXTERNAL_FONT, where + " @font-face %s", out, false);
+            pos = close + 1;
+        }
+        rest.append(css, Math.min(pos, css.length()), css.length());
+        scanUrls(rest.toString(), EXTERNAL_IMAGE, where + " url(%s)", out, true);
     }
 
     private static void scanUrls(String css, String defaultCode, String location, Collector out, boolean sniffFont) {
-        Matcher urls = CSS_URL.matcher(css);
-        while (urls.find()) {
-            String url = urls.group(2).trim();
-            String code = sniffFont && FONT_FILE.matcher(url).find() ? EXTERNAL_FONT : defaultCode;
+        int pos = 0;
+        while (true) {
+            int at = indexOfIgnoreCase(css, "url(", pos);
+            if (at < 0) {
+                return;
+            }
+            int close = css.indexOf(')', at + 4);
+            if (close < 0) {
+                return;
+            }
+            String url = css.substring(at + 4, close).trim();
+            if (url.length() >= 2 && (url.charAt(0) == '"' || url.charAt(0) == '\'')
+                    && url.charAt(url.length() - 1) == url.charAt(0)) {
+                url = url.substring(1, url.length() - 1).trim();
+            }
+            String code = sniffFont && isFontFile(url) ? EXTERNAL_FONT : defaultCode;
             external(out, code, url, location);
             countInline(out, url);
+            pos = close + 1;
         }
+    }
+
+    private static String stripComments(String css) {
+        StringBuilder sb = new StringBuilder(css.length());
+        int pos = 0;
+        while (true) {
+            int start = css.indexOf("/*", pos);
+            if (start < 0) {
+                break;
+            }
+            sb.append(css, pos, start).append(' ');
+            int end = css.indexOf("*/", start + 2);
+            if (end < 0) {
+                return sb.toString();
+            }
+            pos = end + 2;
+        }
+        return sb.append(css, pos, css.length()).toString();
+    }
+
+    private static boolean isFontFile(String url) {
+        int cut = url.length();
+        for (char c : new char[] {'?', '#'}) {
+            int i = url.indexOf(c);
+            if (i >= 0) {
+                cut = Math.min(cut, i);
+            }
+        }
+        String path = url.substring(0, cut).toLowerCase(Locale.ROOT);
+        return FONT_EXTENSIONS.stream().anyMatch(path::endsWith);
+    }
+
+    private static boolean isUrlEnd(char c) {
+        return c == '"' || c == '\'' || c == ')' || c == ';' || Character.isWhitespace(c);
+    }
+
+    private static int skipSpaces(String s, int from) {
+        int p = from;
+        while (p < s.length() && Character.isWhitespace(s.charAt(p))) {
+            p++;
+        }
+        return p;
+    }
+
+    private static boolean startsWithIgnoreCase(String s, String prefix, int at) {
+        return s.regionMatches(true, at, prefix, 0, prefix.length());
+    }
+
+    private static int indexOfIgnoreCase(String s, String needle, int from) {
+        int last = s.length() - needle.length();
+        for (int i = Math.max(from, 0); i <= last; i++) {
+            if (s.regionMatches(true, i, needle, 0, needle.length())) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // ---------- 폼·스크립트 ----------
@@ -177,9 +307,12 @@ public final class TemplateInspector {
     private static void inspectScripts(Document document, Collector out) {
         StringBuilder inline = new StringBuilder();
         for (Element script : document.select("script:not([src])")) {
+            if (!JS_TYPES.contains(script.attr("type").trim().toLowerCase(Locale.ROOT)) || inline.length() >= MAX_SCAN_CHARS) {
+                continue;
+            }
             inline.append(script.data()).append('\n');
         }
-        String code = inline.toString();
+        String code = inline.length() > MAX_SCAN_CHARS ? inline.substring(0, MAX_SCAN_CHARS) : inline.toString();
         NETWORK_TOKENS.forEach((token, pattern) -> {
             if (pattern.matcher(code).find()) {
                 out.add(FETCH_IN_SCRIPT, Severity.INFO,
@@ -288,10 +421,10 @@ public final class TemplateInspector {
 
     /** 외부 URL이면 경고를 더한다. location에는 %s 자리에 URL을 끼운 문자열을 쓴다. */
     private static void external(Collector out, String code, String rawUrl, String locationFormat) {
-        String url = rawUrl == null ? "" : rawUrl.trim();
-        if (!isExternal(url)) {
+        if (!isExternal(rawUrl)) {
             return;
         }
+        String url = rawUrl.replaceAll("[\\t\\r\\n]", "").trim();
         String message = switch (code) {
             case EXTERNAL_SCRIPT -> "외부 스크립트는 공개 폼에서 차단되어 실행되지 않습니다. 필요한 코드는 <script> 안에 직접 넣어 주세요.";
             case EXTERNAL_STYLESHEET -> "외부 CSS는 공개 폼에서 차단되어 스타일이 적용되지 않습니다. CSS를 <style> 안에 직접 넣어 주세요.";
@@ -302,7 +435,19 @@ public final class TemplateInspector {
     }
 
     private static boolean isExternal(String rawUrl) {
-        String url = rawUrl == null ? "" : rawUrl.trim().toLowerCase(Locale.ROOT);
+        if (rawUrl == null) {
+            return false;
+        }
+        // 브라우저는 URL 앞의 제어 문자·공백을 떼고 안의 탭·개행을 무시한다.
+        StringBuilder sb = new StringBuilder(Math.min(rawUrl.length(), 16));
+        for (int i = 0; i < rawUrl.length() && sb.length() < 16; i++) {
+            char c = rawUrl.charAt(i);
+            if (c == '\t' || c == '\r' || c == '\n' || (sb.isEmpty() && c <= ' ')) {
+                continue;
+            }
+            sb.append(Character.toLowerCase(c));
+        }
+        String url = sb.toString();
         return url.startsWith("http:") || url.startsWith("https:") || url.startsWith("//");
     }
 
@@ -317,13 +462,36 @@ public final class TemplateInspector {
         return text.length() <= MAX_LOCATION ? text : text.substring(0, MAX_LOCATION - 1) + "…";
     }
 
-    /** 같은 (code, location)은 한 번만 담는다. */
+    /** 같은 (code, location)은 한 번만 담고, 코드당 MAX_PER_CODE건·전체 MAX_TOTAL건 안으로 줄여 "외 N건"으로 요약한다. */
     private static final class Collector {
-        private final Map<String, InspectionWarning> found = new LinkedHashMap<>();
+        private static final int MAX_REGULAR = MAX_TOTAL - 10;
+
+        private final Set<String> seen = new LinkedHashSet<>();
+        private final List<InspectionWarning> kept = new ArrayList<>();
+        private final Map<String, Integer> totals = new LinkedHashMap<>();
+        private final Map<String, Integer> keptPerCode = new LinkedHashMap<>();
+        private final Map<String, Severity> severities = new LinkedHashMap<>();
         long inlineBytes;
+        private int cssBudget = MAX_SCAN_CHARS;
+
+        /** 문서 전체 CSS 검사량을 MAX_SCAN_CHARS로 묶는다. */
+        String takeBudget(String css) {
+            String taken = css.length() <= cssBudget ? css : css.substring(0, cssBudget);
+            cssBudget -= taken.length();
+            return taken;
+        }
 
         void add(String code, Severity severity, String message, String location) {
-            found.putIfAbsent(code + '\u0000' + location, new InspectionWarning(code, severity, message, location));
+            if (!seen.add(code + '\u0000' + location)) {
+                return;
+            }
+            totals.merge(code, 1, Integer::sum);
+            severities.putIfAbsent(code, severity);
+            int perCode = keptPerCode.getOrDefault(code, 0);
+            if (perCode < MAX_PER_CODE && kept.size() < MAX_REGULAR) {
+                kept.add(new InspectionWarning(code, severity, message, location));
+                keptPerCode.put(code, perCode + 1);
+            }
         }
 
         void finishInlineSize() {
@@ -336,7 +504,14 @@ public final class TemplateInspector {
         }
 
         List<InspectionWarning> warnings() {
-            return new ArrayList<>(found.values());
+            List<InspectionWarning> result = new ArrayList<>(kept);
+            totals.forEach((code, total) -> {
+                int omitted = total - keptPerCode.getOrDefault(code, 0);
+                if (omitted > 0) {
+                    result.add(new InspectionWarning(code, severities.get(code), "외 " + omitted + "건", ""));
+                }
+            });
+            return result;
         }
     }
 }
