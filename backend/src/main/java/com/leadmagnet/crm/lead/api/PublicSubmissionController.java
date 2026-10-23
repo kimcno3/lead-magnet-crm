@@ -35,7 +35,7 @@ public class PublicSubmissionController {
     @Operation(operationId = "submitForm", summary = "신청 제출", description = "Content-Type: application/json만 받는다. Origin: null(sandbox 프레임)은 거절한다. "
         + "name·phone·email 필드는 컬럼으로, 나머지는 payload로 저장한다. 같은 폼의 같은 전화번호·이메일은 409. "
         + "검사 순서: 403 → 413 → 429 → 400·415 → 404·410 → 422 invalid_form_token → honeypot → 422 validation_failed → 409 (ADR 0019).")
-    @ApiResponse(responseCode = "201", description = "접수됨 {status: received}. honeypot(fields.hp)이 채워진 제출도 같은 201이지만 저장하지 않는다")
+    @ApiResponse(responseCode = "201", description = "접수됨 {status: received}. honeypot(fields._lm_trap)이 채워진 제출도 같은 201이지만 저장하지 않는다")
     @ApiResponse(responseCode = "400", description = "malformed_request")
     @ApiResponse(responseCode = "403", description = "forbidden_origin")
     @ApiResponse(responseCode = "404", description = "없는 slug 또는 draft (not_found)")

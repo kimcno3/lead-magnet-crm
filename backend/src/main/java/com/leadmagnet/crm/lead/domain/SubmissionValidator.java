@@ -20,8 +20,9 @@ import java.util.stream.Collectors;
  *
  * <p>예약 필드 이름 {@code name}·{@code phone}·{@code email}은 컬럼으로 가고 나머지는 payload로 간다.
  * 전화번호·이메일 규칙은 이 이름과 {@code tel}·{@code email} 타입 필드에 적용한다.
- * {@code hp}는 래퍼 브리지가 폼에 몰래 넣는 honeypot 입력이라(ADR 0019) 검증·저장하지 않는다.
- * 채워졌는지는 검증 전에 {@link #isHoneypotFilled}로 따로 본다. 템플릿은 이 이름을 쓸 수 없다(FormContractParser).
+ * {@value #HONEYPOT_FIELD}는 래퍼 브리지가 폼에 몰래 넣는 honeypot 입력이라(ADR 0019) 검증·저장하지 않는다.
+ * 채워졌는지는 검증 전에 {@link #isHoneypotFilled}로 따로 본다. 밑줄로 시작하는 이름은 템플릿 필드 이름 규칙
+ * (FormContractParser, 영문자로 시작)이 허용하지 않으므로 운영자 필드와 겹치지 않는다.
  */
 public final class SubmissionValidator {
 
@@ -31,7 +32,7 @@ public final class SubmissionValidator {
     /** 응답이 입력 크기에 비례해 커지지 않도록 알려 주는 unknown_field 오류 수의 상한. */
     static final int MAX_UNKNOWN_FIELD_ERRORS = 10;
     /** honeypot 입력 이름. 사람에게는 보이지 않아 비어 있어야 한다. */
-    public static final String HONEYPOT_FIELD = FormContractParser.HONEYPOT_FIELD;
+    public static final String HONEYPOT_FIELD = "_lm_trap";
 
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Pattern KOREAN_MOBILE = Pattern.compile("^01[016789]\\d{7,8}$");
@@ -100,7 +101,7 @@ public final class SubmissionValidator {
         return new Submission(name, phone, email, payload);
     }
 
-    /** honeypot이 채워졌는지. 키가 없거나 빈 문자열이면 사람이다(래퍼는 항상 빈 값을 보낸다). */
+    /** honeypot이 채워졌는지. 키가 없거나 값이 빈 문자열이면 사람이다(래퍼는 항상 빈 값을 보낸다). */
     public static boolean isHoneypotFilled(Map<String, Object> fields) {
         if (fields == null) {
             return false;

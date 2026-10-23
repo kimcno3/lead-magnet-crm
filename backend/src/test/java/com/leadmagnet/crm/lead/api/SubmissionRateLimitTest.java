@@ -22,6 +22,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -116,7 +118,11 @@ class SubmissionRateLimitTest {
         String retryAfter = submit(visitor).then().statusCode(429).contentType(containsString("application/problem+json"))
             .body("code", equalTo("too_many_requests"))
             .body("type", equalTo("https://leadmagnet.example/problems/too_many_requests"))
-            .body("status", equalTo(429)).extract().header("Retry-After");
+            .body("status", equalTo(429))
+            // 429도 공개 응답이라 보안 헤더가 붙는다(보안 헤더 필터가 제출 가드보다 앞이다)
+            .header("Content-Security-Policy", containsString("default-src 'none'"))
+            .header("X-Content-Type-Options", equalTo("nosniff"))
+            .extract().header("Retry-After");
         assertThat(Long.parseLong(retryAfter)).isBetween(25L, 30L);
         assertThat(leads()).isEqualTo(2);
 
@@ -177,8 +183,24 @@ class SubmissionRateLimitTest {
             .then().statusCode(429);
     }
 
+    /** 앞 테스트에서 모인 거절 건수는 이 테스트의 첫 제출 때 기록될 수 있어, 먼저 제출 하나로 털어 낸 뒤의 로그만 본다. */
+    int flushPending(CapturedOutput output) {
+        submit(null).then().statusCode(201);
+        return output.getAll().length();
+    }
+
+    static long loggedRejections(String log) {
+        Matcher m = Pattern.compile("지난 기록 이후 (\\d+)건").matcher(log);
+        long sum = 0;
+        while (m.find()) {
+            sum += Long.parseLong(m.group(1));
+        }
+        return sum;
+    }
+
     @Test
-    void 거절은_감사_로그에_쓰지_않고_애플리케이션_로그에는_1분에_한_줄_건수만_남긴다(CapturedOutput output) {
+    void 거절은_감사_로그에_쓰지_않고_애플리케이션_로그에는_1분에_많아야_한_줄_건수만_남긴다(CapturedOutput output) {
+        int from = flushPending(output);
         String visitor = UUID.randomUUID().toString();
         int auditBefore = auditLogs();
         submit(visitor).then().statusCode(201);
@@ -188,7 +210,25 @@ class SubmissionRateLimitTest {
         }
 
         assertThat(auditLogs()).isEqualTo(auditBefore);
-        assertThat(output.getAll().split("rate limit 거절", -1)).hasSize(2);
-        assertThat(output.getAll()).doesNotContain(visitor).doesNotContain("010-1000-");
+        String log = output.getAll().substring(from);
+        assertThat(log.split("rate limit 거절", -1).length - 1).isLessThanOrEqualTo(1);
+        assertThat(log).doesNotContain(visitor).doesNotContain("010-1000-");
+    }
+
+    @Test
+    void 기록되지_않고_모인_거절_건수는_1분이_지난_다음_제출_때_남긴다(CapturedOutput output) {
+        int from = flushPending(output);
+        String visitor = UUID.randomUUID().toString();
+        submit(visitor).then().statusCode(201);
+        submit(visitor).then().statusCode(201);
+        for (int i = 0; i < 4; i++) {
+            submit(visitor).then().statusCode(429);
+        }
+
+        clock.advance(Duration.ofSeconds(61));
+        submit(UUID.randomUUID().toString()).then().statusCode(201);
+
+        // 바로 기록된 것과 1분 뒤 다음 제출 때 기록된 것을 합하면 거절 4건이 모두 남는다
+        assertThat(loggedRejections(output.getAll().substring(from))).isEqualTo(4);
     }
 }

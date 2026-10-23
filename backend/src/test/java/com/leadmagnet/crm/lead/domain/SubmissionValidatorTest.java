@@ -98,18 +98,28 @@ class SubmissionValidatorTest {
     }
 
     @Test
-    void honeypot_hp는_unknown_field가_아니고_payload에도_넣지_않는다() {
-        Submission submission = SubmissionValidator.validate(CONFIG, valid("hp", ""), true);
+    void honeypot_lm_trap은_unknown_field가_아니고_payload에도_넣지_않는다() {
+        Submission submission = SubmissionValidator.validate(CONFIG, valid("_lm_trap", ""), true);
 
-        assertThat(submission.payload()).doesNotContainKey("hp");
+        assertThat(submission.payload()).doesNotContainKey("_lm_trap");
+    }
+
+    @Test
+    void hp는_honeypot이_아니라_보통_필드_이름이다() {
+        List<FormField> config = List.of(new FormField("phone", "tel", true, "전화", List.of()),
+            new FormField("hp", "text", false, "핸드폰 메모", List.of()));
+
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("hp", "010-1234-5678"))).isFalse();
+        assertThat(SubmissionValidator.validate(config, fields("phone", "010-1234-5678", "hp", "x"), true).payload())
+            .containsEntry("hp", "x");
     }
 
     @Test
     void honeypot은_비어_있지_않을_때만_채워진_것으로_본다() {
-        assertThat(SubmissionValidator.isHoneypotFilled(fields("hp", "x"))).isTrue();
-        assertThat(SubmissionValidator.isHoneypotFilled(fields("hp", " "))).isTrue();
-        assertThat(SubmissionValidator.isHoneypotFilled(fields("hp", List.of("x")))).isTrue();
-        assertThat(SubmissionValidator.isHoneypotFilled(fields("hp", ""))).isFalse();
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("_lm_trap", "x"))).isTrue();
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("_lm_trap", " "))).isTrue();
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("_lm_trap", List.of("x")))).isTrue();
+        assertThat(SubmissionValidator.isHoneypotFilled(fields("_lm_trap", ""))).isFalse();
         assertThat(SubmissionValidator.isHoneypotFilled(fields("name", "홍"))).isFalse();
         assertThat(SubmissionValidator.isHoneypotFilled(null)).isFalse();
     }

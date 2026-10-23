@@ -10,12 +10,13 @@ import java.util.Locale;
  */
 public final class BotUserAgents {
 
-    /** 기본 패턴. {@code app.tracking.bot-user-agents}로 통째로 바꿀 수 있다. */
+    /** 기본 패턴(크롤러·링크 미리보기·헤드리스 브라우저·HTTP 라이브러리). {@code app.tracking.bot-user-agents}로 통째로 바꿀 수 있다. */
     public static final List<String> DEFAULT_PATTERNS = List.of(
         "googlebot", "bingbot", "yandexbot", "baiduspider", "duckduckbot", "applebot", "yeti", "daumoa",
         "facebookexternalhit", "facebot", "twitterbot", "slackbot", "slack-imgproxy", "linkedinbot", "discordbot",
         "telegrambot", "whatsapp", "kakaotalk-scrap", "headless", "curl/", "wget/", "python-requests",
-        "python-urllib", "go-http-client", "libwww-perl", "httpie");
+        "python-urllib", "go-http-client", "libwww-perl", "httpie", "java-http-client", "okhttp", "apache-httpclient",
+        "java/");
 
     private final List<String> patterns;
 

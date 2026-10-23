@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 /**
  * 신청 제출의 IP·방문자 쿠키 rate limit (ADR 0019). IP는 {@code getRemoteAddr()}만 쓴다(X-Forwarded-For는 읽지 않는다,
  * ADR 0016과 같은 이유). 거절은 요청마다 기록하지 않는다(ADR 0016 결과 절): 감사 로그에 쓰지 않고, 애플리케이션 로그에도
- * 1분에 한 줄씩 그동안의 거절 건수만 남긴다(IP·쿠키 값은 남기지 않는다).
+ * 최대 1분에 한 줄씩 그동안의 거절 건수만 남긴다(IP·쿠키 값은 남기지 않는다). 남은 건수는 1분 뒤 다음 제출 때 기록한다.
  */
 public class SubmissionRateLimits {
 
@@ -45,18 +45,29 @@ public class SubmissionRateLimits {
             }
         }
         if (retryAfter > 0) {
-            countRejection();
+            rejected.incrementAndGet();
         }
+        flushIfDue();
         return retryAfter;
     }
 
-    /** 거절 건수를 모으고, 마지막 기록에서 1분이 지났으면 그동안의 건수를 한 줄로 남긴다. */
-    private synchronized void countRejection() {
-        rejected.incrementAndGet();
-        long now = clock.millis();
-        if (lastLoggedAt == Long.MIN_VALUE || now - lastLoggedAt >= LOG_INTERVAL.toMillis()) {
-            lastLoggedAt = now;
-            log.info("신청 제출 rate limit 거절: 지난 기록 이후 {}건", rejected.getAndSet(0));
+    /**
+     * 모인 거절 건수가 있고 마지막 기록에서 1분이 지났으면 한 줄로 남긴다. 거절이든 통과든 제출마다 부르므로,
+     * 공격이 멈춘 뒤 마지막 1분 동안의 거절 건수도 다음 제출 때 기록된다(스케줄러 없이).
+     */
+    private void flushIfDue() {
+        if (rejected.get() == 0) {
+            return;
+        }
+        synchronized (this) {
+            long now = clock.millis();
+            if (lastLoggedAt == Long.MIN_VALUE || now - lastLoggedAt >= LOG_INTERVAL.toMillis()) {
+                long count = rejected.getAndSet(0);
+                if (count > 0) {
+                    lastLoggedAt = now;
+                    log.info("신청 제출 rate limit 거절: 지난 기록 이후 {}건", count);
+                }
+            }
         }
     }
 }

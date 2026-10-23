@@ -22,8 +22,6 @@ public final class FormContractParser {
     static final String DEFAULT_CHOICE_VALUE = "on";
     private static final Set<String> OPTION_TYPES = Set.of("select", "radio", "checkbox");
     private static final Set<String> NON_FIELD_INPUT_TYPES = Set.of("submit", "button", "reset", "image");
-    /** 래퍼가 honeypot으로 쓰는 예약 이름(ADR 0019). 템플릿 필드 이름으로 쓰면 모든 신청이 봇으로 버려진다. */
-    public static final String HONEYPOT_FIELD = "hp";
     private static final Set<String> FORBIDDEN_INPUT_TYPES = Set.of("file", "password");
     private static final Set<String> KNOWN_TYPES =
         Set.of("text", "email", "tel", "number", "date", "textarea", "select", "radio", "checkbox", "hidden", "url");
@@ -53,10 +51,6 @@ public final class FormContractParser {
             if (!NAME_PATTERN.matcher(name).matches()) {
                 throw new DomainException(ErrorCode.TEMPLATE_FIELD_INVALID,
                     "필드 이름은 영문자로 시작하는 50자 이하 영문·숫자·밑줄이어야 합니다: " + name);
-            }
-            if (HONEYPOT_FIELD.equals(name)) {
-                throw new DomainException(ErrorCode.TEMPLATE_FIELD_INVALID,
-                    "필드 이름 " + name + "는 스팸 방지용으로 예약되어 있어 쓸 수 없습니다");
             }
             Group group = groups.get(name);
             if (group == null) {

@@ -47,7 +47,7 @@ AI(ChatGPT, Claude 등)에게 신청 폼 HTML을 만들게 할 때 그대로 붙
 | 파일은 `.html`, UTF-8, 512KB 이하 | `template_invalid_extension`, `template_not_utf8`, `template_empty`, `template_too_large` | 오류(업로드 거부) |
 | `<form>`은 정확히 하나 | `template_form_count_invalid` | 오류 |
 | `type="file"`, `type="password"` 금지 | `template_forbidden_field` | 오류 |
-| `name` 규칙(예약 이름 `hp` 금지), 50개 이하, 같은 이름은 radio·checkbox끼리만 | `template_field_invalid` | 오류 |
+| `name` 규칙, 50개 이하, 같은 이름은 radio·checkbox끼리만 | `template_field_invalid` | 오류 |
 | `phone` 또는 `email` 입력 필요 | `template_contact_field_missing` | 오류 |
 | phone·email 중 하나 이상 `required` | `contact_not_required` | 경고 |
 | 모든 입력에 label | `missing_label` | 경고 |

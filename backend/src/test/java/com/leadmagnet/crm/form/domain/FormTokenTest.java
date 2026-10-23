@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
 
 class FormTokenTest {
@@ -79,15 +81,36 @@ class FormTokenTest {
     }
 
     @Test
+    void 서명은_발급_시각을_해석하기_전에_확인한다() {
+        Instant now = ISSUED.plusSeconds(10);
+
+        assertThat(tokens.check(encode("spring-2026|abc|sig"), "spring-2026", now)).isEqualTo(Check.BAD_SIGNATURE);
+        assertThat(tokens.check(encode("spring-2026|abc|" + sign(OTHER_KEY, "spring-2026|abc")), "spring-2026", now))
+            .isEqualTo(Check.BAD_SIGNATURE);
+    }
+
+    @Test
     void 없거나_형식이_틀린_토큰은_malformed다() {
         Instant now = ISSUED.plusSeconds(10);
         assertThat(tokens.check(null, "spring-2026", now)).isEqualTo(Check.MALFORMED);
         assertThat(tokens.check("", "spring-2026", now)).isEqualTo(Check.MALFORMED);
         assertThat(tokens.check("not base64!", "spring-2026", now)).isEqualTo(Check.MALFORMED);
-        assertThat(tokens.check(encode("spring-2026|abc|sig"), "spring-2026", now)).isEqualTo(Check.MALFORMED);
+        assertThat(tokens.check(encode("spring-2026|abc|" + sign(KEY, "spring-2026|abc")), "spring-2026", now))
+            .isEqualTo(Check.MALFORMED);
         assertThat(tokens.check(encode("spring-2026|123"), "spring-2026", now)).isEqualTo(Check.MALFORMED);
         assertThat(tokens.check(encode("spring-2026|123|%%%"), "spring-2026", now)).isEqualTo(Check.MALFORMED);
         assertThat(tokens.check("A".repeat(FormToken.MAX_LENGTH + 1), "spring-2026", now)).isEqualTo(Check.MALFORMED);
+    }
+
+    static String sign(byte[] key, String payload) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key, "HmacSHA256"));
+            return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     static String decode(String token) {

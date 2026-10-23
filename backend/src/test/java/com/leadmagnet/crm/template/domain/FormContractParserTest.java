@@ -146,8 +146,10 @@ class FormContractParserTest {
     }
 
     @Test
-    void honeypot_예약_이름_hp는_필드_이름으로_쓸_수_없다() {
-        assertRejected(page("<input name=\"email\"><input name=\"hp\">"), ErrorCode.TEMPLATE_FIELD_INVALID);
+    void hp는_보통_필드_이름으로_쓸_수_있고_밑줄로_시작하는_honeypot_이름은_쓸_수_없다() {
+        assertThat(FormContractParser.parse(page("<input name=\"email\"><input name=\"hp\">")))
+            .extracting(FormField::name).containsExactly("email", "hp");
+        assertRejected(page("<input name=\"email\"><input name=\"_lm_trap\">"), ErrorCode.TEMPLATE_FIELD_INVALID);
     }
 
     @Test

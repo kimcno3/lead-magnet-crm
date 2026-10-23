@@ -22,6 +22,10 @@ class BotUserAgentsTest {
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/120.0.0.0 Safari/537.36",
         "curl/8.4.0",
         "python-requests/2.31.0",
+        "Java-http-client/21.0.2",
+        "okhttp/4.12.0",
+        "Apache-HttpClient/4.5.14 (Java/21.0.2)",
+        "Java/1.8.0_392",
     })
     void 기본_패턴의_크롤러와_스크립트는_봇이다(String userAgent) {
         assertThat(defaults.isBot(userAgent)).isTrue();

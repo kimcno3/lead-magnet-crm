@@ -8,7 +8,8 @@
  * 서버나 업로드 HTML에서 온 값은 textContent와 srcdoc 속성으로만 넣는다(innerHTML 금지).
  *
  * 데이터 품질 방어(ADR 0019):
- * - 브리지가 폼에 사람에게 보이지 않는 honeypot 입력 hp를 넣는다. 래퍼는 제출 fields에 hp를 항상 싣는다(사람이면 빈 문자열).
+ * - 브리지가 폼에 사람에게 보이지 않는 honeypot 입력 _lm_trap을 넣는다. 래퍼는 제출 fields에 _lm_trap을 항상 싣는다
+ *   (사람이면 빈 문자열). 밑줄로 시작하는 이름은 템플릿 필드 이름 규칙이 허용하지 않아 운영자 필드와 겹치지 않는다.
  * - 폼 조회 응답의 작성 시간 토큰 ft를 제출에 그대로 싣는다. 서버가 422 invalid_form_token으로 거절하면
  *   안내를 보여 주고 토큰을 새로 받아, 사람이 잠시 뒤 다시 제출하면 통과하게 한다.
  */
@@ -17,7 +18,7 @@
 
   var SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
   var MAX_FRAME_HEIGHT = 10000;
-  var HONEYPOT = "hp";
+  var HONEYPOT = "_lm_trap";
 
   // iframe 안에서 도는 코드. 업로드 HTML과 같은 문서에 있으므로 이 스크립트가 보내는 값도 믿지 않고 래퍼에서 검증한다.
   var BRIDGE = "<script>(function () {\n" +
@@ -25,9 +26,11 @@
     "  var form = document.querySelector('form');\n" +
     "  if (form) {\n" +
     "    var trap = document.createElement('input');\n" +
-    "    trap.type = 'text'; trap.name = 'hp'; trap.value = ''; trap.tabIndex = -1; trap.autocomplete = 'off';\n" +
-    "    trap.setAttribute('aria-hidden', 'true');\n" +
-    "    trap.style.cssText = 'position:absolute;left:-10000px;width:1px;height:1px;opacity:0;pointer-events:none';\n" +
+    "    trap.type = 'text'; trap.name = '_lm_trap'; trap.value = '';\n" +
+    "    trap.setAttribute('autocomplete', 'off'); trap.setAttribute('tabindex', '-1'); trap.setAttribute('aria-hidden', 'true');\n" +
+    "    var hide = { position: 'absolute', left: '-10000px', top: 'auto', width: '1px', height: '1px',\n" +
+    "      overflow: 'hidden', opacity: '0', 'pointer-events': 'none' };\n" +
+    "    Object.keys(hide).forEach(function (p) { trap.style.setProperty(p, hide[p], 'important'); });\n" +
     "    form.appendChild(trap);\n" +
     "  }\n" +
     "  function reportHeight() {\n" +

@@ -599,12 +599,12 @@ class LeadSubmissionApiTest {
     }
 
     @Test
-    void honeypot_hp가_채워지면_201_received를_주지만_저장하지_않고_로그에는_건수만_남긴다(CapturedOutput output) {
+    void honeypot이_채워지면_201_received를_주지만_저장하지_않고_로그에는_건수만_남긴다(CapturedOutput output) {
         submit("spring-2026", fields("name", "봇이름", "phone", PHONE, "email", "bot.person@example.com",
-            "hp", "http://spam.example"))
+            "_lm_trap", "http://spam.example"))
             .then().statusCode(201).body("status", equalTo("received")).body("size()", equalTo(1));
         // honeypot은 필드 검증보다 먼저라, 형식이 틀린 입력이어도 봇에게는 같은 201이다
-        submit("spring-2026", fields("role", "x", "hp", "y")).then().statusCode(201);
+        submit("spring-2026", fields("role", "x", "_lm_trap", "y")).then().statusCode(201);
 
         assertThat(leads()).isEmpty();
         assertThat(output.getAll()).contains("honeypot 제출 무시")
@@ -613,12 +613,28 @@ class LeadSubmissionApiTest {
     }
 
     @Test
-    void 빈_hp는_정상_신청이고_payload에_남기지_않는다() {
-        submit("spring-2026", fields("name", "홍", "phone", PHONE, "memo", "안녕", "hp", "")).then().statusCode(201);
+    void 빈_honeypot은_정상_신청이고_payload에_남기지_않는다() {
+        submit("spring-2026", fields("name", "홍", "phone", PHONE, "memo", "안녕", "_lm_trap", "")).then().statusCode(201);
 
         assertThat(leads()).hasSize(1);
         assertThat(jdbc.queryForList("SELECT jsonb_object_keys(payload) FROM leads", String.class))
             .containsExactly("memo");
+    }
+
+    @Test
+    void 템플릿의_hp_필드는_보통_필드라_값이_있어도_저장한다() {
+        // "hp"(핸드폰)는 운영자가 흔히 쓸 만한 이름이다. honeypot(_lm_trap)과 겹치지 않아 신청이 버려지지 않는다.
+        AdminFixtures.createPublishedForm(token, "hp-form", """
+            <!doctype html><html><body><form>
+            <label>전화 <input type="tel" name="phone" required></label>
+            <label>핸드폰 <input name="hp"></label>
+            <button>신청</button></form></body></html>
+            """);
+
+        submit("hp-form", fields("phone", PHONE, "hp", "010-9999-8888", "_lm_trap", "")).then().statusCode(201);
+
+        assertThat(leads()).hasSize(1);
+        assertThat(jdbc.queryForObject("SELECT payload->>'hp' FROM leads", String.class)).isEqualTo("010-9999-8888");
     }
 
     @Test

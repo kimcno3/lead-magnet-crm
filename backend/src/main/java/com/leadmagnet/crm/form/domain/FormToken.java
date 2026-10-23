@@ -58,16 +58,21 @@ public final class FormToken {
         if (parts.length != 3) {
             return Check.MALFORMED;
         }
-        long issuedAt;
         byte[] signature;
         try {
-            issuedAt = Long.parseLong(parts[1]);
             signature = Base64.getUrlDecoder().decode(parts[2]);
         } catch (IllegalArgumentException e) {
             return Check.MALFORMED;
         }
+        // 서명을 먼저 확인한다. 서명이 맞지 않는 입력의 내용(발급 시각)은 해석하지 않는다.
         if (!MessageDigest.isEqual(signature, sign(parts[0] + "|" + parts[1]))) {
             return Check.BAD_SIGNATURE;
+        }
+        long issuedAt;
+        try {
+            issuedAt = Long.parseLong(parts[1]);
+        } catch (NumberFormatException e) {
+            return Check.MALFORMED;
         }
         if (!parts[0].equals(slug)) {
             return Check.SLUG_MISMATCH;

@@ -1432,8 +1432,8 @@ paths:
         required: true
       responses:
         "201":
-          description: "접수됨 {status: received}. honeypot(fields.hp)이 채워진 제출도 같은 201이\
-            지만 저장하지 않는다"
+          description: "접수됨 {status: received}. honeypot(fields._lm_trap)이 채워진 제출도\
+            \ 같은 201이지만 저장하지 않는다"
           content:
             '*/*':
               schema:
@@ -1638,8 +1638,8 @@ components:
         fields:
           type: object
           additionalProperties: {}
-          description: 필드 이름 → 문자열 또는 문자열 배열(checkbox). hp는 honeypot(래퍼가 항상 빈 문자열로
-            보낸다)
+          description: 필드 이름 → 문자열 또는 문자열 배열(checkbox). _lm_trap은 honeypot(래퍼가 항상
+            빈 문자열로 보낸다)
         consent:
           type: string
           description: 개인정보 수집·이용 동의. true여야 한다
