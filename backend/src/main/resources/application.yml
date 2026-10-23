@@ -1,6 +1,19 @@
 spring:
   application:
     name: lead-magnet-crm
+  profiles:
+    default: local
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
 server:
   port: ${app.ports.admin}
@@ -9,6 +22,10 @@ app:
   ports:
     admin: ${ADMIN_PORT:8080}
     public-port: ${PUBLIC_PORT:8081}
+  seed:
+    operator:
+      email: ${ADMIN_SEED_EMAIL:}
+      password: ${ADMIN_SEED_PASSWORD:}
 
 management:
   endpoints:
