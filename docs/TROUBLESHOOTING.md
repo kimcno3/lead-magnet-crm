@@ -19,6 +19,7 @@
 | `.env`의 비밀번호를 바꿨는데 로그인이 안 된다 | 시드는 계정이 **없을 때만** 만든다. 이미 있는 계정은 바꾸지 않는다(ADR 0009) | `docker compose down -v`로 DB를 지우고 다시 띄운다(데이터 모두 삭제) |
 | `port is already allocated` | 5173, 8080, 8081, 5432 중 사용 중인 포트가 있음 | `.env`의 `ADMIN_WEB_PORT`, `ADMIN_PORT`, `PUBLIC_PORT`, `POSTGRES_PORT`를 바꾼다. 포트를 바꾸면 `ADMIN_ORIGIN`, `PUBLIC_BASE_URL`도 맞춘다 |
 | 관리자 화면이 "서버에 연결하지 못했습니다" | backend가 아직 기동 중이거나 멈춤 | `docker compose ps`에서 backend가 `healthy`인지 확인, `docker compose logs backend` |
+| `docker compose up`에서 `unknown flag: --wait` 또는 `unknown flag: --wait-timeout` | `--wait`를 지원하지 않는 오래된 docker compose다. CI의 e2e 워크플로가 이 플래그를 쓴다 | 로컬에서는 `docker compose up --build -d`로 올린다. `depends_on`의 health 조건이 기동 순서는 맞춰 주므로, 올라온 뒤 헬스 엔드포인트(`curl http://localhost:8080/actuator/health`)가 `UP`을 돌려줄 때까지 기다린다 |
 
 ## 2. 로그인과 세션
 
