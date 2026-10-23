@@ -4,7 +4,7 @@
 
 ## 1. 무엇을 만들었나
 
-운영자가 AI로 만든 단일 HTML 폼을 등록하면, 그 HTML로 캠페인의 공개 신청 폼을 만들고 인스타그램·X·유튜브·스레드용 배포 링크를 발급한다. 방문자는 공개 폼에서 신청하고, 신청은 CRM 명단(PostgreSQL)에 쌓인다. 운영자는 캠페인별, 채널별로 방문·방문자·신청·전환 방문자·전환율을 본다. 이 시스템을 크리에이터 트래픽을 리드로 바꾸고 그 리드가 어느 채널에서 왔는지 증명하는 내부 매출 인프라로 이해했다. 이제 시스템은 신청이 어느 채널과 어느 크리에이터에서 왔는지까지 증명한다(v0.2.0). CRM이라 보안을 기능이 아니라 구조로 다뤘다. 출처(포트)와 필터 체인으로 영역을 나눴고 업로드 HTML은 sandbox iframe으로 권한을 0으로 만들었다.
+운영자가 AI로 만든 단일 HTML 폼을 등록하면, 그 HTML로 캠페인의 공개 신청 폼을 만들고 인스타그램·X·유튜브·스레드용 배포 링크를 발급한다. 방문자는 공개 폼에서 신청하고, 신청은 CRM 명단(PostgreSQL)에 쌓인다. 운영자는 캠페인별, 채널별로 방문·방문자·신청·전환 방문자·전환율을 본다. 이 시스템을 크리에이터 트래픽을 리드로 바꾸고 그 리드가 어느 채널에서 왔는지 증명하는 내부 매출 인프라로 이해했다. 이제 시스템은 신청이 어느 채널과 어느 크리에이터에서 왔는지까지 증명한다(v0.2.0). v0.3.0은 운영 보안을 다졌다: 로그인 대입 제한, 프록시 뒤 실제 클라이언트 IP, payload 연락처 마스킹, 운영 행위 감사의 공백 메우기. CRM이라 보안을 기능이 아니라 구조로 다뤘다. 출처(포트)와 필터 체인으로 영역을 나눴고 업로드 HTML은 sandbox iframe으로 권한을 0으로 만들었다.
 
 ## 2. 아키텍처
 
@@ -53,6 +53,9 @@ flowchart LR
 | 클릭재킹, `<base>` 주입 | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `base-uri 'none'` | `PublicOriginIsolationTest` |
 | 에러 응답으로 정보 노출 | 404/ProblemDetail 통일, 401·403도 같은 형식 | `ProblemDetailContractTest`, `ProblemDetailsTest` |
 | 관리자 화면이 업로드 HTML 미리보기에서 오염 | 미리보기도 같은 sandbox 컴포넌트 하나로만, CSP를 admin-web에도 적용 | `csp.test.ts`, `TemplateDetail.test.tsx`(admin-web) |
+| 로그인 비밀번호 대입 | `LoginThrottle` 슬라이딩 윈도: (이메일, IP) 15분 5회, 이메일 50회, IP 20회 실패 시 429 `too_many_login_attempts` + `Retry-After`. 성공하면 해당 쌍을 비운다. 인메모리·인스턴스별, 키 10,000개 LRU(ADR 0021) | `LoginThrottleApiTest`, `LoginThrottleTest` |
+| 프록시 뒤 IP 위조, 감사·rate limit이 프록시 IP만 봄 | `ClientIpFilter`가 `TRUSTED_PROXIES`(기본 admin-web 고정 주소 `172.16.57.10/32`)에서 온 admin 요청의 `X-Forwarded-For`만 오른쪽부터 읽는다. public 포트는 XFF를 읽지 않는다. :8080·:5432는 호스트 루프백에만 연다 | `ClientIpTest`, `ClientIpFilterTest`, `TrustedProxiesTest` |
+| payload에 평문으로 남는 전화·이메일 모양 항목 | 업로드 검사의 `extra_contact_field` 경고, 명단과 마스킹 CSV에서 `extraContacts`를 같은 규칙으로 가림, 원문은 reveal API·원문 CSV로만(감사 필수). 암호화는 아니다 | `ExtraContactsTest`, `LeadListApiTest`, `LeadContactApiTest`, `LeadExportApiTest` |
 
 ## 5. 지표 정의
 
@@ -80,6 +83,7 @@ flowchart LR
 | 게시 후 템플릿 변경 | 게시 시점 스냅샷, 템플릿 → 폼 순서 락 | [0018](adr/0018-publish-snapshot.md) |
 | 스팸·봇 | 봇 플래그, `ft` 토큰, honeypot, 429, 고정된 검사 순서 | [0019](adr/0019-data-quality-defense.md) |
 | 보존 기간 파기와 동의 증빙 | 익명화(행·지표 유지), advisory lock, 동의 문구 복사 | [0020](adr/0020-retention-and-consent-evidence.md) |
+| 로그인 시도 제한과 신뢰 프록시 | (이메일,IP)·이메일·IP 슬라이딩 윈도, admin 포트만 XFF, 고정 admin-web 주소 | [0021](adr/0021-login-throttle-and-trusted-proxy.md) |
 | 기술 스택·브랜치 전략 | [0001](adr/0001-tech-stack.md), [0012](adr/0012-branch-environment.md) | |
 
 ## 7. 테스트 전략과 숫자
@@ -88,12 +92,12 @@ flowchart LR
 
 | 대상 | 명령 | 결과 |
 |---|---|---|
-| backend | `cd backend && ./gradlew test` | 79개 테스트 클래스, 677개 테스트 통과(실패 0, verify 모드에서 export 쓰기 테스트 1건은 건너뜀) |
-| admin-web | `cd admin-web && npm test` | 18개 파일, 155개 테스트 통과 |
+| backend | `cd backend && ./gradlew build -Dopenapi.verify=true` | 91개 테스트 클래스, 768개 테스트(실패 0, verify 모드에서 export 쓰기 테스트 1건은 건너뜀) |
+| admin-web | `cd admin-web && npm test` | 18개 파일, 162개 테스트 통과 |
 
 - 도메인 규칙은 Spring 없는 단위 테스트(`FormContractParserTest`, `SubmissionValidatorTest`, `MetricsTest` 등), API는 `@IntegrationTest` + RestAssured다.
 - 시나리오 테스트(`HappyPathScenarioTest`, `FailureScenarioTest`, `IsolationScenarioTest`)는 두 포트를 오가며 로그인 → 업로드 → 배포 → 방문 → 신청 → 지표를 실제 HTTP로 잇고, 지표는 손계산 표와 정확히 비교한다.
-- 이 저장소의 자동 테스트는 서버가 내려주는 셸·CSP·헤더까지만 검증하고, 브라우저 안의 iframe·postMessage 동작은 포함하지 않는다. 브라우저 E2E는 Playwright로 별도 수행하고(24단계 모두 통과, [docs/e2e/results.json](e2e/results.json)) 결과를 리포트로 남긴다.
+- 이 저장소의 자동 테스트는 서버가 내려주는 셸·CSP·헤더까지만 검증하고, 브라우저 안의 iframe·postMessage 동작은 포함하지 않는다. 브라우저 E2E는 Playwright로 별도 수행하고(24단계 모두 통과, [docs/e2e/results.json](e2e/results.json)) 결과를 리포트로 남긴다. v0.3.0부터 같은 E2E를 GitHub Actions 워크플로(`.github/workflows/e2e.yml`)가 docker compose로 스택을 올려 실행하고, 결과는 아티팩트 `e2e-results`로 남는다.
 - `OpenApiExportTest`가 `docs/api/openapi.yaml`을 앱에서 내보내고, CI는 `-Dopenapi.verify=true`로 커밋된 파일이 최신인지 확인한다. 문서에는 admin 계열과 공개 경로가 함께 들어 있고 공개 경로는 오퍼레이션 단위로 public 출처(:8081)를 server로 가리킨다. 파일은 하나다.
 
 ## 8. AI 활용 방식
@@ -138,6 +142,12 @@ PR(저장소 https://github.com/kimcno3/lead-magnet-crm):
 | [#47](https://github.com/kimcno3/lead-magnet-crm/pull/47) | 봇 방문 제외, honeypot, 작성 시간 토큰, rate limit |
 | [#48](https://github.com/kimcno3/lead-magnet-crm/pull/48) | 보존 기간 파기와 동의 문구 증빙 |
 | [#50](https://github.com/kimcno3/lead-magnet-crm/pull/50) | v0.2.0 릴리스 준비: 문서, 최종 리뷰의 값싼 보강, E2E 갱신 |
+| [#57](https://github.com/kimcno3/lead-magnet-crm/pull/57) | 로그인 시도 제한과 신뢰 프록시 뒤 실제 클라이언트 IP |
+| [#58](https://github.com/kimcno3/lead-magnet-crm/pull/58) | payload의 연락처 모양 추가 항목 경고와 마스킹 |
+| [#60](https://github.com/kimcno3/lead-magnet-crm/pull/60) | 운영자 행위 감사 공백 메우기 |
+| [#59](https://github.com/kimcno3/lead-magnet-crm/pull/59) | Playwright 브라우저 E2E를 CI에 통합 |
+| [#61](https://github.com/kimcno3/lead-magnet-crm/pull/61) | 크리에이터 `utm_content`와 패키지 의존 방향 정리 |
+| [#63](https://github.com/kimcno3/lead-magnet-crm/pull/63) | v0.3.0 릴리스 준비: 문서, OpenAPI 버전, E2E 갱신 |
 
 ## 9. 범위 밖과 로드맵
 
@@ -189,3 +199,30 @@ v0.1.0 core 위에 회사의 사업 구조(크리에이터 성과형 협업, 개
 ### 필수 키 4개
 
 `JWT_SECRET`(UTF-8 32바이트 이상), `LEAD_ENC_KEY`, `LEAD_HMAC_KEY`, `FORM_TOKEN_KEY`(셋 다 base64로 인코딩한 32바이트)를 모두 설정해야 하고, 서로 달라야 한다. 없거나 형식이 틀리거나 같으면 backend가 기동하지 않는다. 오류 메시지에는 키 값을 싣지 않는다. README의 `sed` 명령이 네 값을 한 번에 새로 만든다.
+
+## 11. v0.3.0 hardening
+
+v0.2.0 최종 리뷰에서 남은 높은 우선순위 위험(로그인 대입, 프록시 뒤 IP, payload의 평문 연락처)과 운영 공백(감사, CI의 E2E, 패키지 방향)을 닫았다. 새 기능이 아니라 운영 안전을 다지는 릴리스다.
+
+| 기능 | 핵심 결정 | ADR | 증명하는 테스트 |
+|---|---|---|---|
+| 로그인 시도 제한과 실제 IP | (이메일, IP) 15분 5회·이메일 50회·IP 20회 실패의 슬라이딩 윈도(429 + `Retry-After`), 잠금 시작 때만 감사 한 줄(`auth.login.locked`). `ClientIpFilter`는 `TRUSTED_PROXIES`에서 온 admin 요청의 XFF만 읽고 public 포트는 읽지 않는다. compose 네트워크와 admin-web 주소 고정 | [0021](adr/0021-login-throttle-and-trusted-proxy.md) | `LoginThrottleApiTest`, `LoginThrottleTest`, `ClientIpTest`, `ClientIpFilterTest`, `TrustedProxiesTest` |
+| 추가 연락처 항목 | `extra_contact_field` 경고, 명단·마스킹 CSV는 `extraContacts`를 가림, reveal API와 원문 CSV는 원문. 암호화하지 않는다 | [0015](adr/0015-pii-encryption.md) 변경 기록 | `ContactLikeFieldTest`, `ExtraContactsTest`, `LeadListApiTest`, `LeadExportApiTest`, `LeadContactApiTest` |
+| 감사 공백 | 로그아웃, refresh 재사용 감지, 게시·마감, 템플릿 새 버전, 크리에이터 보관을 기록. 살아 있는 토큰을 실제로 폐기했을 때만 남긴다 | [0016](adr/0016-audit-log.md) 변경 기록 | `AuditGapsApiTest` |
+| CI의 E2E | `.github/workflows/e2e.yml`이 compose 스택을 올려 Playwright 24단계를 실행 | (ADR 없음) | `e2e.yml` 워크플로 |
+| `utm_content`와 계층 정리 | 크리에이터 링크의 `utm_content`(`creator-{id}`, V12가 기존 링크를 채움), `DateRange`·`AuditActor`·템플릿 새 버전 컨트롤러의 위치 정리 | [0014](adr/0014-creator-attribution.md) 변경 기록 | `CreatorUtmContentBackfillTest`, `PackageDependencyRulesTest` |
+
+### 기능들이 맞물리는 방식
+
+- 감사 로그의 IP와 로그인 제한의 IP는 둘 다 `ClientIpFilter`가 감싼 요청의 `getRemoteAddr()`에서 나온다. 감사 행위자(`AuditActors`)가 `X-Forwarded-For`를 직접 읽는 곳은 없으므로, 새 감사 행(`auth.logout`, `form.publish` 등)도 같은 규칙을 따른다.
+- 로그아웃과 refresh 재사용 감지는 살아 있는 토큰을 실제로 폐기했을 때만 감사에 남는다. 죽은 토큰으로 엔드포인트를 두드려도 감사 테이블이 불어나지 않는다. 로그인 제한은 `/login`에만 걸리고 `/refresh`는 제한하지 않는다.
+- 마스킹 CSV는 `extraContacts`를 가리고, `reveal=true` 원문 CSV와 reveal API는 원문을 준다. 원문 쪽은 감사 필수라 기록이 실패하면 요청도 실패한다. 파기된 신청은 payload를 건너뛴다.
+- `TRUSTED_PROXIES`가 실제 프록시와 다르면 모든 로그인이 한 IP로 보여 IP 한도가 전체 잠금이 된다. 감사 IP도 같이 틀어진다(ADR 0021).
+
+### 마이그레이션 순서와 업그레이드
+
+| 버전 | 내용 |
+|---|---|
+| V12 | 크리에이터 링크의 `utm_content`를 `creator-{creator_id}`로 채우는 데이터 변경(`UPDATE`, 이미 값이 있는 행은 건드리지 않아 여러 번 실행해도 같다). 스키마 변경 없음 |
+
+**v0.2.0에서 올릴 때.** DB는 특별한 절차가 없다. V12는 데이터만 바꾸고 멱등이다. 바뀌는 것은 compose 쪽이다: (1) compose 네트워크 대역이 고정됐으므로 먼저 `docker compose down`(`-v` 없이)으로 기존 네트워크를 지운 뒤 `docker compose up --build` 한다. (2) :8080과 :5432는 호스트 루프백에만 열린다. 다른 컴퓨터에서는 :5173으로 들어온다. (3) 다른 프록시나 로드 밸런서 뒤에서 돌리면 `TRUSTED_PROXIES`를 그 hop의 주소로 바꾼다. 자세한 내용은 [릴리스 노트](RELEASE_NOTES_v0.3.0.md)에 있다.

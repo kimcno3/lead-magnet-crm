@@ -6,7 +6,7 @@ info:
     공개 경로(`/f/{slug}`, `/l/{code}`, `/api/public/**`)는 같은 앱이지만 public 출처
     (`PUBLIC_BASE_URL`, 기본 :8081)에서만 열리고 인증이 없다. 서로의 포트에서는 404다 (ADR 0010).
     에러는 모두 ProblemDetail(`application/problem+json`, 확장 속성 `code`)이다.
-  version: 0.1.0
+  version: 0.3.0
 servers:
 - url: http://localhost:8080
   description: "admin 출처 (관리자 API, 이 문서)"
