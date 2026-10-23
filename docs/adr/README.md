@@ -10,7 +10,7 @@
 | [0004](0004-html-form-contract.md) | HTML 폼 계약 | 승인 |
 | 0005 | 지표 정의 | 예정 |
 | [0006](0006-channel-attribution.md) | 채널 귀속 | 승인 |
-| 0007 | 중복 신청 정책 | 예정 |
+| [0007](0007-duplicate-submission.md) | 중복 신청 정책 | 승인 |
 | [0008](0008-lead-data-storage.md) | 신청 데이터 저장 구조 | 승인 |
 | [0009](0009-operator-seed.md) | 운영자 시드 | 승인 |
 | [0010](0010-single-app-two-ports.md) | 단일 앱·포트 분리 | 승인 |

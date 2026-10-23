@@ -22,10 +22,24 @@ public final class AdminFixtures {
 
     /** 캠페인과 템플릿을 새로 만들고 그 위에 draft 폼을 만든다. */
     public static int createDraftForm(String token, String slug) {
-        int campaign = authed(token).body(Map.of("name", "캠페인 " + slug)).post("/api/admin/campaigns")
+        return createDraftForm(token, slug, FORM_HTML);
+    }
+
+    /** 템플릿 HTML을 직접 지정해 새 캠페인에 draft 폼을 만든다. */
+    public static int createDraftForm(String token, String slug, String html) {
+        int campaign = createCampaign(token, "캠페인 " + slug);
+        return createDraftFormIn(token, campaign, slug, html);
+    }
+
+    public static int createCampaign(String token, String name) {
+        return authed(token).body(Map.of("name", name)).post("/api/admin/campaigns")
             .then().statusCode(201).extract().path("id");
+    }
+
+    /** 이미 있는 캠페인에 draft 폼을 만든다. */
+    public static int createDraftFormIn(String token, int campaign, String slug, String html) {
         int template = given().auth().oauth2(token)
-            .multiPart("file", "t.html", FORM_HTML.getBytes(StandardCharsets.UTF_8), "text/html")
+            .multiPart("file", "t.html", html.getBytes(StandardCharsets.UTF_8), "text/html")
             .post("/api/admin/templates").then().statusCode(201).extract().path("id");
         return authed(token)
             .body(Map.of("templateId", template, "title", "봄 특강 신청", "consentText", "개인정보 수집에 동의합니다",
@@ -35,6 +49,18 @@ public final class AdminFixtures {
 
     public static int createPublishedForm(String token, String slug) {
         int formId = createDraftForm(token, slug);
+        changeStatus(token, formId, "published");
+        return formId;
+    }
+
+    public static int createPublishedForm(String token, String slug, String html) {
+        int formId = createDraftForm(token, slug, html);
+        changeStatus(token, formId, "published");
+        return formId;
+    }
+
+    public static int createPublishedFormIn(String token, int campaign, String slug, String html) {
+        int formId = createDraftFormIn(token, campaign, slug, html);
         changeStatus(token, formId, "published");
         return formId;
     }

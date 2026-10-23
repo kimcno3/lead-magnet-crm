@@ -63,6 +63,23 @@ class SchemaMigrationTest {
     }
 
     @Test
+    void V2_마이그레이션이_같은_폼의_같은_전화번호와_이메일을_막고_NULL은_허용한다() {
+        Boolean applied = jdbc.queryForObject(
+            "SELECT success FROM flyway_schema_history WHERE version = '2'", Boolean.class);
+        assertThat(applied).isTrue();
+        String insert = "INSERT INTO leads (form_id, campaign_id, channel, phone, email, consent_at) "
+            + "SELECT id, campaign_id, 'direct', %s, %s, now() FROM forms WHERE id = " + formId;
+        jdbc.update(insert.formatted("'01011112222'", "'a@example.com'"));
+
+        assertRejected(insert.formatted("'01011112222'", "'b@example.com'"));
+        assertRejected(insert.formatted("'01033334444'", "'a@example.com'"));
+        jdbc.update(insert.formatted("'01033334444'", "NULL"));
+        jdbc.update(insert.formatted("NULL", "'c@example.com'"));
+        jdbc.update(insert.formatted("'01055556666'", "NULL"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM leads", Long.class)).isEqualTo(4);
+    }
+
+    @Test
     void 허용되지_않은_채널의_배포_링크는_거부한다() {
         assertRejected("INSERT INTO distribution_links (form_id, channel, code) VALUES (" + formId + ", 'tiktok', 'zzz999')");
     }

@@ -1,0 +1,40 @@
+package com.leadmagnet.crm.lead.domain;
+
+import java.time.Instant;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface LeadRepository extends JpaRepository<Lead, Long>, JpaSpecificationExecutor<Lead> {
+
+    /**
+     * 신청 한 행을 넣되, (form_id, phone) 또는 (form_id, email) 유니크 인덱스에 걸리면 넣지 않고 0을 돌려준다 (ADR 0007).
+     * 동시 제출에도 DB가 하나만 통과시킨다. 예외로 처리하지 않는 이유: 유니크 위반 예외는 DB가 낸 오류 로그에
+     * 중복된 전화번호·이메일 원문(Detail: Key (...)=(...))을 싣고 트랜잭션도 못 쓰게 만든다.
+     * 널이 될 수 있는 값은 cast로 타입을 고정한다. UUID는 문자열로 받는다.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+        INSERT INTO leads (form_id, campaign_id, link_id, channel, visitor_id, name, phone, email, payload,
+                           consent_at, created_at)
+        VALUES (:formId, :campaignId, cast(:linkId as bigint), :channel, cast(:visitorId as uuid), :name, :phone,
+                :email, cast(:payload as jsonb), :consentAt, :createdAt)
+        ON CONFLICT DO NOTHING
+        """)
+    int insertIfAbsent(@Param("formId") long formId, @Param("campaignId") long campaignId,
+            @Param("linkId") Long linkId, @Param("channel") String channel, @Param("visitorId") String visitorId,
+            @Param("name") String name, @Param("phone") String phone, @Param("email") String email,
+            @Param("payload") String payloadJson, @Param("consentAt") Instant consentAt,
+            @Param("createdAt") Instant createdAt);
+
+    /** {@link #insertIfAbsent}를 Lead로 호출한다. 저장됐으면 true, 중복이면 false. */
+    default boolean insertIfAbsent(Lead lead, String payloadJson) {
+        UUID visitor = lead.getVisitorId();
+        return insertIfAbsent(lead.getFormId(), lead.getCampaignId(), lead.getLinkId(), lead.getChannel().value(),
+            visitor == null ? null : visitor.toString(), lead.getName(), lead.getPhone(), lead.getEmail(),
+            payloadJson, lead.getConsentAt(), lead.getCreatedAt()) == 1;
+    }
+}

@@ -3,6 +3,7 @@ package com.leadmagnet.crm.common.error;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -43,9 +44,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ErrorCode code = e.getErrorCode();
         ProblemDetail problem = ProblemDetails.of(code, e.getMessage());
         if (!e.getErrors().isEmpty()) {
-            problem.setProperty("errors", e.getErrors().stream()
-                .map(error -> Map.of("field", error.field(), "message", error.message()))
-                .toList());
+            problem.setProperty("errors", e.getErrors().stream().map(GlobalExceptionHandler::domainFieldError).toList());
         }
         return ResponseEntity.status(code.status()).body(problem);
     }
@@ -109,6 +108,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetails.of(ErrorCode.VALIDATION_FAILED);
         problem.setProperty("errors", errors);
         return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.status()).headers(headers).body(problem);
+    }
+
+    private static Map<String, String> domainFieldError(DomainException.FieldError error) {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("field", error.field());
+        map.put("message", error.message());
+        if (error.code() != null) {
+            map.put("code", error.code());
+        }
+        return map;
     }
 
     private static Map<String, String> fieldError(FieldError error) {
