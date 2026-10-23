@@ -1,6 +1,7 @@
 package com.leadmagnet.crm.link.domain;
 
 import com.leadmagnet.crm.common.error.DomainException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -10,8 +11,6 @@ import java.util.Locale;
  */
 public enum Channel {
     INSTAGRAM, X, YOUTUBE, THREADS;
-
-    public static final String DIRECT = "direct";
 
     /** API와 DB에 쓰는 소문자 값. */
     public String value() {
@@ -38,8 +37,8 @@ public enum Channel {
                 return c;
             }
         }
-        List<String> allowed = java.util.Arrays.stream(values()).map(Channel::value).toList();
-        String reason = DIRECT.equals(normalized) ? "direct는 링크로 만들 수 없습니다. " : "";
+        List<String> allowed = Arrays.stream(values()).map(Channel::value).toList();
+        String reason = "direct".equals(normalized) ? "direct는 링크로 만들 수 없습니다. " : "";
         throw DomainException.validation("channel", reason + "channel은 " + allowed + " 중 하나여야 합니다");
     }
 }

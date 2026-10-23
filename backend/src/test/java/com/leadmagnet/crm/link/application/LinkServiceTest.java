@@ -13,6 +13,8 @@ import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.form.application.FormService;
 import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.form.domain.Slug;
+import com.leadmagnet.crm.link.domain.Attribution;
+import com.leadmagnet.crm.link.domain.AttributionChannel;
 import com.leadmagnet.crm.link.domain.Channel;
 import com.leadmagnet.crm.link.domain.DistributionLink;
 import com.leadmagnet.crm.link.domain.DistributionLinkRepository;
@@ -34,7 +36,7 @@ class LinkServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new LinkService(links, forms, Clock.fixed(Instant.parse("2026-11-01T00:00:00Z"), ZoneOffset.UTC));
+        service = new LinkService(links, forms, new RandomLinkCodeGenerator(), Clock.fixed(Instant.parse("2026-11-01T00:00:00Z"), ZoneOffset.UTC));
         form = Form.create(1L, 1L, new Slug("spring-2026"), "제목", "동의", List.of(), Instant.now());
         when(forms.get(7L)).thenReturn(form);
     }
@@ -80,5 +82,17 @@ class LinkServiceTest {
         assertThat(service.resolveForForm(7L, "zzzzzzzz")).isEmpty();
         assertThat(service.resolveForForm(7L, null)).isEmpty();
         assertThat(service.resolveForForm(7L, "bad!")).isEmpty();
+    }
+
+    @Test
+    void 귀속은_해당_폼의_링크면_링크_id와_채널을_아니면_direct를_돌려준다() {
+        DistributionLink link = DistributionLink.create(7L, Channel.THREADS, "abCD1234", "spring-2026", Instant.now());
+        org.springframework.test.util.ReflectionTestUtils.setField(link, "id", 5L);
+        when(links.findByCode("abCD1234")).thenReturn(Optional.of(link));
+
+        assertThat(service.attribute(7L, "abCD1234")).isEqualTo(new Attribution(5L, AttributionChannel.THREADS));
+        assertThat(service.attribute(8L, "abCD1234")).isEqualTo(Attribution.direct());
+        assertThat(service.attribute(7L, null)).isEqualTo(Attribution.direct());
+        assertThat(service.attribute(7L, "zzzzzzzz")).isEqualTo(Attribution.direct());
     }
 }

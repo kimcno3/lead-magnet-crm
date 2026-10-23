@@ -108,6 +108,8 @@ class LinkApiTest {
         authed().body(Map.of("channel", "x")).post("/api/admin/forms/{id}/links", formId).then().statusCode(201);
         authed().body(Map.of("channel", "x")).post("/api/admin/forms/{id}/links", formId)
             .then().statusCode(409).body("code", equalTo("link_exists"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM distribution_links WHERE form_id = ? AND channel = 'x'",
+            Integer.class, formId)).isEqualTo(1);
     }
 
     @Test
@@ -148,6 +150,7 @@ class LinkApiTest {
         String code = createLink("youtube");
         given().redirects().follow(false).get("/l/{code}", code)
             .then().statusCode(302).header("Location", equalTo("/f/spring-2026?lm=" + code));
+        // Ruling R1 보호: /l은 방문을 기록하지 않는다. Task 7이 /f 페이지 로드에서 방문을 기록하기 시작하면 이 단언이 이중 집계를 잡는다.
         assertThat(jdbc.queryForObject("SELECT count(*) FROM visits", Integer.class)).isZero();
     }
 

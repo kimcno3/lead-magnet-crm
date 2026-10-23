@@ -1,6 +1,7 @@
 package com.leadmagnet.crm.link.api;
 
 import com.leadmagnet.crm.link.application.LinkService;
+import com.leadmagnet.crm.link.config.LinkProperties;
 import com.leadmagnet.crm.link.domain.DistributionLink;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
