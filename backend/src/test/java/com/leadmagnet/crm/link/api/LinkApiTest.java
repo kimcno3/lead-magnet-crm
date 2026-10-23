@@ -2,10 +2,12 @@ package com.leadmagnet.crm.link.api;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.startsWith;
 
 import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
@@ -173,24 +175,30 @@ class LinkApiTest {
     }
 
     @Test
-    void 없는_code는_404다() {
-        PublicOrigin.given(publicPort).get("/l/{code}", "zzzzzzzz").then().statusCode(404);
-        PublicOrigin.given(publicPort).get("/l/{code}", "bad!").then().statusCode(404);
+    void 없는_code는_404_HTML_안내다() {
+        for (String code : List.of("zzzzzzzz", "bad!")) {
+            PublicOrigin.given(publicPort).get("/l/{code}", code)
+                .then().statusCode(404).contentType(startsWith("text/html"))
+                .body(containsString("신청 폼을 찾을 수 없습니다"));
+        }
     }
 
     @Test
-    void draft_폼의_code는_404다() {
+    void draft_폼의_code는_404_HTML_안내다() {
         String code = createLink("x");
-        PublicOrigin.given(publicPort).get("/l/{code}", code).then().statusCode(404);
+        PublicOrigin.given(publicPort).get("/l/{code}", code)
+            .then().statusCode(404).contentType(startsWith("text/html"))
+            .body(containsString("신청 폼을 찾을 수 없습니다"));
     }
 
     @Test
-    void closed_폼의_code는_410이다() {
+    void closed_폼의_code는_410_HTML_안내다() {
         authed().body(Map.of("status", "published")).patch("/api/admin/forms/{id}", formId).then().statusCode(200);
         String code = createLink("x");
         authed().body(Map.of("status", "closed")).patch("/api/admin/forms/{id}", formId).then().statusCode(200);
         PublicOrigin.given(publicPort).get("/l/{code}", code)
-            .then().statusCode(410).body("code", equalTo("gone"));
+            .then().statusCode(410).contentType(startsWith("text/html"))
+            .body(containsString("마감된 신청입니다"));
     }
 
     @Test

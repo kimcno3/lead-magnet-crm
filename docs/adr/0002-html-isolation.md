@@ -72,3 +72,7 @@ Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; 
 - 대가: AI가 만든 HTML이 CDN 이미지, 외부 스타일시트(Tailwind CDN 등), 웹폰트(Google Fonts 등)를 쓰면 그 리소스는 불러오지 못한다. 이미지는 빈 자리나 `alt`로, 폰트는 시스템 폰트로, 외부 CSS는 스타일 없이 보인다. 인라인 `<style>`과 `data:` 이미지·폰트는 계속 동작하므로 폼 자체는 쓸 수 있다.
 - 후속: 템플릿 점검 추가 기능(이슈 #16)이 업로드 시 외부 리소스 참조를 찾아 운영자에게 경고한다. 운영자는 그 경고를 보고 리소스를 인라인으로 바꿔 다시 올릴 수 있다.
 - 위 "결정"의 "이미지·폰트·스타일은 ... `https:`를 허용한다"는 이 변경으로 대체된다.
+
+### 2026-10-23: `/l/{code}`의 404·410도 HTML 안내
+
+- `/l/{code}`도 브라우저가 여는 주소라 없는 code·draft 폼의 404와 closed 폼의 410을 ProblemDetail JSON 대신 `/f/{slug}`와 같은 정적 HTML 안내(`WrapperPages.notice`)로 답한다. 상태 코드는 그대로다. `/api/public/**`는 계속 ProblemDetail JSON이다.

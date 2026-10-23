@@ -11,11 +11,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,8 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "공개 폼", description = "public 출처(:8081) 전용. 래퍼 스크립트가 호출한다 (ADR 0002)")
 @RestController
 public class PublicFormPageController {
-
-    private static final MediaType HTML = new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8);
 
     private final PublicFormService publicForms;
     private final VisitRecorder visits;
@@ -57,7 +53,7 @@ public class PublicFormPageController {
         } catch (DomainException e) {
             // 브라우저 페이지라 404·410만 HTML 안내로 답한다. 그 밖의 오류는 전역 ProblemDetail 처리로 넘긴다.
             if (e.getErrorCode() == ErrorCode.NOT_FOUND || e.getErrorCode() == ErrorCode.GONE) {
-                return notice(e.getErrorCode());
+                return WrapperPages.notice(e.getErrorCode());
             }
             throw e;
         }
@@ -67,11 +63,6 @@ public class PublicFormPageController {
             visits.record(form.getId(), lm, visitorId, request.getHeader(HttpHeaders.REFERER),
                 request.getHeader(HttpHeaders.USER_AGENT));
         }
-        return ResponseEntity.ok().contentType(HTML).body(WrapperPages.SHELL);
-    }
-
-    private static ResponseEntity<String> notice(ErrorCode code) {
-        String body = code == ErrorCode.GONE ? WrapperPages.GONE : WrapperPages.NOT_FOUND;
-        return ResponseEntity.status(code.status()).contentType(HTML).body(body);
+        return ResponseEntity.ok().contentType(WrapperPages.HTML).body(WrapperPages.SHELL);
     }
 }
