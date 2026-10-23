@@ -18,7 +18,7 @@ public class PublicFormController {
         this.publicForms = publicForms;
     }
 
-    @Operation(summary = "공개 폼 조회", description = "published 폼의 제목, 동의 문구, 필드 설정, 템플릿 HTML 원문")
+    @Operation(operationId = "getPublicForm", summary = "공개 폼 조회", description = "published 폼의 제목, 동의 문구, 필드 설정, 템플릿 HTML 원문")
     @ApiResponse(responseCode = "200", description = "공개 중")
     @ApiResponse(responseCode = "404", description = "없는 slug 또는 draft (not_found)")
     @ApiResponse(responseCode = "410", description = "closed (gone)")

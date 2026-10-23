@@ -12,13 +12,12 @@
 
 ```mermaid
 flowchart LR
-  op[운영자 브라우저] -->|:5173| web[admin-web<br/>nginx / Vite]
-  web -->|/api/admin, /actuator/health 프록시| admin[":8080 admin 커넥터<br/>/api/admin/**, 헬스, API 문서"]
-  vis[방문자 브라우저] -->|":8081 public 커넥터<br/>/f/**, /l/**, /api/public/**"| pub[OriginGuardFilter 통과]
-  admin --> app[Spring Boot 앱<br/>Security 체인 3개]
+  op["운영자 브라우저"] -->|:5173| web["admin-web<br/>nginx / Vite"]
+  web -->|"/api/admin, /actuator/health 프록시"| admin[":8080 admin 커넥터<br/>/api/admin/**, 헬스, API 문서"]
+  vis["방문자 브라우저<br/>(/f/slug 셸 안의 sandbox iframe, 불투명 출처)"] -->|":8081 public 커넥터<br/>/f/**, /l/**, /api/public/**"| pub["OriginGuardFilter 통과"]
+  admin --> app["Spring Boot 앱<br/>Security 체인 3개"]
   pub --> app
   app --> db[(PostgreSQL)]
-  vis -. "/f/slug 셸 안의 sandbox iframe<br/>(allow-scripts allow-forms, 불투명 출처)" .- pub
 ```
 
 - `OriginGuardFilter`가 Security 앞에서 포트와 경로가 맞지 않는 요청을 404로 막는다. Security 체인은 admin(Bearer JWT), public(permitAll, 인증 헤더 무시), 기본(헬스·문서 외 denyAll) 세 개다(ADR [0003](adr/0003-auth.md)).
@@ -40,7 +39,7 @@ flowchart LR
 | refresh token 탈취·재사용 | 사용마다 교체, 재사용 시 패밀리 전체 폐기, DB에는 해시만 저장 | `AuthApiTest`, `RefreshTokenTest` |
 | 공개 출처에서 관리자 API 접근 | public 포트는 공개 경로만, 나머지 404 (OriginGuardFilter) | `PublicOriginIsolationTest`, `IsolationScenarioTest` |
 | 다른 출처의 CORS 요청 | 관리자 API CORS는 `ADMIN_ORIGIN`만 허용 | `AdminCorsTest`, `PublicOriginIsolationTest` |
-| 업로드 HTML이 관리자 자격 증명에 접근 | sandbox iframe(`allow-same-origin` 금지)로만 렌더링, 쿠키·DOM 접근 불가 | `PublicOriginIsolationTest`(CSP·셸), `PublicFormPageControllerTest` |
+| 업로드 HTML이 관리자 자격 증명에 접근 | sandbox iframe(`allow-same-origin` 금지)로만 렌더링, 쿠키·DOM 접근 불가 | `PublicOriginIsolationTest`(`래퍼_셸은_allow_same_origin_없이_샌드박스_iframe만_쓴다`), `IsolationScenarioTest`, `TemplateDetail.test.tsx`(admin-web 미리보기) |
 | 업로드 HTML이 방문자 입력을 외부로 전송 | CSP `default-src 'none'`, `connect-src 'self'`, `form-action 'none'`, 이미지·스타일·폰트는 `'self'`/`data:`만 (ADR 0002 변경 기록) | `PublicOriginIsolationTest`(CSP 값을 정확히 비교) |
 | 래퍼 우회 제출(sandbox에서 직접 호출) | 서버가 신뢰 경계: JSON만, `Origin: null`은 403, 동의·필드 검증 | `LeadSubmissionApiTest`, `SubmissionValidatorTest` |
 | NUL·제어 문자 입력 | 422로 거부(500·로그 오염 방지) | `TextInputTest`, `LeadSubmissionApiTest` |
@@ -77,13 +76,13 @@ flowchart LR
 
 | 대상 | 명령 | 결과 |
 |---|---|---|
-| backend | `cd backend && ./gradlew test` | 44개 테스트 클래스, 357개 테스트 통과(실패·건너뜀 0) |
+| backend | `cd backend && ./gradlew test` | 44개 테스트 클래스, 360개 테스트 통과(실패 0, verify 모드에서 export 쓰기 테스트 1건은 건너뜀) |
 | admin-web | `cd admin-web && npm test` | 12개 파일, 78개 테스트 통과 |
 
 - 도메인 규칙은 Spring 없는 단위 테스트(`FormContractParserTest`, `SubmissionValidatorTest`, `MetricsTest` 등), API는 `@IntegrationTest` + RestAssured다.
 - 시나리오 테스트(`HappyPathScenarioTest`, `FailureScenarioTest`, `IsolationScenarioTest`)는 두 포트를 오가며 로그인 → 업로드 → 배포 → 방문 → 신청 → 지표를 실제 HTTP로 잇고, 지표는 손계산 표와 정확히 비교한다.
-- 브라우저 안에서의 iframe·postMessage 동작은 자동 테스트하지 않았다(서버가 내려주는 셸·CSP·헤더까지만 검증). Playwright E2E는 후속 과제다.
-- `OpenApiExportTest`가 `docs/api/openapi.yaml`을 앱에서 내보낸다. 문서에는 admin 계열과 공개 경로가 함께 들어 있고 공개 경로는 오퍼레이션 단위로 public 출처(:8081)를 server로 가리킨다. 파일은 하나다.
+- 이 저장소의 자동 테스트는 서버가 내려주는 셸·CSP·헤더까지만 검증하고, 브라우저 안의 iframe·postMessage 동작은 포함하지 않는다. 브라우저 E2E는 Playwright로 별도 수행하고 결과를 리포트로 남긴다.
+- `OpenApiExportTest`가 `docs/api/openapi.yaml`을 앱에서 내보내고, CI는 `-Dopenapi.verify=true`로 커밋된 파일이 최신인지 확인한다. 문서에는 admin 계열과 공개 경로가 함께 들어 있고 공개 경로는 오퍼레이션 단위로 public 출처(:8081)를 server로 가리킨다. 파일은 하나다.
 
 ## 8. AI 활용 방식
 

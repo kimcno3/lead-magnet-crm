@@ -30,7 +30,7 @@ public class LinkController {
         this.properties = properties;
     }
 
-    @Operation(summary = "배포 링크 생성",
+    @Operation(operationId = "createLink", summary = "배포 링크 생성",
         description = "channel은 instagram, x, youtube, threads. 폼당 채널별 하나, draft·published 폼에만 만든다.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "201", description = "생성됨")
@@ -45,7 +45,7 @@ public class LinkController {
             .body(LinkResponse.from(created, properties.baseUrl()));
     }
 
-    @Operation(summary = "배포 링크 목록", description = "채널 순서 instagram, x, youtube, threads.",
+    @Operation(operationId = "listLinks", summary = "배포 링크 목록", description = "채널 순서 instagram, x, youtube, threads.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "목록")
     @ApiResponse(responseCode = "401", description = "unauthorized")

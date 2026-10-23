@@ -43,6 +43,8 @@ tasks.withType<Test> {
     useJUnitPlatform()
     // OpenApiExportTest: -Dopenapi.verify=true 이면 docs/api/openapi.yaml과 비교만 한다
     systemProperty("openapi.verify", System.getProperty("openapi.verify", "false"))
+    // 내보내기 대상은 작업 디렉터리가 아니라 프로젝트 위치 기준으로 정한다
+    systemProperty("openapi.output", layout.projectDirectory.file("../docs/api/openapi.yaml").asFile.canonicalPath)
 }
 
 tasks.jar {

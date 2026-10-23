@@ -33,7 +33,7 @@ public class TemplateController {
         this.templateService = templateService;
     }
 
-    @Operation(summary = "템플릿 업로드", description = "multipart file(.html/.htm, UTF-8, 512KB 이하)과 선택 name. 폼 계약을 검사해 필드를 추출한다.",
+    @Operation(operationId = "uploadTemplate", summary = "템플릿 업로드", description = "multipart file(.html/.htm, UTF-8, 512KB 이하)과 선택 name. 폼 계약을 검사해 필드를 추출한다.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "201", description = "등록됨. Location에 상세 경로")
     @ApiResponse(responseCode = "401", description = "unauthorized")
@@ -51,7 +51,7 @@ public class TemplateController {
             .body(TemplateResponse.from(created));
     }
 
-    @Operation(summary = "템플릿 목록", description = "최신순", security = @SecurityRequirement(name = "bearer"))
+    @Operation(operationId = "listTemplates", summary = "템플릿 목록", description = "최신순", security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "목록")
     @ApiResponse(responseCode = "401", description = "unauthorized")
     @GetMapping
@@ -59,7 +59,7 @@ public class TemplateController {
         return templateService.list().stream().map(TemplateSummaryResponse::from).toList();
     }
 
-    @Operation(summary = "템플릿 상세", description = "원문 content와 추출한 fields 포함", security = @SecurityRequirement(name = "bearer"))
+    @Operation(operationId = "getTemplate", summary = "템플릿 상세", description = "원문 content와 추출한 fields 포함", security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "상세")
     @ApiResponse(responseCode = "401", description = "unauthorized")
     @ApiResponse(responseCode = "404", description = "not_found")

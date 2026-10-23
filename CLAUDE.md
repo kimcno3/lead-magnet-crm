@@ -32,7 +32,7 @@ npx vitest run src/App.test.tsx   # 파일 하나
 npm run build
 ```
 
-CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend `./gradlew build`, admin-web lint·typecheck·test·build를 돌린다.
+CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend `./gradlew build -Dopenapi.verify=true`(커밋된 openapi.yaml이 최신인지도 확인), admin-web lint·typecheck·test·build를 돌린다.
 
 ## 구조
 

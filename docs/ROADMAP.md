@@ -23,6 +23,10 @@
 - 일별 추이 대시보드와 배포 링크 QR 코드.
 - 폼 A/B 비교.
 
+## 테스트
+
+- Playwright E2E를 CI에 통합.
+
 ## 구조
 
 - Gradle 멀티모듈 분리(admin, public, core).

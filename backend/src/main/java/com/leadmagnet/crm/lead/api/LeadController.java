@@ -22,7 +22,7 @@ public class LeadController {
         this.leads = leads;
     }
 
-    @Operation(summary = "캠페인 명단", description = "최신순. page는 0부터, size는 1~100(기본 20). "
+    @Operation(operationId = "listLeads", summary = "캠페인 명단", description = "최신순. page는 0부터, size는 1~100(기본 20). "
         + "channel은 instagram, x, youtube, threads, direct.", security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "명단 한 페이지")
     @ApiResponse(responseCode = "401", description = "unauthorized")

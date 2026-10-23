@@ -31,7 +31,7 @@ public class CampaignController {
         this.campaignService = campaignService;
     }
 
-    @Operation(summary = "캠페인 생성", security = @SecurityRequirement(name = "bearer"))
+    @Operation(operationId = "createCampaign", summary = "캠페인 생성", security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "201", description = "생성됨. Location에 상세 경로")
     @ApiResponse(responseCode = "401", description = "unauthorized")
     @ApiResponse(responseCode = "422", description = "validation_failed")
@@ -44,7 +44,7 @@ public class CampaignController {
             .body(CampaignResponse.from(created, List.of()));
     }
 
-    @Operation(summary = "캠페인 목록", description = "최신순. formCount는 상태와 무관하게 센다.",
+    @Operation(operationId = "listCampaigns", summary = "캠페인 목록", description = "최신순. formCount는 상태와 무관하게 센다.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "목록")
     @ApiResponse(responseCode = "401", description = "unauthorized")
@@ -53,7 +53,7 @@ public class CampaignController {
         return campaignService.list().stream().map(CampaignSummaryResponse::from).toList();
     }
 
-    @Operation(summary = "캠페인 상세", description = "소속 폼 요약 포함", security = @SecurityRequirement(name = "bearer"))
+    @Operation(operationId = "getCampaign", summary = "캠페인 상세", description = "소속 폼 요약 포함", security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "상세")
     @ApiResponse(responseCode = "401", description = "unauthorized")
     @ApiResponse(responseCode = "404", description = "not_found")
@@ -62,7 +62,7 @@ public class CampaignController {
         return toResponse(campaignService.get(id));
     }
 
-    @Operation(summary = "캠페인 수정·보관", description = "없는 필드는 그대로 둔다. status는 \"archived\"만 받는다.",
+    @Operation(operationId = "updateCampaign", summary = "캠페인 수정·보관", description = "없는 필드는 그대로 둔다. status는 \"archived\"만 받는다.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "수정됨")
     @ApiResponse(responseCode = "401", description = "unauthorized")
