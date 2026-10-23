@@ -9,13 +9,15 @@ interface LeadExportMenuProps {
   campaignId: number
   formId: number | null
   channel: Channel | null
+  /** 확인 대화상자에 보여줄 현재 필터 범위(예: "폼 세미나 신청 · 채널 인스타그램" 또는 "전체") */
+  scope: string
 }
 
 /**
  * 명단 CSV 다운로드 메뉴. 마스킹(가린 값)은 바로 내려받고, 원문은 감사 로그에 남는다는 확인을 거친다 (ADR 0016).
  * 필터(폼·채널)는 화면과 같은 값을 쓴다.
  */
-export function LeadExportMenu({ campaignId, formId, channel }: LeadExportMenuProps) {
+export function LeadExportMenu({ campaignId, formId, channel, scope }: LeadExportMenuProps) {
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -118,7 +120,7 @@ export function LeadExportMenu({ campaignId, formId, channel }: LeadExportMenuPr
       <ConfirmDialog
         open={confirming}
         title="원문 CSV 다운로드"
-        message="이름·전화번호·이메일 원문이 담긴 파일을 내려받습니다. 다운로드는 운영자·시각·IP·건수와 함께 감사 로그에 기록됩니다. 파일은 필요한 곳에만 쓰고 다 쓰면 지워 주세요."
+        message={`범위: ${scope}. 이 범위의 신청자 이름·전화번호·이메일 원문이 담긴 파일을 내려받습니다. 다운로드는 운영자·시각·IP·건수와 함께 감사 로그에 기록됩니다. 파일은 필요한 곳에만 쓰고 다 쓰면 지워 주세요.`}
         confirmLabel="원문 다운로드"
         onConfirm={() => download(true)}
         onClose={() => setConfirming(false)}

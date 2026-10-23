@@ -1,4 +1,4 @@
-package com.leadmagnet.crm.audit.domain;
+package com.leadmagnet.crm.common.web;
 
 /**
  * 감사 기록의 주체와 요청 출처 (ADR 0016). operatorId는 로그인 실패처럼 운영자를 특정하지 않으면 null이다.

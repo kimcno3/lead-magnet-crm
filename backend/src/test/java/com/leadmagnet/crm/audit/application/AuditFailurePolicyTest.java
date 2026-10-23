@@ -1,7 +1,9 @@
 package com.leadmagnet.crm.audit.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 
@@ -87,9 +89,10 @@ class AuditFailurePolicyTest {
     void 원문_열람은_기록에_실패하면_500이고_원문을_주지_않는다() {
         long before = auditCount();
 
-        RestAssured.given().auth().oauth2(token).get("/api/admin/leads/{id}/contact", lead).then().statusCode(500)
-            .body("code", equalTo("internal_error"));
+        String body = RestAssured.given().auth().oauth2(token).get("/api/admin/leads/{id}/contact", lead).then()
+            .statusCode(500).body("code", equalTo("internal_error")).extract().asString();
 
+        assertThat(body).doesNotContain("홍길동").doesNotContain("01012345678").doesNotContain("010-1234-5678");
         assertThat(auditCount()).isEqualTo(before);
     }
 
@@ -103,9 +106,13 @@ class AuditFailurePolicyTest {
     }
 
     @Test
-    void 가린_값_다운로드도_기록에_실패하면_500이다() {
-        RestAssured.given().auth().oauth2(token).get("/api/admin/campaigns/{id}/leads.csv", campaign).then()
-            .statusCode(500);
+    void 가린_값_다운로드도_기록에_실패하면_500이고_CSV를_한_바이트도_쓰지_않는다() {
+        String body = RestAssured.given().auth().oauth2(token).get("/api/admin/campaigns/{id}/leads.csv", campaign)
+            .then().statusCode(500).contentType(containsString("application/problem+json"))
+            .header("Content-Disposition", nullValue()).extract().asString();
+
+        assertThat(body).doesNotContain("\uFEFF").doesNotContain("신청일").doesNotContain("홍*동")
+            .doesNotContain("010-****-5678");
     }
 
     @Test

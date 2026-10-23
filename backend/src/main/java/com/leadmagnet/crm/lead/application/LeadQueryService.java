@@ -1,9 +1,5 @@
 package com.leadmagnet.crm.lead.application;
 
-import com.leadmagnet.crm.audit.application.AuditService;
-import com.leadmagnet.crm.audit.domain.AuditAction;
-import com.leadmagnet.crm.audit.domain.AuditActor;
-import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
 import com.leadmagnet.crm.common.crypto.PiiCryptoException;
 import com.leadmagnet.crm.common.error.DomainException;
@@ -46,22 +42,20 @@ public class LeadQueryService {
     private final CampaignRepository campaigns;
     private final FormRepository forms;
     private final ContactProtector protector;
-    private final AuditService audit;
 
     public LeadQueryService(LeadRepository leads, CampaignRepository campaigns, FormRepository forms,
-            ContactProtector protector, AuditService audit) {
+            ContactProtector protector) {
         this.leads = leads;
         this.campaigns = campaigns;
         this.forms = forms;
         this.protector = protector;
-        this.audit = audit;
     }
 
     /**
      * 범위를 벗어난 page·size와 모르는 channel은 422, 없는 캠페인은 404. 폼 제목은 페이지 전체를 한 번에 조회한다.
-     * 성공한 조회는 감사 로그(lead.list)에 필터·페이지를 남긴다. 기록이 실패해도 응답한다(ADR 0016).
+     * 감사 기록(lead.list)은 이 트랜잭션이 끝난 뒤 컨트롤러가 남긴다(ADR 0016).
      */
-    public LeadPage list(long campaignId, int page, int size, Long formId, String channel, AuditActor actor) {
+    public LeadPage list(long campaignId, int page, int size, Long formId, String channel) {
         List<FieldError> errors = new ArrayList<>();
         if (page < 0) {
             errors.add(new FieldError("page", "page는 0 이상이어야 합니다", "invalid_value"));
@@ -81,15 +75,8 @@ public class LeadQueryService {
         Page<Lead> result = leads.findAll(filter.toSpecification(), PageRequest.of(page, size, NEWEST_FIRST));
         Map<Long, String> titles = forms.findAllById(result.stream().map(Lead::getFormId).distinct().toList()).stream()
             .collect(Collectors.toMap(Form::getId, Form::getTitle, (a, b) -> a));
-        LeadPage leadPage = new LeadPage(result.stream().map(l -> toView(l, titles.get(l.getFormId()))).toList(),
+        return new LeadPage(result.stream().map(l -> toView(l, titles.get(l.getFormId()))).toList(),
             page, size, result.getTotalElements(), result.getTotalPages());
-
-        Map<String, Object> detail = filter.toDetail();
-        detail.put("page", page);
-        detail.put("size", size);
-        audit.recordBestEffort(actor,
-            new AuditEvent(AuditAction.LEAD_LIST, AuditEvent.TARGET_CAMPAIGN, campaignId, campaignId, detail));
-        return leadPage;
     }
 
     /**

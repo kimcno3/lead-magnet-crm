@@ -69,7 +69,7 @@ describe('감사 로그', () => {
     expect(within(rows[0]).getByText('원문 열람')).toBeInTheDocument()
     expect(within(rows[0]).getByText('신청 #101')).toBeInTheDocument()
     expect(await within(rows[0]).findByText('가을 세미나')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('203.0.113.7')).toHaveAttribute('title', 'Mozilla/5.0')
+    expect(within(rows[0]).getByText('203.0.113.7')).toBeInTheDocument()
     expect(within(rows[1]).getByText('CSV 다운로드(원문)')).toBeInTheDocument()
     expect(within(rows[1]).getByText('인스타그램 · 12건')).toBeInTheDocument()
     expect(within(rows[2]).getByText('로그인 실패')).toBeInTheDocument()
@@ -98,6 +98,35 @@ describe('감사 로그', () => {
     expect(last.searchParams.get('campaignId')).toBe('7')
     expect(last.searchParams.get('from')).toBe('2026-10-01')
     expect(last.searchParams.get('size')).toBe('20')
+  })
+
+  it('User-Agent는 앞부분을 보여주고 펼치면 전체를 보여준다(마우스 없이도)', async () => {
+    const longUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/141.0 Safari/537.36'
+    backend(() => json(page([{ ...reveal, userAgent: longUa }])))
+    renderPage('/audit-logs', <AuditLogListPage />)
+    const table = await screen.findByRole('table', { name: '감사 로그' })
+    await within(table).findByText('원문 열람')
+
+    const summary = within(table).getByText(`${longUa.slice(0, 32)}…`)
+    expect(summary.tagName).toBe('SUMMARY')
+    const details = summary.closest('details')!
+    expect(details.open).toBe(false)
+    expect(within(details).getByText(longUa)).toBeInTheDocument()
+    fireEvent.click(summary)
+    expect(details.open).toBe(true)
+  })
+
+  it('기간을 바꾸면 첫 페이지로 돌아간다', async () => {
+    const fetchMock = backend((url) => json(page([reveal], 45, Number(url.searchParams.get('page') ?? 0))))
+    renderPage('/audit-logs', <AuditLogListPage />, '/audit-logs?page=2')
+    await screen.findByText('3 / 3 페이지')
+
+    fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-10-31' } })
+
+    await waitFor(() => expect(requestsTo(fetchMock, '/api/admin/audit-logs')).toHaveLength(2))
+    const last = requestsTo(fetchMock, '/api/admin/audit-logs')[1]
+    expect(last.searchParams.get('to')).toBe('2026-10-31')
+    expect(last.searchParams.get('page')).toBe('0')
   })
 
   it('다음 페이지로 넘긴다', async () => {

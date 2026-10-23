@@ -19,6 +19,7 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.web.servlet.WebMvcProperties;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -60,6 +62,9 @@ class LeadExportApiTest {
 
     @Autowired
     PasswordEncoder passwordEncoder;
+
+    @Autowired
+    WebMvcProperties webMvc;
 
     String token;
     int campaign;
@@ -212,6 +217,11 @@ class LeadExportApiTest {
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action LIKE 'lead.export%'", Long.class))
             .isZero();
+    }
+
+    @Test
+    void 스트리밍_응답의_비동기_제한_시간은_10분이다() {
+        assertThat(webMvc.getAsync().getRequestTimeout()).isEqualTo(Duration.ofMinutes(10));
     }
 
     @Test

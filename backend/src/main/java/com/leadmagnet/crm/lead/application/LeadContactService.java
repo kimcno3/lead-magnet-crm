@@ -1,14 +1,12 @@
 package com.leadmagnet.crm.lead.application;
 
 import com.leadmagnet.crm.audit.application.AuditService;
-import com.leadmagnet.crm.audit.domain.AuditAction;
-import com.leadmagnet.crm.audit.domain.AuditActor;
+import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.lead.domain.Lead;
 import com.leadmagnet.crm.lead.domain.LeadRepository;
-import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,8 +32,7 @@ public class LeadContactService {
     public LeadContact reveal(long leadId, AuditActor actor) {
         Lead lead = leads.findById(leadId).orElseThrow(() -> new DomainException(ErrorCode.NOT_FOUND));
         LeadContact contact = protector.reveal(lead);
-        audit.recordRequired(actor, new AuditEvent(AuditAction.LEAD_CONTACT_VIEW, AuditEvent.TARGET_LEAD, lead.getId(),
-            lead.getCampaignId(), Map.of()));
+        audit.recordRequired(actor, AuditEvent.contactView(lead.getId(), lead.getCampaignId()));
         return contact;
     }
 }

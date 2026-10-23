@@ -1,12 +1,10 @@
 package com.leadmagnet.crm.audit.application;
 
 import com.leadmagnet.crm.audit.domain.AuditAction;
-import com.leadmagnet.crm.audit.domain.AuditActor;
+import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.audit.domain.AuditLog;
 import com.leadmagnet.crm.audit.domain.AuditLogRepository;
-import com.leadmagnet.crm.auth.domain.Operator;
-import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.DomainException.FieldError;
 import com.leadmagnet.crm.stats.domain.DateRange;
@@ -16,8 +14,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -29,6 +25,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -36,7 +33,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <ul>
  *   <li>{@link #recordRequired}: 원문을 내주는 유스케이스(원문 열람, CSV 다운로드). 호출자의 트랜잭션 안에서 쓰고
  *       실패하면 예외가 그대로 올라가 요청도 실패한다.</li>
- *   <li>{@link #recordBestEffort}: 명단 조회·로그인. 별도 트랜잭션으로 쓰고 실패하면 로그만 남기고 계속한다.</li>
+ *   <li>{@link #recordBestEffort}: 명단 조회·로그인. 유스케이스 트랜잭션이 끝난 뒤(컨트롤러에서) 자기 트랜잭션으로 쓰고,
+ *       실패하면 로그만 남기고 계속한다. 트랜잭션 안에서 부르면 커넥션 두 개를 잡게 되므로 막는다.</li>
  * </ul>
  */
 @Service
@@ -49,17 +47,14 @@ public class AuditService {
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
     private final AuditLogRepository auditLogs;
-    private final OperatorRepository operators;
     private final Clock clock;
-    private final TransactionTemplate separateTransaction;
+    private final TransactionTemplate ownTransaction;
 
-    public AuditService(AuditLogRepository auditLogs, OperatorRepository operators, Clock clock,
-            PlatformTransactionManager transactionManager) {
+    public AuditService(AuditLogRepository auditLogs, Clock clock, PlatformTransactionManager transactionManager) {
         this.auditLogs = auditLogs;
-        this.operators = operators;
         this.clock = clock;
-        this.separateTransaction = new TransactionTemplate(transactionManager);
-        this.separateTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.ownTransaction = new TransactionTemplate(transactionManager);
+        this.ownTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /** 호출자의 (쓰기) 트랜잭션 안에서 기록한다. 트랜잭션이 없으면 예외다. flush해 실패를 바로 드러낸다. */
@@ -69,12 +64,17 @@ public class AuditService {
     }
 
     /**
-     * 새 트랜잭션에서 기록하고, 실패해도 예외를 던지지 않는다. 로그에는 action과 예외 종류만 남긴다
-     * (DB 오류 메시지에 행 값이 실릴 수 있어 메시지는 남기지 않는다).
+     * 진행 중인 트랜잭션 밖에서만 부른다(유스케이스가 커밋·롤백된 뒤). 자기 트랜잭션으로 기록하고, 실패해도 예외를 던지지 않는다.
+     * 로그에는 action과 예외 종류만 남긴다(DB 오류 메시지에 행 값이 실릴 수 있어 메시지는 남기지 않는다).
+     *
+     * @throws IllegalStateException 트랜잭션 안에서 불렀을 때(커넥션을 두 개 잡지 않게 하는 프로그래밍 오류 검사)
      */
     public void recordBestEffort(AuditActor actor, AuditEvent event) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("recordBestEffort는 트랜잭션 밖에서 불러야 합니다");
+        }
         try {
-            separateTransaction.executeWithoutResult(
+            ownTransaction.executeWithoutResult(
                 status -> auditLogs.saveAndFlush(AuditLog.record(actor, event, clock.instant())));
         } catch (RuntimeException e) {
             log.warn("감사 로그 기록 실패(요청은 계속 처리): action={}, 원인={}", event.action().value(),
@@ -82,7 +82,10 @@ public class AuditService {
         }
     }
 
-    /** 최신순. 모르는 action, 범위를 벗어난 page·size, 잘못된 기간은 422. 기간은 Asia/Seoul 날짜다. */
+    /**
+     * 최신순. 모르는 action, 범위를 벗어난 page·size, 잘못된 기간은 422. 기간은 Asia/Seoul 날짜다.
+     * 운영자 이메일은 붙이지 않는다(api 계층이 {@link OperatorDirectory}로 붙인다).
+     */
     @Transactional(readOnly = true)
     public AuditLogPage search(AuditSearch search) {
         List<FieldError> errors = new ArrayList<>();
@@ -111,12 +114,8 @@ public class AuditService {
 
         Page<AuditLog> result = auditLogs.findAll(filter(action, search.operatorId(), search.campaignId(), range),
             PageRequest.of(search.page(), search.size(), NEWEST_FIRST));
-        List<Long> operatorIds = result.stream().map(AuditLog::getOperatorId).filter(Objects::nonNull).distinct()
-            .toList();
-        Map<Long, String> emails = operators.findAllById(operatorIds).stream()
-            .collect(Collectors.toMap(Operator::getId, Operator::getEmail));
-        return new AuditLogPage(result.stream().map(l -> toView(l, emails.get(l.getOperatorId()))).toList(),
-            search.page(), search.size(), result.getTotalElements(), result.getTotalPages());
+        return new AuditLogPage(result.stream().map(AuditService::toView).toList(), search.page(), search.size(),
+            result.getTotalElements(), result.getTotalPages());
     }
 
     private static Specification<AuditLog> filter(AuditAction action, Long operatorId, Long campaignId,
@@ -142,8 +141,8 @@ public class AuditService {
         };
     }
 
-    private static AuditLogView toView(AuditLog l, String operatorEmail) {
-        return new AuditLogView(l.getId(), l.getOperatorId(), operatorEmail, l.getAction(), l.getTargetType(),
+    private static AuditLogView toView(AuditLog l) {
+        return new AuditLogView(l.getId(), l.getOperatorId(), l.getAction(), l.getTargetType(),
             l.getTargetId(), l.getCampaignId(), l.getDetail(), l.getIp(), l.getUserAgent(), l.getCreatedAt());
     }
 
@@ -152,8 +151,8 @@ public class AuditService {
             int size) {
     }
 
-    /** 감사 기록 한 줄(읽기용). operatorEmail은 운영자를 특정하지 않은 기록이면 null이다. */
-    public record AuditLogView(Long id, Long operatorId, String operatorEmail, String action, String targetType,
+    /** 감사 기록 한 줄(읽기용). operatorId는 운영자를 특정하지 않은 기록이면 null이다. */
+    public record AuditLogView(Long id, Long operatorId, String action, String targetType,
             Long targetId, Long campaignId, Map<String, Object> detail, String ip, String userAgent,
             Instant createdAt) {
     }

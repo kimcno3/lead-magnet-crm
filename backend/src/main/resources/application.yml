@@ -7,6 +7,11 @@ spring:
     multipart:
       max-file-size: 1MB
       max-request-size: 1MB
+  mvc:
+    async:
+      # 비동기 응답(명단 CSV 스트리밍, StreamingResponseBody)의 제한 시간. 기본값(Tomcat 30초)이면 큰 명단 다운로드가
+      # 중간에 끊긴다. 일반 API는 비동기를 쓰지 않아 영향이 없다 (ADR 0016)
+      request-timeout: 10m
   jpa:
     open-in-view: false
     hibernate:

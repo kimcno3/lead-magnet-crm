@@ -1,6 +1,8 @@
 package com.leadmagnet.crm.lead.api;
 
-import com.leadmagnet.crm.audit.api.AuditActors;
+import com.leadmagnet.crm.common.web.AuditActors;
+import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.lead.application.LeadQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -21,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class LeadController {
 
     private final LeadQueryService leads;
+    private final AuditService audit;
 
-    public LeadController(LeadQueryService leads) {
+    public LeadController(LeadQueryService leads, AuditService audit) {
         this.leads = leads;
+        this.audit = audit;
     }
 
     @Operation(operationId = "listLeads", summary = "캠페인 명단", description = "최신순. page는 0부터, size는 1~100(기본 20). "
@@ -39,7 +43,10 @@ public class LeadController {
             @RequestParam(required = false) Long formId,
             @RequestParam(required = false) String channel,
             @AuthenticationPrincipal Jwt jwt, HttpServletRequest request) {
-        return LeadPageResponse.from(leads.list(campaignId, page, size, formId, channel,
-            AuditActors.of(jwt, request)));
+        LeadPageResponse response = LeadPageResponse.from(leads.list(campaignId, page, size, formId, channel));
+        // 조회 트랜잭션이 끝난 뒤 기록한다. 기록이 실패해도 응답한다(ADR 0016).
+        audit.recordBestEffort(AuditActors.of(jwt, request),
+            AuditEvent.leadList(campaignId, formId, channel, page, size));
+        return response;
     }
 }

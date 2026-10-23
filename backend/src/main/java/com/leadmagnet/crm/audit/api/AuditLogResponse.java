@@ -8,8 +8,8 @@ import java.util.Map;
 public record AuditLogResponse(Long id, Long operatorId, String operatorEmail, String action, String targetType,
         Long targetId, Long campaignId, Map<String, Object> detail, String ip, String userAgent, Instant createdAt) {
 
-    public static AuditLogResponse from(AuditLogView v) {
-        return new AuditLogResponse(v.id(), v.operatorId(), v.operatorEmail(), v.action(), v.targetType(), v.targetId(),
+    public static AuditLogResponse from(AuditLogView v, String operatorEmail) {
+        return new AuditLogResponse(v.id(), v.operatorId(), operatorEmail, v.action(), v.targetType(), v.targetId(),
             v.campaignId(), v.detail(), v.ip(), v.userAgent(), v.createdAt());
     }
 }

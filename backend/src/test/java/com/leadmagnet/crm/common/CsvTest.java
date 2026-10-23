@@ -25,6 +25,16 @@ class CsvTest {
     }
 
     @Test
+    void 앞의_공백_줄바꿈_탭을_건너뛴_첫_글자가_수식이면_작은따옴표를_붙인다() {
+        assertThat(Csv.cell(" =1+1")).isEqualTo("' =1+1");
+        assertThat(Csv.cell("\n=1")).isEqualTo("\"'\n=1\"");
+        assertThat(Csv.cell("\t@x")).isEqualTo("'\t@x");
+        assertThat(Csv.cell("  \r\n-2")).isEqualTo("\"'  \r\n-2\"");
+        assertThat(Csv.cell("   ")).isEqualTo("   ");
+        assertThat(Csv.cell(" 홍길동")).isEqualTo(" 홍길동");
+    }
+
+    @Test
     void 평범한_값과_빈_값은_그대로_둔다() {
         assertThat(Csv.cell("홍*동")).isEqualTo("홍*동");
         assertThat(Csv.cell("010-****-5678")).isEqualTo("010-****-5678");

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import {
   ApiError,
   apiDownload,
+  saveDownload,
   apiRequest,
   clearSession,
   hasSession,
@@ -317,5 +318,27 @@ describe('파일 내려받기', () => {
       status: 500,
       code: 'internal_error',
     })
+  })
+})
+
+describe('saveDownload', () => {
+  it('object URL로 내려받게 하고 약 1초 뒤에 해제한다', () => {
+    vi.useFakeTimers()
+    const create = vi.fn(() => 'blob:csv')
+    const revoke = vi.fn()
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke }))
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    try {
+      saveDownload({ blob: new Blob(['x']), filename: null }, 'fallback.csv')
+
+      expect(click).toHaveBeenCalledTimes(1)
+      expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe('fallback.csv')
+      vi.advanceTimersByTime(999)
+      expect(revoke).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
+      expect(revoke).toHaveBeenCalledWith('blob:csv')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

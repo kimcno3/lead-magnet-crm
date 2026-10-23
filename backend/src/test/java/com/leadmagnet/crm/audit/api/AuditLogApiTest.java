@@ -1,13 +1,17 @@
 package com.leadmagnet.crm.audit.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.nullValue;
 
+import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.auth.domain.Operator;
+import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.common.web.PublicPort;
 import com.leadmagnet.crm.support.AdminFixtures;
@@ -30,6 +34,7 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** 감사 로그 기록(명단 조회, 원문 열람, 로그인)과 조회 API (ADR 0016). CSV 다운로드는 LeadExportApiTest. */
 @IntegrationTest
@@ -54,6 +59,12 @@ class AuditLogApiTest {
 
     @Autowired
     PasswordEncoder passwordEncoder;
+
+    @Autowired
+    AuditService audit;
+
+    @Autowired
+    TransactionTemplate transactions;
 
     String token;
     long operatorId;
@@ -155,6 +166,21 @@ class AuditLogApiTest {
     }
 
     @Test
+    void 있는_계정의_비밀번호가_틀려도_운영자를_특정하지_않고_가린_이메일만_남긴다(CapturedOutput output) {
+        RestAssured.given().contentType(ContentType.JSON)
+            .body(Map.of("email", "owner@example.com", "password", "wrong-password-123"))
+            .post("/api/admin/auth/login").then().statusCode(401).body("code", equalTo("invalid_credentials"));
+
+        Map<String, Object> failure = lastLog("auth.login.failure");
+        assertThat(failure.get("operator_id")).isNull();
+        assertThat(failure.get("target_type")).isEqualTo("operator");
+        assertThat(failure.get("target_id")).isNull();
+        assertThat((String) failure.get("detail")).isEqualTo("{\"email\": \"o***@example.com\"}");
+        assertThat(count("auth.login.failure")).isEqualTo(1);
+        assertThat(output.getAll()).doesNotContain("owner@example.com\"");
+    }
+
+    @Test
     void 감사_로그는_최신순으로_페이지를_나눠_돌려준다() {
         long lead = submit(Map.of("phone", "010-1234-5678"));
         authed().get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200);
@@ -192,6 +218,17 @@ class AuditLogApiTest {
         authed().get("/api/admin/audit-logs?from=2026-01-11&to=2026-01-11").then().statusCode(200)
             .body("totalElements", equalTo(1)).body("items[0].campaignId", equalTo(other));
         authed().get("/api/admin/audit-logs?to=2026-01-10").then().statusCode(200).body("totalElements", equalTo(0));
+    }
+
+    @Test
+    void 명단_조회_로그인_기록은_트랜잭션_안에서_부르면_거절한다() {
+        AuditActor actor = new AuditActor((long) operatorId, "127.0.0.1", "test");
+
+        assertThatThrownBy(() -> transactions.executeWithoutResult(
+            status -> audit.recordBestEffort(actor, AuditEvent.loginSuccess(operatorId))))
+            .isInstanceOf(IllegalStateException.class);
+        audit.recordBestEffort(actor, AuditEvent.loginSuccess(operatorId));
+        assertThat(count("auth.login.success")).isEqualTo(2);
     }
 
     @Test

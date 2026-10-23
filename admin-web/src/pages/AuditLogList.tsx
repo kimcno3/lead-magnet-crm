@@ -19,6 +19,12 @@ function toAction(value: string | null): AuditAction | null {
   return value && (AUDIT_ACTIONS as readonly string[]).includes(value) ? (value as AuditAction) : null
 }
 
+const UA_PREVIEW = 32
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}…` : text
+}
+
 function targetText(log: AuditLog): string {
   if (log.targetType === 'lead') return `신청 #${log.targetId}`
   if (log.targetType === 'operator') return log.targetId === null ? '-' : `운영자 #${log.targetId}`
@@ -55,7 +61,7 @@ export function AuditLogListPage() {
   }
 
   const totalPages = data?.totalPages ?? 0
-  const columns = 7
+  const columns = 8
 
   return (
     <>
@@ -94,7 +100,7 @@ export function AuditLogListPage() {
           </p>
         )}
       </div>
-      <PeriodFilter />
+      <PeriodFilter resetParams={['page']} />
 
       <ErrorMessage error={error} onRetry={reload} />
       {data && data.totalElements > 0 && data.items.length === 0 ? (
@@ -132,6 +138,7 @@ export function AuditLogListPage() {
                     <th scope="col">캠페인</th>
                     <th scope="col">내용</th>
                     <th scope="col">IP</th>
+                    <th scope="col">브라우저</th>
                   </tr>
                 </thead>
                 <tbody aria-busy={loading}>
@@ -154,8 +161,18 @@ export function AuditLogListPage() {
                           )}
                         </td>
                         <td className="detail-list">{summarizeAuditDetail(log.detail)}</td>
-                        <td className="num nowrap" title={log.userAgent ?? undefined} translate="no">
+                        <td className="num nowrap" translate="no">
                           {log.ip ?? <span className="muted">-</span>}
+                        </td>
+                        <td className="user-agent" translate="no">
+                          {log.userAgent ? (
+                            <details>
+                              <summary>{truncate(log.userAgent, UA_PREVIEW)}</summary>
+                              <p className="detail-list">{log.userAgent}</p>
+                            </details>
+                          ) : (
+                            <span className="muted">-</span>
+                          )}
                         </td>
                       </tr>
                     ))

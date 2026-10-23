@@ -1,4 +1,4 @@
-package com.leadmagnet.crm.audit.domain;
+package com.leadmagnet.crm.common.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

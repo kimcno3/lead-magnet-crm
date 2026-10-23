@@ -1,13 +1,17 @@
 package com.leadmagnet.crm.audit.api;
 
 import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.application.AuditService.AuditLogPage;
+import com.leadmagnet.crm.audit.application.AuditService.AuditLogView;
 import com.leadmagnet.crm.audit.application.AuditService.AuditSearch;
+import com.leadmagnet.crm.audit.application.OperatorDirectory;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Objects;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -18,9 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuditLogController {
 
     private final AuditService audit;
+    private final OperatorDirectory operators;
 
-    public AuditLogController(AuditService audit) {
+    public AuditLogController(AuditService audit, OperatorDirectory operators) {
         this.audit = audit;
+        this.operators = operators;
     }
 
     @Operation(operationId = "listAuditLogs", summary = "감사 로그",
@@ -41,7 +47,8 @@ public class AuditLogController {
             @RequestParam(required = false) String to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "" + AuditService.DEFAULT_SIZE) int size) {
-        return AuditLogPageResponse.from(
-            audit.search(new AuditSearch(action, operatorId, campaignId, from, to, page, size)));
+        AuditLogPage result = audit.search(new AuditSearch(action, operatorId, campaignId, from, to, page, size));
+        return AuditLogPageResponse.from(result, operators.emailsOf(
+            result.items().stream().map(AuditLogView::operatorId).filter(Objects::nonNull).distinct().toList()));
     }
 }

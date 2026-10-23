@@ -982,3 +982,24 @@
   color: var(--text-muted);
   word-break: break-all;
 }
+
+.user-agent {
+  max-width: 260px;
+  font-size: var(--fs-small);
+}
+
+.user-agent summary {
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-agent summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.user-agent details p {
+  margin: 4px 0 0;
+}

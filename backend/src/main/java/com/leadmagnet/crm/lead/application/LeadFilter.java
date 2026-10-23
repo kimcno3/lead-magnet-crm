@@ -6,9 +6,7 @@ import com.leadmagnet.crm.link.domain.AttributionChannel;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import org.springframework.data.jpa.domain.Specification;
 
 /** 명단 조회·다운로드가 함께 쓰는 필터(캠페인, 선택 폼·채널). */
@@ -40,13 +38,5 @@ record LeadFilter(long campaignId, Long formId, AttributionChannel channel) {
             }
             return cb.and(predicates.toArray(Predicate[]::new));
         };
-    }
-
-    /** 감사 로그 detail용. 쓰지 않은 필터는 null로 남긴다. */
-    Map<String, Object> toDetail() {
-        Map<String, Object> detail = new LinkedHashMap<>();
-        detail.put("formId", formId);
-        detail.put("channel", channel == null ? null : channel.value());
-        return detail;
     }
 }

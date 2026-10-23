@@ -207,7 +207,9 @@ function filenameOf(disposition: string | null): string | null {
   return match ? match[1] : null
 }
 
-/** Blob을 object URL로 바꿔 내려받게 한다. 브라우저가 내려받기를 시작한 뒤(다음 틱) URL을 해제한다. */
+/** Blob을 object URL로 바꿔 내려받게 한다. 브라우저가 내려받기를 시작할 시간을 두고 약 1초 뒤 URL을 해제한다. */
+export const REVOKE_DELAY_MS = 1000
+
 export function saveDownload({ blob, filename }: Download, fallbackName: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -217,5 +219,5 @@ export function saveDownload({ blob, filename }: Download, fallbackName: string)
   document.body.appendChild(a)
   a.click()
   a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 0)
+  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS)
 }

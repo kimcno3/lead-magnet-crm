@@ -3,8 +3,7 @@ package com.leadmagnet.crm.lead.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leadmagnet.crm.audit.application.AuditService;
-import com.leadmagnet.crm.audit.domain.AuditAction;
-import com.leadmagnet.crm.audit.domain.AuditActor;
+import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
 import com.leadmagnet.crm.common.Csv;
@@ -37,7 +36,6 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -46,10 +44,11 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 명단 CSV 다운로드 (ADR 0016). 두 단계로 나눈다.
  * <ol>
- *   <li>{@link #start}: 필터를 검증하고, 내보낼 행의 범위(지금 있는 가장 큰 id)와 건수를 정한 뒤 감사 로그를 같은 트랜잭션에서
- *       남긴다. 기록이 실패하면 응답 바이트를 하나도 쓰기 전에 요청이 실패한다.</li>
- *   <li>{@link #write}: 정한 범위의 행을 id 순으로 {@value #BATCH_SIZE}건씩 읽어 스트림에 쓴다. 신청은 바뀌거나 지워지지
- *       않으므로 기록한 건수와 내려주는 행 수가 같다.</li>
+ *   <li>{@link #start}: 필터를 검증하고, 내보낼 행의 범위(지금 보이는 가장 큰 id)와 그 범위의 건수를 정한 뒤 감사 로그를
+ *       같은 트랜잭션에서 남긴다. 기록이 실패하면 응답 바이트를 하나도 쓰기 전에 요청이 실패한다.</li>
+ *   <li>{@link #write}: 같은 범위(id ≤ maxId)의 행을 id 순으로 {@value #BATCH_SIZE}건씩 keyset으로 읽어 스트림에 쓴다
+ *       (배치마다 COUNT 없음). 신청은 바뀌거나 지워지지 않으므로, maxId보다 작은 id의 신청이 그 사이에 늦게 커밋되는
+ *       경우(동시 신청)가 아니면 기록한 건수와 내려주는 행 수가 같다.</li>
  * </ol>
  * 기본은 가린 값이고 reveal이면 원문이다. 복호화하지 못한 행은 연락처 칸에 "복호화 불가"를 적고 로그에는 신청 id만 남긴다.
  */
@@ -100,16 +99,13 @@ public class LeadExportService {
             throw new DomainException(ErrorCode.NOT_FOUND);
         }
         LeadFilter filter = new LeadFilter(campaignId, formId, channelFilter);
-        long maxId = leads.findAll(filter.toSpecification(), PageRequest.of(0, 1, Sort.by(Sort.Order.desc("id"))))
-            .stream().findFirst().map(Lead::getId).orElse(0L);
-        long count = leads.count(filter.toSpecification());
+        long maxId = leads.findBy(filter.toSpecification(), q -> q.sortBy(Sort.by(Sort.Order.desc("id"))).first())
+            .map(Lead::getId).orElse(0L);
+        long count = leads.count(upTo(filter, maxId));
 
-        Map<String, Object> detail = filter.toDetail();
-        detail.put("reveal", reveal);
-        detail.put("count", count);
-        audit.recordRequired(actor, new AuditEvent(reveal ? AuditAction.LEAD_EXPORT_REVEAL : AuditAction.LEAD_EXPORT,
-            AuditEvent.TARGET_CAMPAIGN, campaignId, campaignId, detail));
-        return new LeadExport(filter, reveal, maxId, count);
+        audit.recordRequired(actor, AuditEvent.export(campaignId, formId,
+            channelFilter == null ? null : channelFilter.value(), reveal, count));
+        return new LeadExport(campaignId, formId, channelFilter, reveal, maxId, count);
     }
 
     /** UTF-8 BOM, 헤더, 행 순서로 쓴다. 스트림은 닫지 않는다. */
@@ -118,14 +114,14 @@ public class LeadExportService {
         writer.write('﻿');
         writer.write(Csv.line(HEADER));
         if (export.count() > 0) {
-            Lookups lookups = lookups(export.filter().campaignId());
-            Specification<Lead> inRange = export.filter().toSpecification()
-                .and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("id"), export.maxId()));
+            Lookups lookups = lookups(export.campaignId());
+            Specification<Lead> inRange = upTo(filterOf(export), export.maxId());
             long lastId = 0;
             while (true) {
                 long after = lastId;
-                List<Lead> batch = leads.findAll(inRange.and((root, query, cb) -> cb.greaterThan(root.get("id"), after)),
-                    PageRequest.of(0, BATCH_SIZE, Sort.by("id"))).getContent();
+                List<Lead> batch = leads.findBy(
+                    inRange.and((root, query, cb) -> cb.greaterThan(root.get("id"), after)),
+                    q -> q.sortBy(Sort.by("id")).limit(BATCH_SIZE).all());
                 for (Lead lead : batch) {
                     writer.write(Csv.line(row(lead, export.reveal(), lookups)));
                 }
@@ -136,6 +132,15 @@ public class LeadExportService {
             }
         }
         writer.flush();
+    }
+
+    private static LeadFilter filterOf(LeadExport export) {
+        return new LeadFilter(export.campaignId(), export.formId(), export.channel());
+    }
+
+    /** 감사 기록의 건수와 스트림이 같은 범위를 보게 하는 조건(id ≤ maxId). */
+    private static Specification<Lead> upTo(LeadFilter filter, long maxId) {
+        return filter.toSpecification().and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("id"), maxId));
     }
 
     private List<String> row(Lead lead, boolean reveal, Lookups lookups) {
@@ -194,12 +199,13 @@ public class LeadExportService {
     private record Lookups(Map<Long, String> formTitles, Map<Long, String> creatorByLink) {
     }
 
-    /** 내보낼 범위. maxId 이하의 행만 쓴다(기록한 건수와 맞추려고). */
-    public record LeadExport(LeadFilter filter, boolean reveal, long maxId, long count) {
+    /** 내보낼 범위. formId·channel은 null이면 필터 없음. maxId 이하의 행만 쓴다(기록한 건수와 맞추려고). */
+    public record LeadExport(long campaignId, Long formId, AttributionChannel channel, boolean reveal, long maxId,
+            long count) {
 
         /** 내려받을 파일 이름. ASCII만 쓴다. */
         public String fileName(Instant now) {
-            return "leads-campaign-" + filter.campaignId() + "-" + FILE_STAMP.format(now) + (reveal ? "-raw" : "")
+            return "leads-campaign-" + campaignId + "-" + FILE_STAMP.format(now) + (reveal ? "-raw" : "")
                 + ".csv";
         }
     }

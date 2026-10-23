@@ -66,6 +66,7 @@ describe('명단 CSV 다운로드', () => {
     fireEvent.click(within(menu).getByRole('menuitem', { name: /원문/ }))
     const dialog = await screen.findByRole('dialog', { name: '원문 CSV 다운로드' })
     expect(dialog).toHaveTextContent('감사 로그에 기록')
+    expect(dialog).toHaveTextContent('범위: 전체.')
     expect(requestsTo(fetchMock, '/api/admin/campaigns/7/leads.csv')).toHaveLength(0)
 
     fireEvent.click(within(dialog).getByRole('button', { name: '원문 다운로드' }))
@@ -74,6 +75,17 @@ describe('명단 CSV 다운로드', () => {
     const [request] = requestsTo(fetchMock, '/api/admin/campaigns/7/leads.csv')
     expect(request.searchParams.get('reveal')).toBe('true')
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalled()
+  })
+
+  it('원문 확인 대화상자는 지금 필터 범위(폼·채널)를 알려준다', async () => {
+    backend()
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads&form=11&channel=instagram')
+    const menu = await openMenu()
+
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /원문/ }))
+
+    const dialog = await screen.findByRole('dialog', { name: '원문 CSV 다운로드' })
+    expect(dialog).toHaveTextContent('범위: 폼 세미나 신청 · 채널 인스타그램.')
   })
 
   it('원문 확인을 취소하면 요청하지 않는다', async () => {
