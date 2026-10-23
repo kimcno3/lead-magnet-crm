@@ -97,7 +97,8 @@ describe('크리에이터별 성과', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     const rows = within(table).getAllByRole('row')
     expect(rows).toHaveLength(9)
-    expect(rows.slice(4).map((r) => within(r).getAllByRole('cell')[0].textContent)).toEqual([
+    // 펼친 채널 행의 첫 칸은 행 머리글이다
+    expect(rows.slice(4).map((r) => within(r).getByRole('rowheader').textContent)).toEqual([
       '인스타그램',
       'X',
       '유튜브',

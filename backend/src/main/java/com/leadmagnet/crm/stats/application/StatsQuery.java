@@ -199,30 +199,47 @@ class StatsQuery {
 
     /**
      * 한 캠페인의 크리에이터 × 채널 지표. 방문은 visits.channel, 신청은 leads.channel로 센다.
+     * BY_CREATOR와 같은 방식으로 (creator_key, channel)마다 한 번씩 묶어 집계한 뒤 붙인다.
      * 전환은 같은 크리에이터·같은 채널 안의 교집합이다. 데이터가 있는 조합만 돌려주고 0 채우기는 호출한 쪽이 한다.
      */
     private static final String BY_CREATOR_CHANNEL = CREATOR_SCOPE + """
         , pairs AS (
-            SELECT creator_key, channel FROM visits_in UNION SELECT creator_key, channel FROM leads_in
+            SELECT creator_key, channel FROM visits_in
+            UNION SELECT creator_key, channel FROM leads_in
+        ), visit_stats AS (
+            SELECT vi.creator_key, vi.channel,
+                -- 방문 visits = 기간 내 visits 행 수 (크리에이터·visits.channel 기준)
+                COUNT(*) AS visits,
+                -- 방문자 visitors = 기간 내 COUNT(DISTINCT visitor_id) (크리에이터·visits.channel 기준)
+                COUNT(DISTINCT vi.visitor_id) AS visitors
+            FROM visits_in vi
+            GROUP BY vi.creator_key, vi.channel
+        ), lead_stats AS (
+            SELECT li.creator_key, li.channel,
+                -- 신청 leads = 기간 내 leads 행 수 (크리에이터·leads.channel 기준, visitor_id가 NULL인 신청도 센다)
+                COUNT(*) AS leads
+            FROM leads_in li
+            GROUP BY li.creator_key, li.channel
+        ), converted_stats AS (
+            SELECT vi.creator_key, vi.channel,
+                -- 전환 방문자 convertedVisitors = 기간 내 방문 기록이 있는 visitor_id 중 기간 내 신청한 visitor_id 수(교집합),
+                -- 같은 캠페인·같은 크리에이터·같은 채널 안에서만 교집합을 구한다
+                COUNT(DISTINCT vi.visitor_id) AS converted
+            FROM visits_in vi
+            WHERE EXISTS (SELECT 1 FROM leads_in li
+                          WHERE li.creator_key = vi.creator_key AND li.channel = vi.channel
+                            AND li.visitor_id = vi.visitor_id)
+            GROUP BY vi.creator_key, vi.channel
         )
         SELECT NULLIF(p.creator_key, 0) AS creator_id, p.channel,
-            -- 방문 visits = 기간 내 visits 행 수 (크리에이터·visits.channel 기준)
-            (SELECT COUNT(*) FROM visits_in vi
-              WHERE vi.creator_key = p.creator_key AND vi.channel = p.channel) AS visits,
-            -- 방문자 visitors = 기간 내 COUNT(DISTINCT visitor_id) (크리에이터·visits.channel 기준)
-            (SELECT COUNT(DISTINCT vi.visitor_id) FROM visits_in vi
-              WHERE vi.creator_key = p.creator_key AND vi.channel = p.channel) AS visitors,
-            -- 신청 leads = 기간 내 leads 행 수 (크리에이터·leads.channel 기준)
-            (SELECT COUNT(*) FROM leads_in li
-              WHERE li.creator_key = p.creator_key AND li.channel = p.channel) AS leads,
-            -- 전환 방문자 convertedVisitors = 기간 내 방문 기록이 있는 visitor_id 중 기간 내 신청한 visitor_id 수(교집합),
-            -- 같은 크리에이터·같은 채널 안에서만 교집합을 구한다
-            (SELECT COUNT(DISTINCT vi.visitor_id) FROM visits_in vi
-              WHERE vi.creator_key = p.creator_key AND vi.channel = p.channel
-                AND EXISTS (SELECT 1 FROM leads_in li
-                            WHERE li.creator_key = vi.creator_key AND li.channel = vi.channel
-                              AND li.visitor_id = vi.visitor_id)) AS converted
+            COALESCE(vs.visits, 0) AS visits,
+            COALESCE(vs.visitors, 0) AS visitors,
+            COALESCE(ls.leads, 0) AS leads,
+            COALESCE(cs.converted, 0) AS converted
         FROM pairs p
+        LEFT JOIN visit_stats vs ON vs.creator_key = p.creator_key AND vs.channel = p.channel
+        LEFT JOIN lead_stats ls ON ls.creator_key = p.creator_key AND ls.channel = p.channel
+        LEFT JOIN converted_stats cs ON cs.creator_key = p.creator_key AND cs.channel = p.channel
         """;
 
     /**

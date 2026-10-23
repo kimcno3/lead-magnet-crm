@@ -85,7 +85,7 @@ export function CreatorStatsTable({ campaignId, period }: { campaignId: number; 
                         {expanded &&
                           row.channels.map((c) => (
                             <tr key={`${key}-${c.channel}`} className="sub-row">
-                              <td>{CHANNEL_LABELS[c.channel]}</td>
+                              <th scope="row">{CHANNEL_LABELS[c.channel]}</th>
                               <td className="num">{formatNumber(c.visits)}</td>
                               <td className="num">{formatNumber(c.visitors)}</td>
                               <td className="num">{formatNumber(c.leads)}</td>

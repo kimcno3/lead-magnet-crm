@@ -227,7 +227,7 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
         </TableWrap>
       </section>
 
-      <section className="panel-block" aria-label="크리에이터별 배포 링크">
+      <section className="panel-block">
         <h3>크리에이터별 배포 링크</h3>
         <CreatorLinks formId={summary.id} closed={status === 'closed'} links={links.data} onCreated={links.reload} />
       </section>

@@ -164,6 +164,28 @@ describe('크리에이터 링크', () => {
     expect(within(row).getByRole('button', { name: '박바다 X 링크 만들기' })).toBeDisabled()
   })
 
+  it('크리에이터 목록을 불러오는 동안 로딩 자리를 보여준다', async () => {
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+      if (url.pathname === '/api/admin/forms/11') return json(form)
+      if (url.pathname === '/api/admin/forms/11/links') return json([igLink])
+      if (url.pathname === '/api/admin/creators') return new Promise<Response>(() => {})
+      return undefined
+    })
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    const loading = await screen.findByText('크리에이터 목록을 불러오는 중')
+    expect(loading.closest('[aria-busy="true"]')).not.toBeNull()
+    expect(loading.closest('[aria-busy="true"]')!.querySelector('.skeleton')).not.toBeNull()
+    expect(screen.queryByRole('combobox', { name: '크리에이터' })).not.toBeInTheDocument()
+  })
+
+  it('크리에이터 링크 영역의 이름은 한 번만 붙는다', async () => {
+    backend([skyIgLink])
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    await screen.findByRole('table', { name: '크리에이터별 배포 링크' })
+    expect(screen.getAllByRole('region', { name: '크리에이터별 배포 링크' })).toHaveLength(1)
+  })
+
   it('등록한 크리에이터가 없으면 크리에이터 메뉴로 안내한다', async () => {
     mockBackend((url) => {
       if (url.pathname === '/api/admin/campaigns/7') return json(campaign)

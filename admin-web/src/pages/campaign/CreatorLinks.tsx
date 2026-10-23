@@ -53,7 +53,15 @@ export function CreatorLinks({ formId, closed, links, onCreated }: CreatorLinksP
   }
 
   if (creators.error) return <ErrorMessage error={creators.error} onRetry={creators.reload} />
-  if (!creators.data) return null
+  if (!creators.data) {
+    // 다른 목록과 같은 로딩 자리: 흐린 막대(skeleton)와 화면 낭독기용 문구
+    return (
+      <div className="toolbar" aria-busy="true">
+        <span className="skeleton" aria-hidden="true" />
+        <span className="visually-hidden">크리에이터 목록을 불러오는 중</span>
+      </div>
+    )
+  }
   if (creators.data.length === 0) {
     return (
       <p className="muted small">

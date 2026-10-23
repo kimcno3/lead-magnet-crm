@@ -247,6 +247,44 @@ class CreatorStatsApiTest {
     }
 
     @Test
+    void 기간_끝은_to_다음날_서울_자정을_포함하지_않는다() {
+        // to=03-11 → [.., 03-12 00:00 KST). 모두 S-instagram.
+        visit(a1, "instagram", sky, V1, "2026-03-11T23:59:59"); // 포함
+        visit(a1, "instagram", sky, V2, "2026-03-12T00:00:00"); // 제외
+        lead(a1, campaign, "instagram", sky, V1, "2026-03-12T00:00:00"); // 제외
+        lead(a1, campaign, "instagram", sky, V2, "2026-03-11T23:00:00"); // 포함, 하지만 V2의 방문은 기간 밖
+
+        // to=03-11: visits 1, visitors {V1}=1, leads {V2}=1, converted 0 (V1의 신청·V2의 방문이 기간 밖)
+        authed().queryParam("to", "2026-03-11").get("/api/admin/campaigns/{id}/stats/creators", campaign).then()
+            .statusCode(200).body("from", nullValue()).body("to", equalTo("2026-03-11"))
+            .body("creators[0].visits", equalTo(1)).body("creators[0].visitors", equalTo(1))
+            .body("creators[0].leads", equalTo(1)).body("creators[0].convertedVisitors", equalTo(0))
+            .body("creators[0].channels[0].visits", equalTo(1)).body("creators[0].channels[0].convertedVisitors", equalTo(0));
+        // 전체 기간: visits 2, visitors 2, leads 2, converted {V1,V2}=2
+        authed().get("/api/admin/campaigns/{id}/stats/creators", campaign).then().statusCode(200)
+            .body("creators[0].visits", equalTo(2)).body("creators[0].leads", equalTo(2))
+            .body("creators[0].convertedVisitors", equalTo(2)).body("creators[0].channels[0].convertedVisitors", equalTo(2));
+    }
+
+    @Test
+    void 같은_채널이어도_다른_크리에이터로_신청하면_채널_행에서도_전환이_아니다() {
+        seedBase();
+        UUID v9 = uuid(9);
+        // V9: S-instagram으로 방문, B-instagram으로 신청(채널은 같고 크리에이터가 다르다)
+        visit(a1, "instagram", sky, v9, "2026-03-10T16:00:00");
+        lead(a1, campaign, "instagram", sea, v9, "2026-03-10T16:30:00");
+
+        // S: visits 5, visitors {V1,V2,V3,V9}=4, leads 2, converted 2 그대로, instagram: visits 3, visitors {V1,V9}=2, converted 1
+        // B: visits 2, visitors 2, leads 3, converted 1 그대로, instagram: leads 3, converted 1
+        authed().get("/api/admin/campaigns/{id}/stats/creators", campaign).then().statusCode(200)
+            .body("creators[0].visitors", equalTo(4)).body("creators[0].convertedVisitors", equalTo(2))
+            .body("creators[0].channels[0].visits", equalTo(3)).body("creators[0].channels[0].visitors", equalTo(2))
+            .body("creators[0].channels[0].convertedVisitors", equalTo(1))
+            .body("creators[1].leads", equalTo(3)).body("creators[1].convertedVisitors", equalTo(1))
+            .body("creators[1].channels[0].leads", equalTo(3)).body("creators[1].channels[0].convertedVisitors", equalTo(1));
+    }
+
+    @Test
     void 데이터가_없으면_링크_있는_크리에이터와_직접_자체_링크_행이_0으로_나온다() {
         authed().get("/api/admin/campaigns/{id}/stats/creators", campaign).then().statusCode(200)
             .body("creators.size()", equalTo(4)).body("creators[3].creator", nullValue())
@@ -300,6 +338,19 @@ class CreatorStatsApiTest {
         // D는 A 캠페인에 링크만 있다 → 0으로 한 행
         authed().get("/api/admin/creators/{id}/stats", yuri).then().statusCode(200)
             .body("campaigns.campaignId", equalTo(List.of(campaign))).body("campaigns[0].visits", equalTo(0));
+    }
+
+    @Test
+    void 크리에이터의_캠페인별_지표도_기간_안의_방문과_신청만_교집합으로_센다() {
+        seedBase();
+
+        // 3/11 하루: S 방문 {#2 V1}=1, 방문자 1, 신청 {L2 V2}=1, 전환 0 (V1의 신청은 3/10, V2의 방문은 3/10)
+        authed().queryParams("from", "2026-03-11", "to", "2026-03-11").get("/api/admin/creators/{id}/stats", sky).then()
+            .statusCode(200).body("from", equalTo("2026-03-11")).body("to", equalTo("2026-03-11"))
+            .body("campaigns.campaignId", equalTo(List.of(campaign)))
+            .body("campaigns[0].visits", equalTo(1)).body("campaigns[0].visitors", equalTo(1))
+            .body("campaigns[0].leads", equalTo(1)).body("campaigns[0].convertedVisitors", equalTo(0))
+            .body("campaigns[0].conversionRate", is(0.0f));
     }
 
     @Test
