@@ -31,8 +31,8 @@
 ### Honeypot
 
 - 이름은 `_lm_trap`이다. 템플릿 필드 이름 규칙(영문자로 시작, ADR 0004)이 밑줄로 시작하는 이름을 허용하지 않으므로 운영자 필드와 절대 겹치지 않는다. 그래서 따로 예약하거나 업로드를 거부할 필요가 없다. (처음 안은 `hp`였으나 "핸드폰" 약어로 실제 필드와 겹치고 자동 완성을 부를 수 있어, 이미 게시된 폼의 실제 신청을 조용히 버릴 위험 때문에 바꿨다.)
-- 래퍼 브리지가 sandbox iframe 안의 업로드 폼에 `<input name="_lm_trap">`을 붙인다. 속성은 `autocomplete="off"`, `tabindex="-1"`, `aria-hidden="true"`이고, 위치·크기·투명도(`position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none`)는 `style.setProperty(..., 'important')`로 인라인 `!important`를 준다. 템플릿 CSS가 일반 선택자(`input { position: static }` 등)로 보이게 만들 수 없다(인라인 `!important`를 이기는 건 작성자 CSS의 `!important`뿐이다).
-- 한계: 업로드 HTML의 스크립트와 CSS는 같은 문서라 이 입력을 볼 수 있다(셀렉터로 지우거나, `!important` 규칙으로 드러내거나, 값을 채울 수 있다). 업로드 HTML은 운영자가 올린 것이라 공격자 모델 밖이고, 템플릿이 실수로 드러내더라도 사람에게 빈 칸 하나가 보일 뿐 채우지 않으면 정상 신청이다. 폼의 모든 입력을 채우는 봇을 거르는 것이 목적이다.
+- 래퍼 브리지가 sandbox iframe 안의 업로드 폼에 `<input name="_lm_trap">`을 붙인다. 속성은 `autocomplete="off"`, `tabindex="-1"`, `aria-hidden="true"`이고, 위치·크기·투명도(`position:absolute; left:-10000px; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none`)는 `style.setProperty(..., 'important')`로 인라인 `!important`를 준다. CSS 캐스케이드에서 인라인 `!important`는 스타일시트의 `!important` 규칙보다 우선하므로 템플릿 CSS만으로는 보이게 만들 수 없다. 스크립트(`style.removeProperty`, `removeAttribute('style')` 등)만 바꿀 수 있다.
+- 한계: 업로드 HTML의 스크립트와 CSS는 같은 문서라 이 입력을 볼 수 있다(스크립트로 지우거나, 인라인 스타일을 걷어 드러내거나, 값을 채울 수 있다). 업로드 HTML은 운영자가 올린 것이라 공격자 모델 밖이고, 템플릿이 실수로 드러내더라도 사람에게 빈 칸 하나가 보일 뿐 채우지 않으면 정상 신청이다. 폼의 모든 입력을 채우는 봇을 거르는 것이 목적이다.
 - 래퍼는 브리지가 보낸 `fields`에서 `_lm_trap`을 꺼내 제출 `fields._lm_trap`에 항상 싣는다(사람이면 `""`).
 - 서버(`LeadSubmissionService`)는 `fields._lm_trap`에 빈 문자열이 아닌 값이 있으면 **201 `{status:"received"}`를 그대로 주되 저장하지 않는다**. 키가 없거나 값이 `""`이면 사람이다(래퍼를 거치지 않은 직접 호출은 토큰이 막는다). 봇에게 차단 사실을 알리지 않는다. 로그에는 `honeypot 제출 무시(저장 안 함): formId=…, 누적=N`만 INFO로 남기고 입력값은 남기지 않는다(봇이 보낸 값도 개인정보일 수 있다).
 - `SubmissionValidator`는 `_lm_trap`을 검증·저장 대상에서 뺀다(`unknown_field`가 아니고 payload에도 넣지 않는다, 필드 개수에도 세지 않는다). `hp`는 보통 필드 이름이다.
@@ -58,7 +58,7 @@
   - 원격 주소(`getRemoteAddr()`)당 분당 10회: `app.public.rate-limit.ip-per-minute`
   - 방문자 쿠키(`lm_vid`, UUID v4일 때만)당 분당 5회: `app.public.rate-limit.visitor-per-minute`. 쿠키가 없거나 형식이 틀리면 IP 한도만 본다.
   - IP 한도를 먼저 보고, 통과하면 방문자 한도를 본다(방문자 한도에 걸린 요청도 IP 토큰 하나를 쓴다).
-- 넘으면 **429 `too_many_requests`** ProblemDetail과 `Retry-After`(공개 응답이라 CSP·nosniff 등 보안 헤더도 붙는다)(다음 토큰까지의 초, 1 이상). `ErrorCode.forStatus(429)`도 이 코드로 묶어 Spring 표준 예외의 429도 같은 type·code가 된다.
+- 넘으면 **429 `too_many_requests`** ProblemDetail과 `Retry-After`(다음 토큰까지의 초, 1 이상). 공개 응답이라 CSP·nosniff 등 보안 헤더도 붙는다. `ErrorCode.forStatus(429)`도 이 코드로 묶어 Spring 표준 예외의 429도 같은 type·code가 된다.
 - **메모리 상한**: 한도별로 키를 최대 `app.public.rate-limit.max-keys`(기본 10,000)개만 기억한다. 접근 순서 `LinkedHashMap`(LRU)으로 가장 오래 안 쓴 키부터 잊는다. 새 의존성(Caffeine 등)은 넣지 않았다(Spring Boot가 버전을 관리하지만 클래스패스에 없고, 필요한 기능이 LRU 하나다). 잊힌 키는 가득 찬 버킷으로 다시 시작하므로, 키를 상한보다 많이 바꿔 가며 보내는 공격은 이 제한만으로 막지 못한다(메모리를 지키는 쪽을 택했다).
 - **X-Forwarded-For를 읽지 않는다**: 클라이언트가 마음대로 넣을 수 있고 신뢰할 프록시 설정이 없다(ADR 0016과 같은 이유). 그래서 리버스 프록시 뒤에 배포하면 모든 요청이 프록시 주소 하나로 보여 **IP 한도가 사실상 서비스 전체 한도**가 된다. 배포할 때 `server.forward-headers-strategy: native`(또는 `framework`)와 Tomcat `RemoteIpValve`의 신뢰 프록시(`server.tomcat.remoteip.internal-proxies`)를 함께 정해 `getRemoteAddr()`가 실제 클라이언트 주소가 되게 한다. 이 코드는 그때도 바꿀 필요가 없다.
 - **서버 인스턴스마다 따로 센다**. 여러 대로 늘리면 한도가 대수만큼 커진다(공유 저장소 기반 제한은 ROADMAP).
