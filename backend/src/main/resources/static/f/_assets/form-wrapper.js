@@ -93,8 +93,14 @@
     }
   }
 
+  // 마지막 </body>(대소문자·닫는 꺾쇠 앞 공백 무관) 앞에 브리지를 넣는다. 없으면 끝에 붙인다.
   function withBridge(html) {
-    var index = html.toLowerCase().lastIndexOf("</body>");
+    var pattern = /<\/body\s*>/gi;
+    var index = -1;
+    var match;
+    while ((match = pattern.exec(html)) !== null) {
+      index = match.index;
+    }
     return index < 0 ? html + BRIDGE : html.slice(0, index) + BRIDGE + html.slice(index);
   }
 

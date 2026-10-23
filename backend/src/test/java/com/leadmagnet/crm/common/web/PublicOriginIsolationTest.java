@@ -21,6 +21,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -187,14 +188,52 @@ class PublicOriginIsolationTest {
     }
 
     @Test
+    void 정규화하면_다른_출처의_경로가_되는_원문_URI는_양쪽_포트에서_핸들러에_닿지_않는다() throws Exception {
+        String slug = "spring-2026";
+        // 원문 경로 → 실제 상태. OriginGuard는 Tomcat이 ;파라미터·..·%2e·//를 정규화한 경로로 판단한다(404).
+        // 가드를 지나도 원문이 정규화되지 않았거나 ;가 있으면 Spring Security 방화벽이 400으로 거부한다.
+        Map<String, Integer> admin = new LinkedHashMap<>();
+        admin.put("/api/admin/x/..;/../f/" + slug, 400); // /api/f/{slug}로 정규화 → 가드 통과 → 방화벽 400
+        admin.put("/api/admin/%2e%2e/%2e%2e/f/" + slug, 404);
+        admin.put("/f;a=b/" + slug, 404);
+        Map<String, Integer> pub = new LinkedHashMap<>();
+        pub.put("/api/admin/auth/me/..;/../../../f/" + slug, 400);
+        pub.put("//api/admin/auth/me", 404);
+        pub.put("/f;a=b/" + slug, 400);
+
+        HttpClient client = HttpClient.newHttpClient();
+        Map<String, Integer> actual = new LinkedHashMap<>();
+        Map<String, Integer> expected = new LinkedHashMap<>();
+        for (Map.Entry<Integer, Map<String, Integer>> port : Map.of(adminPort, admin, publicPort.get(), pub).entrySet()) {
+            String name = port.getKey() == adminPort ? "admin " : "public ";
+            for (Map.Entry<String, Integer> path : port.getValue().entrySet()) {
+                HttpRequest request = HttpRequest.newBuilder(
+                        URI.create("http://localhost:" + port.getKey() + path.getKey()))
+                    .header("Authorization", "Bearer " + token).GET().build();
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                actual.put(name + path.getKey(), response.statusCode());
+                expected.put(name + path.getKey(), path.getValue());
+                assertThat(response.body()).as(name + path.getKey())
+                    .doesNotContain("operatorId").doesNotContain("lm-frame");
+            }
+        }
+        assertThat(actual).isEqualTo(expected);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM visits", Integer.class)).isZero();
+    }
+
+    @Test
     void public_포트의_공개_응답에는_보안_헤더가_모두_붙는다() {
+        int closed = AdminFixtures.createPublishedForm(token, "closed-form");
+        AdminFixtures.changeStatus(token, closed, "closed");
         List<Response> responses = List.of(
             PublicOrigin.given(publicPort).get("/f/spring-2026"),
             PublicOrigin.given(publicPort).get("/f/no-such-form"),
             PublicOrigin.given(publicPort).get("/f/_assets/form-wrapper.js"),
             PublicOrigin.given(publicPort).get("/api/public/forms/spring-2026"),
             PublicOrigin.given(publicPort).get("/l/{code}", code),
-            PublicOrigin.given(publicPort).get("/api/admin/auth/me"));
+            PublicOrigin.given(publicPort).get("/api/admin/auth/me"),
+            PublicOrigin.given(publicPort).get("/f/closed-form"));
+        responses.get(responses.size() - 1).then().statusCode(410);
         for (Response response : responses) {
             response.then()
                 .header("Content-Security-Policy", equalTo(CSP))

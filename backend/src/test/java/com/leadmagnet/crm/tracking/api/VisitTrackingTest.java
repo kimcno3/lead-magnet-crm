@@ -94,6 +94,14 @@ class VisitTrackingTest {
     }
 
     @Test
+    void HEAD_요청은_방문을_기록하지_않는다() {
+        PublicOrigin.given(publicPort).head("/f/spring-2026").then().statusCode(200);
+        assertThat(visits()).isEmpty();
+        PublicOrigin.given(publicPort).get("/f/spring-2026").then().statusCode(200);
+        assertThat(visits()).hasSize(1);
+    }
+
+    @Test
     void 쿠키가_없으면_lm_vid를_발급한다() {
         Response response = PublicOrigin.given(publicPort).get("/f/spring-2026");
         String header = lmVidHeader(response);

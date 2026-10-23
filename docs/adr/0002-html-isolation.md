@@ -33,7 +33,7 @@ X-Frame-Options: DENY
 - `srcdoc` 문서는 부모 문서의 CSP를 상속한다. 업로드 HTML의 인라인 스크립트·스타일과 브리지 스크립트가 돌려면 `'unsafe-inline'`이 필요하다. 셸 페이지에는 서버가 신뢰할 수 없는 값을 섞지 않으므로(모든 동적 값은 JS의 `textContent`·`srcdoc` 속성으로만 들어간다) 셸 자체에 대한 인라인 주입 경로가 없다.
 - `connect-src 'self'`로 fetch·XHR·WebSocket·beacon의 외부 전송을, `form-action 'none'`으로 네이티브 폼 제출을 막는다. 업로드 HTML이 외부로 입력을 보내려 해도 브라우저가 차단한다. 이미지·폰트·스타일은 AI가 만든 HTML이 CDN을 쓰는 경우가 많아 `https:`를 허용한다.
 - `frame-ancestors 'none'`과 `X-Frame-Options: DENY`로 공개 폼을 다른 사이트에 끼워 넣지 못하게 한다(클릭재킹). `base-uri 'none'`으로 `<base>` 주입을 막는다.
-- 헤더는 서블릿 필터(`PublicSecurityHeadersFilter`)가 붙여 래퍼 셸, 정적 스크립트, 공개 API, 404·410 안내 페이지, OriginGuard의 404까지 모두 덮는다.
+- 헤더는 서블릿 필터(`PublicSecurityHeadersFilter`)가 붙여 래퍼 셸, 정적 스크립트, 공개 API, 404·410 안내 페이지, OriginGuard의 404까지 모두 덮는다. 예외로, 인코딩된 `/`(`%2F`)처럼 Tomcat 커넥터가 애플리케이션 필터에 넘기기 전에 거부하는 400 응답에는 CSP가 없다. 이 응답은 본문이 Tomcat 기본 오류 페이지뿐이고 업로드 HTML이나 래퍼 스크립트를 담지 않아 막을 실행 컨텍스트가 없으므로 받아들인다.
 
 **스크립트를 지우지 않는다**
 - 업로드 시 스크립트를 제거하거나 HTML을 소독하지 않는다. 격리는 브라우저의 출처 경계(sandbox)와 CSP가 맡는다. 소독은 우회 사례가 계속 나오는 블랙리스트 방식이고, 스크립트에 기대는 AI 생성 폼을 깨뜨린다.

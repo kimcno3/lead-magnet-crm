@@ -14,9 +14,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 공개 폼 페이지 (ADR 0002). 응답은 동적 값이 없는 고정 셸이고, 폼 내용은 래퍼 스크립트가 공개 API로 받아
- * 샌드박스 iframe에 넣는다. 200 응답마다 방문 한 행을 남긴다(ADR 0006). 브라우저 페이지라 404·410도 HTML 안내로 답한다.
+ * 샌드박스 iframe에 넣는다. GET 200 응답마다 방문 한 행을 남긴다(ADR 0006). 브라우저 페이지라 404·410도 HTML 안내로 답한다.
  */
 @Tag(name = "공개 폼", description = "public 출처(:8081) 전용. 래퍼 스크립트가 호출한다 (ADR 0002)")
 @RestController
@@ -51,16 +51,26 @@ public class PublicFormPageController {
     @GetMapping("/f/{slug}")
     public ResponseEntity<String> page(@PathVariable String slug, @RequestParam(name = "lm", required = false) String lm,
             HttpServletRequest request, HttpServletResponse response) {
-        Form form = publicForms.getOpen(slug);
+        Form form;
+        try {
+            form = publicForms.getOpen(slug);
+        } catch (DomainException e) {
+            // 브라우저 페이지라 404·410만 HTML 안내로 답한다. 그 밖의 오류는 전역 ProblemDetail 처리로 넘긴다.
+            if (e.getErrorCode() == ErrorCode.NOT_FOUND || e.getErrorCode() == ErrorCode.GONE) {
+                return notice(e.getErrorCode());
+            }
+            throw e;
+        }
         UUID visitorId = visitorCookie.resolve(request, response);
-        visits.record(form.getId(), lm, visitorId, request.getHeader(HttpHeaders.REFERER),
-            request.getHeader(HttpHeaders.USER_AGENT));
+        // 방문은 페이지 로드(GET)만 센다. Spring이 GET 핸들러로 받는 HEAD는 기록하지 않는다.
+        if (HttpMethod.GET.matches(request.getMethod())) {
+            visits.record(form.getId(), lm, visitorId, request.getHeader(HttpHeaders.REFERER),
+                request.getHeader(HttpHeaders.USER_AGENT));
+        }
         return ResponseEntity.ok().contentType(HTML).body(WrapperPages.SHELL);
     }
 
-    @ExceptionHandler(DomainException.class)
-    ResponseEntity<String> notice(DomainException e) {
-        ErrorCode code = e.getErrorCode();
+    private static ResponseEntity<String> notice(ErrorCode code) {
         String body = code == ErrorCode.GONE ? WrapperPages.GONE : WrapperPages.NOT_FOUND;
         return ResponseEntity.status(code.status()).contentType(HTML).body(body);
     }
