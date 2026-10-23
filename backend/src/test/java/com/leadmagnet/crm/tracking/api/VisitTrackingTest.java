@@ -12,6 +12,7 @@ import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.PublicOrigin;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -51,7 +52,7 @@ class VisitTrackingTest {
     void setUp() {
         RestAssured.port = adminPort;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery")));
+        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery"), Instant.now()));
         token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
         formId = AdminFixtures.createPublishedForm(token, "spring-2026");
         otherFormId = AdminFixtures.createPublishedForm(token, "autumn-2026");

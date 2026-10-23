@@ -13,6 +13,7 @@ import com.leadmagnet.crm.support.IntegrationTest;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,7 @@ class LinkCodeCollisionTest {
     void setUp() {
         RestAssured.port = port;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery")));
+        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery"), Instant.now()));
         token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
         int campaign = authed().body(Map.of("name", "c")).post("/api/admin/campaigns").then().extract().path("id");
         int template = given().auth().oauth2(token)

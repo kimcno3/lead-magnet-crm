@@ -20,6 +20,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,7 +84,7 @@ class LeadSubmissionApiTest {
     void setUp() {
         RestAssured.port = adminPort;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery")));
+        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery"), Instant.now()));
         token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
         formId = AdminFixtures.createPublishedForm(token, "spring-2026", HTML);
     }

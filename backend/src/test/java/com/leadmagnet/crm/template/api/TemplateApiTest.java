@@ -17,6 +17,7 @@ import io.restassured.builder.MultiPartSpecBuilder;
 import io.restassured.response.ValidatableResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.HexFormat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,7 @@ class TemplateApiTest {
     void setUp() {
         RestAssured.port = port;
         DatabaseCleaner.truncateAll(jdbc);
-        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD))).getId();
+        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD), Instant.now())).getId();
         token = AdminLogin.accessToken(EMAIL, PASSWORD);
     }
 

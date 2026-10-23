@@ -19,6 +19,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +64,7 @@ class LinkApiTest {
     void setUp() {
         RestAssured.port = port;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD)));
+        operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD), Instant.now()));
         token = AdminLogin.accessToken(EMAIL, PASSWORD);
         int campaign = authed().body(Map.of("name", "캠페인")).post("/api/admin/campaigns")
             .then().statusCode(201).extract().path("id");

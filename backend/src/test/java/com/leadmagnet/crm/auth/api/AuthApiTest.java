@@ -16,6 +16,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -63,7 +64,7 @@ class AuthApiTest {
     void setUp() {
         RestAssured.port = port;
         DatabaseCleaner.truncateAll(jdbc);
-        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD))).getId();
+        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD), Instant.now())).getId();
     }
 
     @Test

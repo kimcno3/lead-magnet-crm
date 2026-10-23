@@ -18,6 +18,7 @@ import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import io.restassured.specification.RequestSpecification;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +60,7 @@ class CampaignFormApiTest {
     void setUp() {
         RestAssured.port = port;
         DatabaseCleaner.truncateAll(jdbc);
-        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD))).getId();
+        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD), Instant.now())).getId();
         token = AdminLogin.accessToken(EMAIL, PASSWORD);
     }
 

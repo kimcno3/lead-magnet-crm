@@ -18,6 +18,7 @@ import com.leadmagnet.crm.support.PublicOrigin;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
+import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,7 @@ class LeadListApiTest {
     void setUp() {
         RestAssured.port = adminPort;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery")));
+        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery"), Instant.now()));
         token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
         campaign = AdminFixtures.createCampaign(token, "봄 캠페인");
         formA = AdminFixtures.createPublishedFormIn(token, campaign, "form-a", AdminFixtures.FORM_HTML);

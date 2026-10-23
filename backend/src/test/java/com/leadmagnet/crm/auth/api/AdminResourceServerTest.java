@@ -49,7 +49,7 @@ class AdminResourceServerTest {
     void setUp() {
         RestAssured.port = port;
         DatabaseCleaner.truncateAll(jdbc);
-        operatorId = operators.save(new Operator("owner@example.com", "{noop}unused")).getId();
+        operatorId = operators.save(new Operator("owner@example.com", "{noop}unused", Instant.now())).getId();
     }
 
     @Test

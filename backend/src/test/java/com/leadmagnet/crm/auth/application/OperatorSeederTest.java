@@ -9,6 +9,9 @@ import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +50,15 @@ class OperatorSeederTest {
         Operator saved = operators.findByEmail("owner@example.com").orElseThrow();
         assertThat(saved.getPasswordHash()).startsWith("{bcrypt}").doesNotContain(PASSWORD);
         assertThat(passwordEncoder.matches(PASSWORD, saved.getPasswordHash())).isTrue();
+    }
+
+    @Test
+    void 생성_시각은_주입한_Clock에서_얻는다() {
+        Instant fixed = Instant.parse("2026-01-02T03:04:05Z");
+
+        seeder(EMAIL, PASSWORD, Clock.fixed(fixed, ZoneOffset.UTC)).seed();
+
+        assertThat(operators.findByEmail("owner@example.com").orElseThrow().getCreatedAt()).isEqualTo(fixed);
     }
 
     @Test
@@ -104,6 +116,10 @@ class OperatorSeederTest {
     }
 
     private OperatorSeeder seeder(String email, String password) {
-        return new OperatorSeeder(new OperatorSeedProperties(email, password), operators, passwordEncoder);
+        return seeder(email, password, Clock.systemUTC());
+    }
+
+    private OperatorSeeder seeder(String email, String password, Clock clock) {
+        return new OperatorSeeder(new OperatorSeedProperties(email, password), operators, passwordEncoder, clock);
     }
 }

@@ -14,6 +14,7 @@ import com.leadmagnet.crm.support.DatabaseCleaner;
 import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.PublicOrigin;
 import io.restassured.RestAssured;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,7 +50,7 @@ class PublicFormApiTest {
     void setUp() {
         RestAssured.port = adminPort;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery")));
+        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery"), Instant.now()));
         token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
     }
 
