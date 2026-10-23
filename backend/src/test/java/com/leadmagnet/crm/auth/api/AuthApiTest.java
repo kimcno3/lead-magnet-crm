@@ -118,7 +118,9 @@ class AuthApiTest {
             .body("code", equalTo("validation_failed"))
             .body("type", equalTo("https://leadmagnet.example/problems/validation_failed"))
             .body("errors.field", hasItem("email"))
-            .body("errors.field", hasItem("password"));
+            .body("errors.field", hasItem("password"))
+            .body("errors.find { it.field == 'password' }.code", equalTo("not_blank"))
+            .body("errors.find { it.field == 'email' }.code", equalTo("email"));
     }
 
     @Test

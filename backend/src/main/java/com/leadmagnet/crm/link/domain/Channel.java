@@ -2,8 +2,8 @@ package com.leadmagnet.crm.link.domain;
 
 import com.leadmagnet.crm.common.error.DomainException;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 /**
  * 배포 링크를 만들 수 있는 채널. 선언 순서가 목록 정렬 순서다.
@@ -29,7 +29,7 @@ public enum Channel {
     /** 요청값 파싱. 비어 있거나 모르는 값이거나 direct면 422. */
     public static Channel parse(String value) {
         if (value == null || value.isBlank()) {
-            throw DomainException.validation("channel", "channel이 필요합니다");
+            throw DomainException.validation("channel", "channel이 필요합니다", "required");
         }
         String normalized = value.trim();
         for (Channel c : values()) {
@@ -37,8 +37,10 @@ public enum Channel {
                 return c;
             }
         }
-        List<String> allowed = Arrays.stream(values()).map(Channel::value).toList();
+        // 신청 명단의 channel 필터(LeadQueryService)와 같은 모양: {field: channel, code: invalid_value}
+        String allowed = Arrays.stream(values()).map(Channel::value).collect(Collectors.joining(", "));
         String reason = "direct".equals(normalized) ? "direct는 링크로 만들 수 없습니다. " : "";
-        throw DomainException.validation("channel", reason + "channel은 " + allowed + " 중 하나여야 합니다");
+        throw DomainException.validation("channel", reason + "channel은 " + allowed + " 중 하나여야 합니다",
+            DomainException.DEFAULT_FIELD_CODE);
     }
 }

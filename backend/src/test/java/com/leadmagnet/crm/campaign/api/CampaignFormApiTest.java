@@ -88,7 +88,8 @@ class CampaignFormApiTest {
     void 캠페인_입력이_잘못되면_422이다() {
         authed().body(Map.of("name", "")).post("/api/admin/campaigns")
             .then().statusCode(422).body("code", equalTo("validation_failed"))
-            .body("errors[0].field", equalTo("name"));
+            .body("errors[0].field", equalTo("name"))
+            .body("errors[0].code", equalTo("invalid_value"));
         authed().body(Map.of("name", "a".repeat(101))).post("/api/admin/campaigns").then().statusCode(422);
         authed().body(Map.of("name", "c", "description", "a".repeat(2001))).post("/api/admin/campaigns")
             .then().statusCode(422);

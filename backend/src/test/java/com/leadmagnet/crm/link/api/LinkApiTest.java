@@ -137,6 +137,18 @@ class LinkApiTest {
     }
 
     @Test
+    void 모르는_채널은_신청_명단_필터와_같은_모양의_invalid_value_오류다() {
+        authed().body(Map.of("channel", "facebook")).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(422).body("code", equalTo("validation_failed"))
+            .body("errors", hasSize(1))
+            .body("errors[0].field", equalTo("channel"))
+            .body("errors[0].code", equalTo("invalid_value"))
+            .body("errors[0].message", equalTo("channel은 instagram, x, youtube, threads 중 하나여야 합니다"));
+        authed().body(Map.of("channel", " ")).post("/api/admin/forms/{id}/links", formId)
+            .then().statusCode(422).body("errors[0].code", equalTo("required"));
+    }
+
+    @Test
     void 없는_폼은_404다() {
         authed().body(Map.of("channel", "x")).post("/api/admin/forms/{id}/links", 9999).then().statusCode(404);
         authed().get("/api/admin/forms/{id}/links", 9999).then().statusCode(404);

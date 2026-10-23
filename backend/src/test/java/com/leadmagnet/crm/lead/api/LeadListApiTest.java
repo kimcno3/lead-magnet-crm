@@ -171,7 +171,9 @@ class LeadListApiTest {
     @Test
     void 잘못된_channel은_422다() {
         authed().queryParam("channel", "facebook").get("/api/admin/campaigns/{id}/leads", campaign).then()
-            .statusCode(422).body("errors.field", hasItem("channel"));
+            .statusCode(422).body("errors.field", hasItem("channel"))
+            .body("errors[0].code", equalTo("invalid_value"))
+            .body("errors[0].message", equalTo("channel은 instagram, x, youtube, threads, direct 중 하나여야 합니다"));
         authed().queryParam("channel", "INSTAGRAM").get("/api/admin/campaigns/{id}/leads", campaign).then()
             .statusCode(422);
     }
