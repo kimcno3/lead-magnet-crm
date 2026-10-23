@@ -89,7 +89,8 @@ class ProblemDetailContractTest {
             .when().get("/api/admin/__test/errors/positive")
             .then().statusCode(422).contentType(PROBLEM_JSON)
             .body("code", equalTo("validation_failed"))
-            .body("errors.field", hasItem("value"));
+            .body("errors.field", hasItem("value"))
+            .body("errors[0].code", equalTo("positive"));
     }
 
     @Test

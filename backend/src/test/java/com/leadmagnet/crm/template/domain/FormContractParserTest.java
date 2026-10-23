@@ -90,6 +90,26 @@ class FormContractParserTest {
     }
 
     @Test
+    void value가_없는_radio와_checkbox는_브라우저_기본값_on을_options로_쓴다() {
+        List<FormField> fields = FormContractParser.parse(page("""
+            <input name="email">
+            <input type="checkbox" name="agree" required>
+            <input type="radio" name="yes">
+            <input type="checkbox" name="mixed" value="a"><input type="checkbox" name="mixed">
+            <input type="checkbox" name="twice"><input type="checkbox" name="twice">
+            """));
+
+        assertThat(fields.get(1)).satisfies(f -> {
+            assertThat(f.type()).isEqualTo("checkbox");
+            assertThat(f.required()).isTrue();
+            assertThat(f.options()).containsExactly("on");
+        });
+        assertThat(fields.get(2).options()).containsExactly("on");
+        assertThat(fields.get(3).options()).containsExactly("a", "on");
+        assertThat(fields.get(4).options()).containsExactly("on");
+    }
+
+    @Test
     void radio와_checkbox가_아닌데_이름이_겹치면_거부한다() {
         assertRejected(page("<input name=\"email\"><input name=\"x\"><input name=\"x\">"), ErrorCode.TEMPLATE_FIELD_INVALID);
         assertRejected(page("<input name=\"email\"><input type=\"radio\" name=\"x\" value=\"1\"><input type=\"checkbox\" name=\"x\" value=\"2\">"),
@@ -134,6 +154,16 @@ class FormContractParserTest {
     @Test
     void phone과_email이_모두_없으면_거부한다() {
         assertRejected(page("<input name=\"name\"><input name=\"company\">"), ErrorCode.TEMPLATE_CONTACT_FIELD_MISSING);
+    }
+
+    @Test
+    void phone이나_email이_선택지_타입뿐이면_연락처_필드가_없는_것으로_보고_거부한다() {
+        assertRejected(page("<select name=\"email\"><option>a@b.co</option></select>"),
+            ErrorCode.TEMPLATE_CONTACT_FIELD_MISSING);
+        assertRejected(page("<input type=\"radio\" name=\"phone\" value=\"01012345678\">"
+            + "<input type=\"checkbox\" name=\"email\" value=\"y\">"), ErrorCode.TEMPLATE_CONTACT_FIELD_MISSING);
+        assertThat(FormContractParser.parse(page("<input type=\"checkbox\" name=\"phone\" value=\"y\">"
+            + "<input type=\"email\" name=\"email\">"))).hasSize(2);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.leadmagnet.crm.lead.domain;
 
+import com.leadmagnet.crm.common.TextInput;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.DomainException.FieldError;
 import com.leadmagnet.crm.template.domain.FormContractParser;
@@ -110,7 +111,7 @@ public final class SubmissionValidator {
     }
 
     /**
-     * 타입(문자열/배열)과 길이를 확인하고 공백을 정리한다. 비어 있으면 null, 오류가 있으면 errors에 담고 null.
+     * 타입(문자열/배열), 제어 문자(NUL 등, 공백 정리 전 원문 기준), 길이를 확인하고 공백을 정리한다. 비어 있으면 null, 오류가 있으면 errors에 담고 null.
      * 배열은 checkbox에만 허용하며, 빈 항목은 버린다.
      */
     private static Object clean(FormField field, Object raw, List<FieldError> errors) {
@@ -118,6 +119,10 @@ public final class SubmissionValidator {
             return null;
         }
         if (raw instanceof String text) {
+            if (TextInput.containsForbiddenControl(text)) {
+                errors.add(controlCharError(field));
+                return null;
+            }
             String trimmed = text.trim();
             if (trimmed.length() > MAX_VALUE_LENGTH) {
                 errors.add(error(field, "값은 " + MAX_VALUE_LENGTH + "자 이하여야 합니다", "too_long"));
@@ -134,6 +139,10 @@ public final class SubmissionValidator {
             for (Object item : items) {
                 if (!(item instanceof String text)) {
                     errors.add(error(field, "문자열 목록이어야 합니다", "invalid_value"));
+                    return null;
+                }
+                if (TextInput.containsForbiddenControl(text)) {
+                    errors.add(controlCharError(field));
                     return null;
                 }
                 String trimmed = text.trim();
@@ -207,6 +216,10 @@ public final class SubmissionValidator {
 
     private static boolean isContact(FormField field) {
         return isPhone(field) || isEmail(field);
+    }
+
+    private static FieldError controlCharError(FormField field) {
+        return error(field, "제어 문자는 입력할 수 없습니다", "invalid_value");
     }
 
     private static FieldError error(FormField field, String message, String code) {

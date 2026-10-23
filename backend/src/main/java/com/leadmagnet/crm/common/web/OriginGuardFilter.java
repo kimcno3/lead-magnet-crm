@@ -1,6 +1,5 @@
 package com.leadmagnet.crm.common.web;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.common.error.ProblemDetails;
 import jakarta.servlet.FilterChain;
@@ -8,9 +7,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.net.URI;
-import org.springframework.http.MediaType;
-import org.springframework.http.ProblemDetail;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -24,11 +20,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class OriginGuardFilter extends OncePerRequestFilter {
 
     private final PublicPort publicPort;
-    private final ObjectMapper objectMapper;
 
-    public OriginGuardFilter(PublicPort publicPort, ObjectMapper objectMapper) {
+    public OriginGuardFilter(PublicPort publicPort) {
         this.publicPort = publicPort;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -36,21 +30,9 @@ public class OriginGuardFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         boolean onPublicPort = publicPort.matches(request.getLocalPort());
         if (onPublicPort != PublicPaths.matches(request)) {
-            notFound(request, response);
+            ProblemDetails.write(request, response, ErrorCode.NOT_FOUND);
             return;
         }
         chain.doFilter(request, response);
-    }
-
-    private void notFound(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        ProblemDetail problem = ProblemDetails.of(ErrorCode.NOT_FOUND);
-        try {
-            problem.setInstance(URI.create(request.getRequestURI()));
-        } catch (IllegalArgumentException ignored) {
-            // URI로 옮길 수 없는 원문 경로는 instance를 비워 둔다.
-        }
-        response.setStatus(ErrorCode.NOT_FOUND.status().value());
-        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        objectMapper.writeValue(response.getOutputStream(), problem);
     }
 }

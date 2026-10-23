@@ -21,6 +21,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +40,7 @@ class PublicOriginIsolationTest {
     static final String PASSWORD = "correct-horse-battery";
     static final String PROBLEM_JSON = "application/problem+json";
     static final String CSP = "default-src 'none'; script-src 'self' 'unsafe-inline'; "
-        + "style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' data: https:; "
+        + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; "
         + "connect-src 'self'; frame-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
 
     @LocalServerPort
@@ -65,7 +66,7 @@ class PublicOriginIsolationTest {
     void setUp() {
         RestAssured.port = adminPort;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD)));
+        operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD), Instant.now()));
         token = AdminLogin.accessToken(EMAIL, PASSWORD);
         formId = AdminFixtures.createPublishedForm(token, "spring-2026");
         code = AdminFixtures.createLink(token, formId, "x");

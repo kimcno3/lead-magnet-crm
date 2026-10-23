@@ -26,34 +26,55 @@ class StatsQuery {
     }
 
     /**
-     * 캠페인별 지표. 캠페인은 데이터가 없어도 포함하고 최신순(created_at desc, id desc)이다.
-     * :campaignId가 null이면 전체 캠페인.
+     * 캠페인별 지표. 캠페인은 데이터가 없어도 포함하고(LEFT JOIN, 없으면 0) 최신순(created_at desc, id desc)이다.
+     * :campaignId가 null이면 전체 캠페인, 아니면 그 캠페인만 읽도록 방문·신청 CTE에서부터 거른다.
+     * 방문·신청·전환은 campaign_id로 한 번씩 묶어 집계한 뒤 campaigns에 붙인다(캠페인마다 다시 훑지 않는다).
      */
     private static final String BY_CAMPAIGN = """
         WITH visits_in AS (
             SELECT f.campaign_id, v.visitor_id
             FROM visits v JOIN forms f ON f.id = v.form_id
-            WHERE (CAST(:from AS timestamptz) IS NULL OR v.occurred_at >= :from)
+            WHERE (CAST(:campaignId AS bigint) IS NULL OR f.campaign_id = :campaignId)
+              AND (CAST(:from AS timestamptz) IS NULL OR v.occurred_at >= :from)
               AND (CAST(:to AS timestamptz) IS NULL OR v.occurred_at < :to)
         ), leads_in AS (
             SELECT l.campaign_id, l.visitor_id
             FROM leads l
-            WHERE (CAST(:from AS timestamptz) IS NULL OR l.created_at >= :from)
+            WHERE (CAST(:campaignId AS bigint) IS NULL OR l.campaign_id = :campaignId)
+              AND (CAST(:from AS timestamptz) IS NULL OR l.created_at >= :from)
               AND (CAST(:to AS timestamptz) IS NULL OR l.created_at < :to)
+        ), visit_stats AS (
+            SELECT vi.campaign_id,
+                -- 방문 visits = 기간 내 visits 행 수
+                COUNT(*) AS visits,
+                -- 방문자 visitors = 기간 내 COUNT(DISTINCT visitor_id)
+                COUNT(DISTINCT vi.visitor_id) AS visitors
+            FROM visits_in vi
+            GROUP BY vi.campaign_id
+        ), lead_stats AS (
+            SELECT li.campaign_id,
+                -- 신청 leads = 기간 내 leads 행 수 (visitor_id가 NULL인 신청도 센다)
+                COUNT(*) AS leads
+            FROM leads_in li
+            GROUP BY li.campaign_id
+        ), converted_stats AS (
+            SELECT vi.campaign_id,
+                -- 전환 방문자 convertedVisitors = 기간 내 방문 기록이 있는 visitor_id 중 기간 내 신청한 visitor_id 수(교집합)
+                COUNT(DISTINCT vi.visitor_id) AS converted
+            FROM visits_in vi
+            WHERE EXISTS (SELECT 1 FROM leads_in li
+                          WHERE li.campaign_id = vi.campaign_id AND li.visitor_id = vi.visitor_id)
+            GROUP BY vi.campaign_id
         )
         SELECT c.id, c.name, c.status,
-            -- 방문 visits = 기간 내 visits 행 수
-            (SELECT COUNT(*) FROM visits_in vi WHERE vi.campaign_id = c.id) AS visits,
-            -- 방문자 visitors = 기간 내 COUNT(DISTINCT visitor_id)
-            (SELECT COUNT(DISTINCT vi.visitor_id) FROM visits_in vi WHERE vi.campaign_id = c.id) AS visitors,
-            -- 신청 leads = 기간 내 leads 행 수 (visitor_id가 NULL인 신청도 센다)
-            (SELECT COUNT(*) FROM leads_in li WHERE li.campaign_id = c.id) AS leads,
-            -- 전환 방문자 convertedVisitors = 기간 내 방문 기록이 있는 visitor_id 중 기간 내 신청한 visitor_id 수(교집합)
-            (SELECT COUNT(DISTINCT vi.visitor_id) FROM visits_in vi
-              WHERE vi.campaign_id = c.id
-                AND EXISTS (SELECT 1 FROM leads_in li
-                            WHERE li.campaign_id = vi.campaign_id AND li.visitor_id = vi.visitor_id)) AS converted
+            COALESCE(vs.visits, 0) AS visits,
+            COALESCE(vs.visitors, 0) AS visitors,
+            COALESCE(ls.leads, 0) AS leads,
+            COALESCE(cs.converted, 0) AS converted
         FROM campaigns c
+        LEFT JOIN visit_stats vs ON vs.campaign_id = c.id
+        LEFT JOIN lead_stats ls ON ls.campaign_id = c.id
+        LEFT JOIN converted_stats cs ON cs.campaign_id = c.id
         WHERE CAST(:campaignId AS bigint) IS NULL OR c.id = :campaignId
         ORDER BY c.created_at DESC, c.id DESC
         """;

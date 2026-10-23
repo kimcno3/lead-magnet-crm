@@ -1,11 +1,19 @@
 package com.leadmagnet.crm.form.api;
 
+import com.leadmagnet.crm.common.error.ErrorCode;
+import java.nio.charset.StandardCharsets;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+
 /**
  * 공개 폼 페이지의 고정 HTML. 서버가 어떤 값도 끼워 넣지 않는다(템플릿 엔진 없음). 슬러그는 스크립트가
  * location.pathname에서 읽고, 제목·동의 문구·업로드 HTML은 textContent와 iframe srcdoc으로만 들어간다 (ADR 0002).
  * 업로드 HTML은 sandbox="allow-scripts allow-forms" iframe에서만 돈다. allow-same-origin은 금지다.
+ * 404·410 안내 페이지는 브라우저가 여는 공개 경로(/f/{slug}, /l/{code})가 함께 쓴다.
  */
-final class WrapperPages {
+public final class WrapperPages {
+
+    static final MediaType HTML = new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8);
 
     private static final String STYLE = """
         <style>
@@ -66,6 +74,12 @@ final class WrapperPages {
     static final String GONE = notice("마감된 신청입니다", "신청 기간이 끝났습니다. 관심 가져 주셔서 감사합니다.");
 
     private WrapperPages() {
+    }
+
+    /** 브라우저 페이지용 404·410 HTML 안내. GONE이면 마감 안내, 그 밖에는 찾을 수 없음 안내이고 상태는 code를 따른다. */
+    public static ResponseEntity<String> notice(ErrorCode code) {
+        String body = code == ErrorCode.GONE ? GONE : NOT_FOUND;
+        return ResponseEntity.status(code.status()).contentType(HTML).body(body);
     }
 
     private static String notice(String heading, String message) {

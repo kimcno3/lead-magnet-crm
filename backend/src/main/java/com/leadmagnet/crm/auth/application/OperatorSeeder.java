@@ -4,6 +4,7 @@ import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.common.PiiMasker;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -27,12 +28,14 @@ public class OperatorSeeder implements ApplicationRunner {
     private final OperatorSeedProperties properties;
     private final OperatorRepository operators;
     private final PasswordEncoder passwordEncoder;
+    private final Clock clock;
 
     public OperatorSeeder(OperatorSeedProperties properties, OperatorRepository operators,
-                          PasswordEncoder passwordEncoder) {
+                          PasswordEncoder passwordEncoder, Clock clock) {
         this.properties = properties;
         this.operators = operators;
         this.passwordEncoder = passwordEncoder;
+        this.clock = clock;
     }
 
     @Override
@@ -53,7 +56,7 @@ public class OperatorSeeder implements ApplicationRunner {
             log.info("운영자 {} 가 이미 있어 시드를 건너뜀", PiiMasker.maskEmail(email));
             return SeedResult.ALREADY_EXISTS;
         }
-        operators.save(new Operator(email, passwordEncoder.encode(properties.password())));
+        operators.save(new Operator(email, passwordEncoder.encode(properties.password()), clock.instant()));
         log.info("운영자 {} 를 시드로 생성", PiiMasker.maskEmail(email));
         return SeedResult.CREATED;
     }

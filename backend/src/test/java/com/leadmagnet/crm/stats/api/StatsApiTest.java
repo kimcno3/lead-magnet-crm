@@ -16,6 +16,7 @@ import com.leadmagnet.crm.support.IntegrationTest;
 import io.restassured.RestAssured;
 import io.restassured.specification.RequestSpecification;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -82,7 +83,7 @@ class StatsApiTest {
         RestAssured.port = adminPort;
         DatabaseCleaner.truncateAll(jdbc);
         phoneSeq = 0;
-        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery")));
+        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery"), Instant.now()));
         token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
         campaign = AdminFixtures.createCampaign(token, "A 캠페인");
         a1 = AdminFixtures.createPublishedFormIn(token, campaign, "form-a1", AdminFixtures.FORM_HTML);

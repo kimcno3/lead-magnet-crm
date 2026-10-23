@@ -24,6 +24,8 @@ class ChannelTest {
                 .isInstanceOfSatisfying(DomainException.class, e -> {
                     assertThat(e.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_FAILED);
                     assertThat(e.getErrors()).extracting(DomainException.FieldError::field).containsExactly("channel");
+                    assertThat(e.getErrors()).extracting(DomainException.FieldError::code)
+                        .containsExactly(bad == null || bad.isBlank() ? "required" : "invalid_value");
                 });
         }
     }

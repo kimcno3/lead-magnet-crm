@@ -137,6 +137,22 @@ class SubmissionValidatorTest {
     }
 
     @Test
+    void NUL이나_C0_제어_문자가_있는_값은_invalid_value다() {
+        assertError(errorsOf(CONFIG, valid("name", "홍\u0000길동"), true), "name", "invalid_value");
+        assertError(errorsOf(CONFIG, valid("email", "a\u0000@b.co"), true), "email", "invalid_value");
+        assertError(errorsOf(CONFIG, valid("phone", "010\u00011234\u00025678"), true), "phone", "invalid_value");
+        assertError(errorsOf(CONFIG, valid("memo", "메모\u001B"), true), "memo", "invalid_value");
+        assertError(errorsOf(CONFIG, valid("interests", List.of("x", "y\u0000")), true), "interests", "invalid_value");
+    }
+
+    @Test
+    void 탭과_줄바꿈은_제어_문자여도_받는다() {
+        Submission s = SubmissionValidator.validate(CONFIG, valid("memo", "첫 줄\r\n\t둘째 줄"), true);
+
+        assertThat(s.payload()).containsEntry("memo", "첫 줄\r\n\t둘째 줄");
+    }
+
+    @Test
     void 문자열도_문자열_배열도_아닌_값은_invalid_value다() {
         assertError(errorsOf(CONFIG, valid("memo", 123), true), "memo", "invalid_value");
         assertError(errorsOf(CONFIG, valid("memo", Map.of("a", "b")), true), "memo", "invalid_value");
@@ -217,6 +233,19 @@ class SubmissionValidatorTest {
         Submission s = SubmissionValidator.validate(CONFIG, valid("interests", "y"), true);
 
         assertThat(s.payload()).containsEntry("interests", List.of("y"));
+    }
+
+    @Test
+    void value가_없는_checkbox와_radio는_브라우저가_보내는_on을_받는다() {
+        List<FormField> config = List.of(
+            new FormField("phone", "tel", true, "전화", List.of()),
+            new FormField("agree", "checkbox", true, "약관", List.of("on")),
+            new FormField("yes", "radio", false, "예", List.of("on")));
+
+        Submission s = SubmissionValidator.validate(config, fields("phone", "01012345678", "agree", "on", "yes", "on"), true);
+
+        assertThat(s.payload()).containsEntry("agree", List.of("on")).containsEntry("yes", "on");
+        assertError(errorsOf(config, fields("phone", "01012345678", "agree", "yes"), true), "agree", "invalid_option");
     }
 
     @Test

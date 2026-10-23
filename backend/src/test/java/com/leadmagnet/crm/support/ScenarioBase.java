@@ -10,6 +10,7 @@ import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,7 +67,7 @@ public abstract class ScenarioBase {
     void prepareScenario() {
         RestAssured.port = adminPort;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD)));
+        operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD), Instant.now()));
     }
 
     protected PublicVisitor newVisitor() {

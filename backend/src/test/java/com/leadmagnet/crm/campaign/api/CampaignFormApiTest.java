@@ -18,6 +18,7 @@ import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import io.restassured.specification.RequestSpecification;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +60,7 @@ class CampaignFormApiTest {
     void setUp() {
         RestAssured.port = port;
         DatabaseCleaner.truncateAll(jdbc);
-        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD))).getId();
+        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD), Instant.now())).getId();
         token = AdminLogin.accessToken(EMAIL, PASSWORD);
     }
 
@@ -88,7 +89,8 @@ class CampaignFormApiTest {
     void 캠페인_입력이_잘못되면_422이다() {
         authed().body(Map.of("name", "")).post("/api/admin/campaigns")
             .then().statusCode(422).body("code", equalTo("validation_failed"))
-            .body("errors[0].field", equalTo("name"));
+            .body("errors[0].field", equalTo("name"))
+            .body("errors[0].code", equalTo("invalid_value"));
         authed().body(Map.of("name", "a".repeat(101))).post("/api/admin/campaigns").then().statusCode(422);
         authed().body(Map.of("name", "c", "description", "a".repeat(2001))).post("/api/admin/campaigns")
             .then().statusCode(422);

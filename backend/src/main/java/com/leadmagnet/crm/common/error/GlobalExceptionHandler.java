@@ -5,9 +5,11 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
@@ -27,7 +29,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * 모든 에러를 RFC 9457 ProblemDetail로 낸다.
  * <ul>
  *   <li>DomainException: 예외가 가진 ErrorCode</li>
- *   <li>검증 실패(본문·파라미터): 422 {@code validation_failed}와 {@code errors: [{field, message}]}</li>
+ *   <li>검증 실패(본문·파라미터): 422 {@code validation_failed}와 {@code errors: [{field, message, code}]}.
+ *       Bean Validation의 code는 제약 이름의 lower_snake(예: {@code @NotBlank} → {@code not_blank})</li>
  *   <li>읽을 수 없는 본문: 400 {@code malformed_request}</li>
  *   <li>그 밖의 Spring MVC 표준 예외(404, 405, 415, 413 등): 상위 클래스가 정한 상태에 {@link ErrorCode#forStatus}로 type·code를 채운다</li>
  *   <li>처리하지 못한 예외: 500 {@code internal_error}. 메시지에 개인정보가 섞일 수 있어 응답과 로그에 메시지를 남기지 않는다</li>
@@ -76,8 +79,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             } else {
                 String field = result.getMethodParameter().getParameterName();
                 result.getResolvableErrors().forEach(error ->
-                    errors.add(Map.of("field", String.valueOf(field),
-                        "message", String.valueOf(error.getDefaultMessage()))));
+                    errors.add(fieldError(String.valueOf(field), error.getDefaultMessage(), constraintCode(error))));
             }
         }
         return validationFailed(errors, headers);
@@ -111,16 +113,31 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private static Map<String, String> domainFieldError(DomainException.FieldError error) {
-        Map<String, String> map = new LinkedHashMap<>();
-        map.put("field", error.field());
-        map.put("message", error.message());
-        if (error.code() != null) {
-            map.put("code", error.code());
-        }
-        return map;
+        return fieldError(error.field(), error.message(), error.code());
     }
 
     private static Map<String, String> fieldError(FieldError error) {
-        return Map.of("field", error.getField(), "message", String.valueOf(error.getDefaultMessage()));
+        return fieldError(error.getField(), error.getDefaultMessage(), constraintCode(error));
+    }
+
+    private static Map<String, String> fieldError(String field, String message, String code) {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("field", field);
+        map.put("message", String.valueOf(message));
+        map.put("code", code);
+        return map;
+    }
+
+    /**
+     * Bean Validation 오류의 code. MessageSourceResolvable의 마지막 code가 제약 이름(NotBlank 등)이므로
+     * lower_snake로 바꾼다. 알 수 없으면 invalid_value.
+     */
+    static String constraintCode(MessageSourceResolvable error) {
+        String[] codes = error.getCodes();
+        if (codes == null || codes.length == 0 || codes[codes.length - 1] == null) {
+            return DomainException.DEFAULT_FIELD_CODE;
+        }
+        String name = codes[codes.length - 1];
+        return name.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase(Locale.ROOT);
     }
 }

@@ -13,6 +13,8 @@
 
 - Spring Authorization Server(Authorization Code + PKCE). 현재의 Resource Server 설정은 그대로 재사용한다.
 - access token 즉시 무효화(서버 세션 또는 블랙리스트).
+- 로그인 시도 횟수 제한(이메일·IP별 rate limit과 일시 잠금). v0.1.0에는 없다.
+- refresh token 패밀리의 절대 수명 상한. 지금은 교체마다 14일이 다시 시작되어 계속 쓰면 세션이 끝나지 않는다(ADR 0003).
 - Google SSO.
 
 ## 기능

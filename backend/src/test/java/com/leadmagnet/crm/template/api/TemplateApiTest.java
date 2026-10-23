@@ -17,6 +17,7 @@ import io.restassured.builder.MultiPartSpecBuilder;
 import io.restassured.response.ValidatableResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.HexFormat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,7 @@ class TemplateApiTest {
     void setUp() {
         RestAssured.port = port;
         DatabaseCleaner.truncateAll(jdbc);
-        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD))).getId();
+        operatorId = operators.save(new Operator(EMAIL, passwordEncoder.encode(PASSWORD), Instant.now())).getId();
         token = AdminLogin.accessToken(EMAIL, PASSWORD);
     }
 
@@ -160,6 +161,13 @@ class TemplateApiTest {
     void 이름이_100자를_넘으면_422이다() {
         upload("a.html", FORM, "가".repeat(101)).statusCode(422).body("code", equalTo("validation_failed"))
             .body("errors[0].field", equalTo("name"));
+    }
+
+    @Test
+    void 이름에_NUL_같은_제어_문자가_있으면_422이고_저장하지_않는다() {
+        upload("a.html", FORM, "내\u0000템플릿").statusCode(422).body("code", equalTo("validation_failed"))
+            .body("errors[0].field", equalTo("name"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM html_templates", Long.class)).isZero();
     }
 
     @Test

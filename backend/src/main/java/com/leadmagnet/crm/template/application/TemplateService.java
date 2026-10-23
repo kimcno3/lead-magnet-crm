@@ -1,5 +1,6 @@
 package com.leadmagnet.crm.template.application;
 
+import com.leadmagnet.crm.common.TextInput;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.template.domain.FormContractParser;
@@ -71,7 +72,11 @@ public class TemplateService {
     }
 
     private static String resolveName(String requested, String fromFile) {
-        String name = requested == null || requested.isBlank() ? fromFile.trim() : requested.trim();
+        String raw = requested == null || requested.isBlank() ? fromFile : requested;
+        if (TextInput.containsForbiddenControl(raw)) {
+            throw DomainException.validation("name", "name에는 제어 문자를 쓸 수 없습니다");
+        }
+        String name = raw.trim();
         if (name.length() > MAX_NAME_LENGTH) {
             if (requested != null && !requested.isBlank()) {
                 throw DomainException.validation("name", "name은 " + MAX_NAME_LENGTH + "자 이하여야 합니다");

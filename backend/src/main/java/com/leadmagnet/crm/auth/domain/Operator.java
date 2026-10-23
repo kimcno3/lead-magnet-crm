@@ -29,10 +29,11 @@ public class Operator {
     protected Operator() {
     }
 
-    public Operator(String email, String passwordHash) {
+    /** now는 호출한 쪽이 주입한 Clock에서 얻는다. */
+    public Operator(String email, String passwordHash, Instant now) {
         this.email = normalizeEmail(email);
         this.passwordHash = passwordHash;
-        this.createdAt = Instant.now();
+        this.createdAt = now;
     }
 
     public static String normalizeEmail(String email) {

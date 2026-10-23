@@ -18,6 +18,7 @@ import com.leadmagnet.crm.support.PublicOrigin;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
+import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,7 @@ class LeadListApiTest {
     void setUp() {
         RestAssured.port = adminPort;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery")));
+        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery"), Instant.now()));
         token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
         campaign = AdminFixtures.createCampaign(token, "봄 캠페인");
         formA = AdminFixtures.createPublishedFormIn(token, campaign, "form-a", AdminFixtures.FORM_HTML);
@@ -171,7 +172,9 @@ class LeadListApiTest {
     @Test
     void 잘못된_channel은_422다() {
         authed().queryParam("channel", "facebook").get("/api/admin/campaigns/{id}/leads", campaign).then()
-            .statusCode(422).body("errors.field", hasItem("channel"));
+            .statusCode(422).body("errors.field", hasItem("channel"))
+            .body("errors[0].code", equalTo("invalid_value"))
+            .body("errors[0].message", equalTo("channel은 instagram, x, youtube, threads, direct 중 하나여야 합니다"));
         authed().queryParam("channel", "INSTAGRAM").get("/api/admin/campaigns/{id}/leads", campaign).then()
             .statusCode(422);
     }

@@ -1,5 +1,8 @@
 package com.leadmagnet.crm.link.api;
 
+import com.leadmagnet.crm.common.error.DomainException;
+import com.leadmagnet.crm.common.error.ErrorCode;
+import com.leadmagnet.crm.form.api.WrapperPages;
 import com.leadmagnet.crm.link.application.LinkService;
 import com.leadmagnet.crm.link.application.LinkService.RedirectTarget;
 import com.leadmagnet.crm.tracking.api.VisitorIdCookie;
@@ -33,12 +36,21 @@ public class PublicLinkController {
 
     @Operation(summary = "단축 URL 리다이렉트", description = "302 Location: /f/{slug}?lm={code}")
     @ApiResponse(responseCode = "302", description = "공개 폼으로 이동")
-    @ApiResponse(responseCode = "404", description = "없는 code 또는 draft 폼")
-    @ApiResponse(responseCode = "410", description = "closed 폼 (gone)")
+    @ApiResponse(responseCode = "404", description = "없는 code 또는 draft 폼 (HTML 안내)")
+    @ApiResponse(responseCode = "410", description = "closed 폼 (HTML 안내)")
     @GetMapping("/l/{code}")
-    public ResponseEntity<Void> redirect(@PathVariable String code, HttpServletRequest request,
+    public ResponseEntity<String> redirect(@PathVariable String code, HttpServletRequest request,
             HttpServletResponse response) {
-        RedirectTarget target = linkService.resolveRedirect(code);
+        RedirectTarget target;
+        try {
+            target = linkService.resolveRedirect(code);
+        } catch (DomainException e) {
+            // 브라우저가 여는 주소라 /f/{slug}와 같은 404·410 HTML 안내로 답한다. 그 밖의 오류는 전역 처리로 넘긴다.
+            if (e.getErrorCode() == ErrorCode.NOT_FOUND || e.getErrorCode() == ErrorCode.GONE) {
+                return WrapperPages.notice(e.getErrorCode());
+            }
+            throw e;
+        }
         visitorCookie.resolve(request, response);
         return ResponseEntity.status(HttpStatus.FOUND)
             .header(HttpHeaders.LOCATION, target.location())

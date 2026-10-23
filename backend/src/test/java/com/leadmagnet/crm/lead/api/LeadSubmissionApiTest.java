@@ -20,6 +20,7 @@ import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,7 +84,7 @@ class LeadSubmissionApiTest {
     void setUp() {
         RestAssured.port = adminPort;
         DatabaseCleaner.truncateAll(jdbc);
-        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery")));
+        operators.save(new Operator("owner@example.com", passwordEncoder.encode("correct-horse-battery"), Instant.now()));
         token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
         formId = AdminFixtures.createPublishedForm(token, "spring-2026", HTML);
     }
@@ -405,6 +406,21 @@ class LeadSubmissionApiTest {
     }
 
     @Test
+    void value가_없는_필수_checkbox는_브라우저_기본값_on으로_신청할_수_있다() {
+        AdminFixtures.createPublishedForm(token, "agree-only", """
+            <!doctype html><html><body><form>
+            <label>전화 <input type="tel" name="phone" required></label>
+            <label><input type="checkbox" name="agree" required> 약관 동의</label>
+            <button>신청</button></form></body></html>
+            """);
+
+        submit("agree-only", fields("phone", PHONE, "agree", "on")).then().statusCode(201);
+
+        assertThat(jdbc.queryForList("SELECT jsonb_array_elements_text(payload->'agree') FROM leads", String.class))
+            .containsExactly("on");
+    }
+
+    @Test
     void checkbox_값_하나는_배열로_저장한다() {
         submit("spring-2026", fields("name", "홍", "phone", PHONE, "interests", "y")).then().statusCode(201);
 
@@ -424,6 +440,23 @@ class LeadSubmissionApiTest {
             .body("code", equalTo("malformed_request"));
 
         assertThat(leads()).isEmpty();
+    }
+
+    @Test
+    void 이름_이메일_payload에_NUL이_있으면_422_invalid_value이고_저장하지_않으며_로그에_값을_남기지_않는다(
+            CapturedOutput output) {
+        submit("spring-2026", fields("name", "홍\u0000길동", "phone", PHONE, "email", "secret.person@example.com"))
+            .then().statusCode(422).body("errors.find { it.field == 'name' }.code", equalTo("invalid_value"));
+        submit("spring-2026", fields("name", "홍길동", "phone", PHONE, "email", "secret.\u0000person@example.com"))
+            .then().statusCode(422).body("errors.find { it.field == 'email' }.code", equalTo("invalid_value"));
+        submit("spring-2026", fields("name", "홍길동", "phone", PHONE, "email", "secret.person@example.com",
+            "memo", "비밀\u0000메모"))
+            .then().statusCode(422).body("errors.find { it.field == 'memo' }.code", equalTo("invalid_value"));
+
+        assertThat(leads()).isEmpty();
+        assertThat(output.getAll())
+            .doesNotContain(PHONE).doesNotContain(PHONE_DIGITS).doesNotContain("secret.person@example.com")
+            .doesNotContain("비밀").doesNotContain("홍길동").doesNotContain("22P05").doesNotContain("Zero bytes");
     }
 
     @Test

