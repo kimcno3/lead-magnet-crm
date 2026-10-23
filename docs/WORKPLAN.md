@@ -75,7 +75,7 @@ v0.3.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다.
 
 | 순위 | 작업 | 우선순위 | 왜 필요한가 |
 |---|---|---|---|
-| 1 | PII 키 교체(버전 → 키 맵, 재암호화 배치, HMAC 이중 해시 기간) | 중간 | 지금은 키를 바꾸면 기동이 막힌다. 유출 시 대응 수단이 없다 |
+| 1 | ~~PII 키 교체(버전 → 키 맵, 재암호화 배치, HMAC 이중 해시 기간)~~ 완료 (#67): 암호문 형식 2(키 id), `POST /api/admin/pii/reencrypt`(남은 건수), HMAC 키는 기동 시 재계산([ADR 0022](adr/0022-pii-key-rotation.md), GUIDE 2.11) | 중간 | 키를 바꾸면 기동이 막혔다. 유출 시 대응 수단이 없었다 |
 | 2 | 배포(Render + Neon 또는 GHCR), dev·prod 프로필 | 중간 | 지금은 로컬 Docker 실행만 된다. `TRUSTED_PROXIES`는 배포 구성의 프록시 주소에 맞춰 정한다 |
 | 3 | 로그인 시도 제한의 공유 저장소와 `/refresh` 제한 | 중간 | 지금은 인메모리·인스턴스별이라 서버를 여러 대 두면 한도가 대수만큼 커지고, 키 10,000개를 넘으면 오래된 카운터를 잊는다. `/refresh`는 제한이 없다 |
 | 4 | 감사 로그 API의 액션 목록을 `AuditAction` enum에서 OpenAPI로 생성 | 낮음 | `AuditLogController`의 OpenAPI 설명에 액션 목록이 손으로 적혀 있어 enum과 어긋날 수 있다. **완료 (#65)**: `AuditOpenApiConfig`가 action 파라미터 enum을 채운다 |
