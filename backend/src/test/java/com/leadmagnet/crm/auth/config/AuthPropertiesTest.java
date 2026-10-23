@@ -41,8 +41,20 @@ class AuthPropertiesTest {
         assertThatThrownBy(() -> bind(null)).isInstanceOf(BindException.class);
     }
 
+    @Test
+    void refresh_한도는_기본_분당_30이고_설정할_수_있으며_1_미만이면_기동이_실패한다() {
+        assertThat(bind("a".repeat(32)).refreshRateLimit()).isEqualTo(30);
+        assertThat(bind("a".repeat(32), Map.of("app.auth.refresh-rate-limit", "5")).refreshRateLimit()).isEqualTo(5);
+        assertThatThrownBy(() -> bind("a".repeat(32), Map.of("app.auth.refresh-rate-limit", "0")))
+            .isInstanceOf(BindException.class).rootCause().hasMessageContaining("refresh-rate-limit");
+    }
+
     private static AuthProperties bind(String secret) {
-        Map<String, String> values = new HashMap<>();
+        return bind(secret, Map.of());
+    }
+
+    private static AuthProperties bind(String secret, Map<String, String> extra) {
+        Map<String, String> values = new HashMap<>(extra);
         values.put("app.auth.admin-origin", "http://localhost:5173");
         values.put("app.auth.cookie-secure", "false");
         if (secret != null) {

@@ -33,8 +33,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 /**
  * 로그인 시도 제한 (ADR 0021). 다른 테스트는 한도를 크게 두므로 이 클래스만 낮은 한도((이메일, IP) 쌍 3, IP 5, 창 15분; 이메일 전체 50은 기본값)로 따로 띄운다.
  * 신뢰 프록시는 테스트 클라이언트(루프백)가 아닌 대역으로 두어, 이 컨텍스트의 X-Forwarded-For는 모두 위조된 값이다.
- * 기록은 컨텍스트 안에서 계속 살아 있으므로 각 테스트 전에 시계를 창보다 길게 옮긴다(되돌리지 않는다: 이 컨텍스트의 Clock은
- * 이 클래스만 쓴다).
+ * 실패 기록(login_failures)은 DatabaseCleaner가 비우고, 인메모리 거절 건수 로그(RejectionTally)의 1분 주기가 테스트 사이에
+ * 이어지지 않게 각 테스트 전에 시계를 창보다 길게 옮긴다(되돌리지 않는다: 이 컨텍스트의 Clock은 이 클래스만 쓴다).
  */
 @IntegrationTest
 @ExtendWith(OutputCaptureExtension.class)

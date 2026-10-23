@@ -48,6 +48,28 @@ describe('세션 복원', () => {
   })
 })
 
+describe('세션 복원 중 refresh 429', () => {
+  it('로그아웃시키지 않고 다시 시도 상태를 보여 주며 다시 시도하면 복원된다', async () => {
+    let attempts = 0
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/auth/refresh') {
+        attempts += 1
+        if (attempts === 1) return json({ code: 'too_many_requests' }, 429)
+        return json({ accessToken: 'A2', tokenType: 'Bearer', expiresIn: 900 })
+      }
+      if (url.pathname === '/api/admin/templates') return json([])
+      return undefined
+    })
+    renderAt('/templates')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('잠시 후 다시 시도해 주세요')
+    expect(screen.queryByRole('heading', { name: '운영자 로그인' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
+    expect(await screen.findByRole('heading', { name: '템플릿', level: 1 })).toBeInTheDocument()
+  })
+})
+
 describe('로그아웃', () => {
   it('logout 요청이 실패해도 처리되지 않은 거절 없이 로그인 화면으로 간다', async () => {
     const unhandled = vi.fn()

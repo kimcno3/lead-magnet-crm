@@ -17,7 +17,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     return (
       <div className="boot">
         <div className="error-box" role="alert">
-          <p>서버에 연결하지 못했습니다. 네트워크나 서버 상태를 확인한 뒤 다시 시도해 주세요.</p>
+          <p>서버에 연결하지 못했습니다(또는 요청이 많아 잠시 거절됐습니다). 잠시 후 다시 시도해 주세요.</p>
           <Button size="sm" onClick={retry}>
             다시 시도
           </Button>

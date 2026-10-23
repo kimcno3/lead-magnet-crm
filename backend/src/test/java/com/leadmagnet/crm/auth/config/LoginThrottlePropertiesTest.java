@@ -14,11 +14,11 @@ import org.springframework.boot.context.properties.source.MapConfigurationProper
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.io.ClassPathResource;
 
-/** 출고 기본값(이메일·IP 쌍 5, 이메일 50, IP 20, 창 15분, 키 10,000)과 잘못된 값의 기동 실패 (ADR 0021). */
+/** 출고 기본값(이메일·IP 쌍 5, 이메일 50, IP 20, 창 15분, 잠금 대기 2초)과 잘못된 값의 기동 실패 (ADR 0021). */
 class LoginThrottlePropertiesTest {
 
     static final LoginThrottleProperties DEFAULTS =
-        new LoginThrottleProperties(5, 50, 20, Duration.ofMinutes(15), 10_000);
+        new LoginThrottleProperties(5, 50, 20, Duration.ofMinutes(15), Duration.ofSeconds(2));
 
     @Test
     void application_yml의_기본값은_쌍_5_이메일_50_IP_20_창_15분이다() throws IOException {
@@ -41,6 +41,10 @@ class LoginThrottlePropertiesTest {
             .isInstanceOf(BindException.class).rootCause().hasMessageContaining("email-ip-max-failures");
         assertThatThrownBy(() -> bind(Map.of("app.auth.login-throttle.window", "10s")))
             .isInstanceOf(BindException.class).rootCause().hasMessageContaining("window");
+        assertThat(bind(Map.of("app.auth.login-throttle.lock-timeout", "500ms")).lockTimeout())
+            .isEqualTo(Duration.ofMillis(500));
+        assertThatThrownBy(() -> bind(Map.of("app.auth.login-throttle.lock-timeout", "0s")))
+            .isInstanceOf(BindException.class).rootCause().hasMessageContaining("lock-timeout");
     }
 
     private static LoginThrottleProperties bind(Map<String, String> values) {
