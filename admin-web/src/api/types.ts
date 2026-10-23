@@ -1,0 +1,193 @@
+// 백엔드 DTO(record)와 같은 모양. Instant는 ISO 문자열로 온다.
+
+export type CampaignStatus = 'active' | 'archived'
+export type FormStatus = 'draft' | 'published' | 'closed'
+export type LinkChannel = 'instagram' | 'x' | 'youtube' | 'threads'
+export type Channel = LinkChannel | 'direct'
+
+export const LINK_CHANNELS: readonly LinkChannel[] = ['instagram', 'x', 'youtube', 'threads']
+export const CHANNELS: readonly Channel[] = [...LINK_CHANNELS, 'direct']
+
+export interface TokenResponse {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+}
+
+export interface Me {
+  id: number
+  email: string
+}
+
+export interface CampaignSummary {
+  id: number
+  name: string
+  status: CampaignStatus
+  startsAt: string | null
+  endsAt: string | null
+  formCount: number
+  createdAt: string
+}
+
+export interface FormSummary {
+  id: number
+  slug: string
+  title: string
+  status: FormStatus
+  publishedAt: string | null
+  closedAt: string | null
+}
+
+export interface Campaign {
+  id: number
+  name: string
+  description: string | null
+  status: CampaignStatus
+  startsAt: string | null
+  endsAt: string | null
+  createdAt: string
+  updatedAt: string
+  forms: FormSummary[]
+}
+
+export interface CreateCampaignRequest {
+  name: string
+  description: string | null
+  startsAt: string | null
+  endsAt: string | null
+}
+
+export interface FormField {
+  name: string
+  type: string
+  required: boolean
+  label: string | null
+  options: string[] | null
+}
+
+export interface Form {
+  id: number
+  campaignId: number
+  templateId: number
+  slug: string
+  title: string
+  consentText: string
+  fieldConfig: FormField[]
+  status: FormStatus
+  publishedAt: string | null
+  closedAt: string | null
+  createdAt: string
+}
+
+export interface CreateFormRequest {
+  templateId: number | null
+  title: string
+  consentText: string
+  slug: string | null
+}
+
+export interface FieldChange {
+  name: string
+  label?: string
+  required?: boolean
+}
+
+export interface UpdateFormRequest {
+  title?: string
+  consentText?: string
+  fieldConfig?: FieldChange[]
+  status?: 'published' | 'closed'
+}
+
+export interface DistributionLink {
+  id: number
+  channel: LinkChannel
+  code: string
+  url: string
+  utmSource: string
+  utmMedium: string
+  utmCampaign: string
+  createdAt: string
+}
+
+export interface TemplateSummary {
+  id: number
+  name: string
+  size: number
+  fieldCount: number
+  createdAt: string
+}
+
+export interface Template {
+  id: number
+  name: string
+  size: number
+  sha256: string
+  fields: FormField[]
+  createdAt: string
+}
+
+export interface TemplateDetail extends Template {
+  content: string
+}
+
+export interface Lead {
+  id: number
+  formId: number
+  formTitle: string
+  channel: Channel
+  name: string | null
+  phone: string | null
+  email: string | null
+  payload: Record<string, unknown> | null
+  createdAt: string
+}
+
+export interface LeadPage {
+  items: Lead[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}
+
+export interface Metrics {
+  visits: number
+  visitors: number
+  leads: number
+  convertedVisitors: number
+  conversionRate: number
+}
+
+export interface CampaignListStats {
+  from: string | null
+  to: string | null
+  campaigns: (Metrics & { campaignId: number; name: string; status: CampaignStatus })[]
+}
+
+export interface CampaignStats extends Metrics {
+  campaignId: number
+  from: string | null
+  to: string | null
+}
+
+export interface ChannelStats {
+  campaignId: number
+  from: string | null
+  to: string | null
+  channels: (Metrics & { channel: Channel })[]
+}
+
+export interface FieldError {
+  field: string
+  message: string
+  code?: string
+}
+
+export interface ProblemDetail {
+  status?: number
+  title?: string
+  detail?: string
+  code?: string
+  errors?: FieldError[]
+}

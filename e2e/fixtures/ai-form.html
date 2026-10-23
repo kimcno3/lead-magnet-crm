@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마케팅 자동화 무료 가이드 신청</title>
+<style>
+  :root { --brand: #5b3df5; --brand-soft: #efeafe; --ink: #1f2330; --sub: #6b7080; --line: #e3e5ec; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; color: var(--ink); background: #fff; }
+  .hero { padding: 28px 24px 20px; background: linear-gradient(135deg, var(--brand) 0%, #8f6bff 100%); color: #fff; border-radius: 14px; }
+  .hero .badge { display: inline-block; padding: 4px 10px; font-size: 12px; font-weight: 700; border-radius: 999px; background: rgba(255,255,255,.2); }
+  .hero h2 { margin: 12px 0 6px; font-size: 24px; line-height: 1.35; }
+  .hero p { margin: 0; opacity: .9; font-size: 15px; }
+  form { padding: 20px 4px 8px; display: grid; gap: 16px; }
+  .row { display: grid; gap: 6px; }
+  .row label, .group-title { font-weight: 600; font-size: 14px; }
+  .req { color: #e5484d; margin-left: 2px; }
+  input[type=text], input[type=tel], input[type=email], select, textarea {
+    width: 100%; padding: 12px 14px; font: inherit; border: 1px solid var(--line); border-radius: 10px; background: #fafbfc;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); outline-offset: 1px; background: #fff; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; cursor: pointer; }
+  .chip.is-on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
+  .hint { color: var(--sub); font-size: 12px; }
+  .agree { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--sub); }
+  button { padding: 14px; font: inherit; font-weight: 700; color: #fff; background: var(--brand); border: 0; border-radius: 12px; cursor: pointer; }
+  button:hover { filter: brightness(1.05); }
+</style>
+</head>
+<body>
+  <section class="hero">
+    <span class="badge">무료 · 선착순 300명</span>
+    <h2>인스타 팔로워를 고객으로 바꾸는<br>마케팅 자동화 가이드</h2>
+    <p>3분이면 신청 끝! 입력하신 연락처로 PDF 가이드를 보내드려요.</p>
+  </section>
+
+  <form id="lead-form" novalidate>
+    <div class="row">
+      <label for="f-name">이름<span class="req">*</span></label>
+      <input id="f-name" type="text" name="name" placeholder="홍길동" autocomplete="name" required>
+    </div>
+    <div class="row">
+      <label for="f-phone">휴대폰 번호<span class="req">*</span></label>
+      <input id="f-phone" type="tel" name="phone" placeholder="010-0000-0000" inputmode="numeric" autocomplete="tel" required>
+      <span class="hint" id="phone-hint">숫자만 입력하면 자동으로 하이픈이 들어가요.</span>
+    </div>
+    <div class="row">
+      <label for="f-email">이메일</label>
+      <input id="f-email" type="email" name="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="row">
+      <label for="f-size">회사 규모<span class="req">*</span></label>
+      <select id="f-size" name="company_size" required>
+        <option value="">선택해 주세요</option>
+        <option value="solo">1인 크리에이터</option>
+        <option value="small">2~10명</option>
+        <option value="mid">11~50명</option>
+        <option value="large">51명 이상</option>
+      </select>
+    </div>
+    <div class="row">
+      <span class="group-title">관심 주제 <span class="hint" id="interest-count">(0개 선택)</span></span>
+      <div class="chips">
+        <label class="chip"><input type="checkbox" name="interests" value="crm">CRM 운영</label>
+        <label class="chip"><input type="checkbox" name="interests" value="automation">자동화</label>
+        <label class="chip"><input type="checkbox" name="interests" value="ads">광고 최적화</label>
+      </div>
+    </div>
+    <div class="row">
+      <label for="f-msg">궁금한 점</label>
+      <textarea id="f-msg" name="message" rows="3" maxlength="200" placeholder="가이드에서 다뤘으면 하는 내용을 적어 주세요."></textarea>
+      <span class="hint" id="msg-count">0 / 200</span>
+    </div>
+    <label class="agree"><input type="checkbox" name="marketing_agree">이벤트·혜택 소식 받기 (선택)</label>
+    <button type="submit">무료 가이드 받기</button>
+  </form>
+
+  <script>
+    (function () {
+      var phone = document.getElementById('f-phone');
+      phone.addEventListener('input', function () {
+        var d = phone.value.replace(/\D/g, '').slice(0, 11);
+        phone.value = d.length < 4 ? d : d.length < 8 ? d.slice(0, 3) + '-' + d.slice(3) : d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+      });
+      var chips = document.querySelectorAll('input[name="interests"]');
+      var count = document.getElementById('interest-count');
+      chips.forEach(function (box) {
+        box.addEventListener('change', function () {
+          box.parentElement.classList.toggle('is-on', box.checked);
+          var n = document.querySelectorAll('input[name="interests"]:checked').length;
+          count.textContent = '(' + n + '개 선택)';
+        });
+      });
+      var msg = document.getElementById('f-msg');
+      var msgCount = document.getElementById('msg-count');
+      msg.addEventListener('input', function () { msgCount.textContent = msg.value.length + ' / 200'; });
+    })();
+  </script>
+</body>
+</html>
