@@ -32,7 +32,7 @@ final class LoginFailureStore {
             .forEach(id -> jdbc.query("SELECT pg_advisory_xact_lock(?, ?)", rs -> { }, LOCK_CLASS, id));
     }
 
-    /** 이 트랜잭션에서만 잠금 대기 상한을 둔다({@code SET LOCAL lock_timeout}). 넘으면 55P03 → CannotAcquireLockException. */
+    /** 이 트랜잭션에서만 잠금 대기 상한을 둔다({@code SET LOCAL lock_timeout}). 넘으면 SQLState 55P03(Spring에서는 UncategorizedSQLException 등으로 감싸져 온다)이고, 호출자가 원인 사슬의 SQLState로 판별한다. */
     void setLockTimeout(String timeout) {
         jdbc.query("SELECT set_config('lock_timeout', ?, true)", rs -> { }, timeout);
     }

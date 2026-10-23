@@ -130,7 +130,7 @@ public class LoginThrottle {
                     remember(ipHash, byIp);
                     return new Attempt(retryAfter);
                 }
-                return new Attempt(pairHash, store.insert(pairHash, now), pair.lastSlot,
+                return new Attempt(pairHash, emailHash, ipHash, store.insert(pairHash, now), pair.lastSlot,
                     store.insert(emailHash, now), byEmail.lastSlot, store.insert(ipHash, now), byIp.lastSlot);
             });
         } catch (DataAccessException e) {
@@ -185,6 +185,12 @@ public class LoginThrottle {
         return until == 0 ? 0 : Math.max(1, (until - nowMillis + 999) / 1000);
     }
 
+    private void forget(List<String> keyHashes) {
+        synchronized (lockedUntil) {
+            keyHashes.forEach(lockedUntil::remove);
+        }
+    }
+
     private void remember(String keyHash, Window window) {
         if (window.retryAfterSeconds > 0) {
             synchronized (lockedUntil) {
@@ -225,6 +231,8 @@ public class LoginThrottle {
 
         private final long retryAfterSeconds;
         private final String pairHash;
+        private final String emailHash;
+        private final String ipHash;
         private final long pairId;
         private final boolean pairLast;
         private final long emailId;
@@ -233,18 +241,20 @@ public class LoginThrottle {
         private final boolean ipLast;
 
         private Attempt(long retryAfterSeconds) {
-            this(retryAfterSeconds, null, 0, false, 0, false, 0, false);
+            this(retryAfterSeconds, null, null, null, 0, false, 0, false, 0, false);
         }
 
-        private Attempt(String pairHash, long pairId, boolean pairLast, long emailId, boolean emailLast, long ipId,
-                boolean ipLast) {
-            this(0, pairHash, pairId, pairLast, emailId, emailLast, ipId, ipLast);
-        }
-
-        private Attempt(long retryAfterSeconds, String pairHash, long pairId, boolean pairLast, long emailId,
+        private Attempt(String pairHash, String emailHash, String ipHash, long pairId, boolean pairLast, long emailId,
                 boolean emailLast, long ipId, boolean ipLast) {
+            this(0, pairHash, emailHash, ipHash, pairId, pairLast, emailId, emailLast, ipId, ipLast);
+        }
+
+        private Attempt(long retryAfterSeconds, String pairHash, String emailHash, String ipHash, long pairId,
+                boolean pairLast, long emailId, boolean emailLast, long ipId, boolean ipLast) {
             this.retryAfterSeconds = retryAfterSeconds;
             this.pairHash = pairHash;
+            this.emailHash = emailHash;
+            this.ipHash = ipHash;
             this.pairId = pairId;
             this.pairLast = pairLast;
             this.emailId = emailId;
@@ -255,6 +265,8 @@ public class LoginThrottle {
 
         /** 로그인 성공: 그 쌍의 기록을 지우고, 이메일 전체·IP 자리는 돌려준다. */
         public void succeeded() {
+            // 같은 쌍의 동시 시도가 DB에서 거절되며 기억해 둔 잠금이 남지 않게 한다(DB는 쌍 기록을 지웠다).
+            forget(List.of(pairHash));
             release(() -> {
                 store.deleteKey(pairHash);
                 store.delete(emailId);
@@ -286,6 +298,7 @@ public class LoginThrottle {
 
         /** 자격 증명과 무관한 이유(서버 오류 등)로 끝남: 모든 자리를 돌려준다. */
         public void abandoned() {
+            forget(List.of(pairHash, emailHash, ipHash));
             release(() -> {
                 store.delete(pairId);
                 store.delete(emailId);

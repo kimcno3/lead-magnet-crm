@@ -126,6 +126,32 @@ class LoginThrottleTest {
     }
 
     @Test
+    void 마지막_자리를_잡은_시도가_성공하면_동시에_거절되며_기억한_쌍_잠금도_풀린다() {
+        fail("a@example.com", "1.1.1.1");
+        fail("a@example.com", "1.1.1.1");
+        LoginThrottle.Attempt last = throttle.begin("a@example.com", "1.1.1.1"); // 쌍의 마지막 자리
+        assertThatThrownBy(() -> throttle.begin("a@example.com", "1.1.1.1")) // 동시 시도(이중 제출)는 DB가 거절하고 기억한다
+            .isInstanceOf(TooManyRequestsException.class);
+
+        last.succeeded();
+
+        throttle.begin("a@example.com", "1.1.1.1").succeeded();
+    }
+
+    @Test
+    void 중단된_시도는_기억한_잠금도_지운다() {
+        fail("a@example.com", "1.1.1.1");
+        fail("a@example.com", "1.1.1.1");
+        LoginThrottle.Attempt last = throttle.begin("a@example.com", "1.1.1.1");
+        assertThatThrownBy(() -> throttle.begin("a@example.com", "1.1.1.1"))
+            .isInstanceOf(TooManyRequestsException.class);
+
+        last.abandoned();
+
+        throttle.begin("a@example.com", "1.1.1.1").failed();
+    }
+
+    @Test
     void IP별_실패가_한도에_닿으면_이메일과_무관하게_429다() {
         for (int i = 0; i < 4; i++) {
             fail("u" + i + "@example.com", "9.9.9.9");
