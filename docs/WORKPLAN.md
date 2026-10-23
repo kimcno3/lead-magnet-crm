@@ -69,17 +69,33 @@ v0.2.0 최종 리뷰에서 나왔지만 그때 하지 않은 것 가운데 위�
 
 v0.3.0 hardening 5건(#51 ~ #55)을 모두 마쳤고, 릴리스 준비는 #62(PR #63)에서 했다: 릴리스 노트(`RELEASE_NOTES_v0.3.0.md`), OVERVIEW 11절, OpenAPI `info.version` 0.3.0, ADR 0021의 한계 기록, E2E 재실행. 결과 지표: backend 테스트 768건(91개 클래스, 1건은 verify 모드에서 건너뜀), admin-web 162건(18개 파일), 브라우저 E2E 24단계(새 볼륨, 로컬 실행).
 
-## 다음 작업 (v0.4.0 후보)
+## v0.4.0 operations (완료)
 
-v0.3.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다.
+v0.3.0 최종 리뷰에서 나왔지만 그때 하지 않은 것 가운데 운영에 직접 닿는 것을 닫았다. 배포는 외부 계정과 비용 결정이 필요해 v0.5.0 후보로 옮겼다.
+
+| 순위 | 작업 | 우선순위 | 왜 필요한가 | 상태 |
+|---|---|---|---|---|
+| 1 | PII 키 교체(버전 → 키 맵, 재암호화 배치, HMAC 키 기동 시 재계산) | 중간 | 키를 바꾸면 기동이 막혔다. 유출 시 대응 수단이 없었다 | 완료 (#67, PR #69): 암호문 형식 2(키 id), `POST /api/admin/pii/reencrypt`, 감사 `pii.reencrypt` ([ADR 0022](adr/0022-pii-key-rotation.md), GUIDE 2.11) |
+| 2 | 배포(Render + Neon 또는 GHCR), dev·prod 프로필 | 중간 | 지금은 로컬 Docker 실행만 된다 | v0.5.0 후보로 이동 |
+| 3 | 로그인 시도 제한의 공유 저장소와 `/refresh` 제한 | 중간 | 인메모리·인스턴스별이라 서버를 여러 대 두면 한도가 대수만큼 커졌고 `/refresh`는 제한이 없었다 | 완료 (#66, PR #70): `login_failures`(V13), `/refresh` IP별 분당 30회(429 `too_many_requests`), [ADR 0021](adr/0021-login-throttle-and-trusted-proxy.md) 변경 기록 |
+| 4 | 감사 로그 API의 액션 목록을 `AuditAction` enum에서 OpenAPI로 생성 | 낮음 | 손으로 적은 액션 목록이 enum과 어긋날 수 있었다 | 완료 (#65, PR #68): `AuditOpenApiConfig` |
+| 5 | 새 감사 행의 IP 검증 | 낮음 | IP 컬럼을 XFF 아래에서 확인하는 테스트가 `auth.login.failure` 하나뿐이었다 | 완료 (#65, PR #68): `AuditClientIpTest` |
+
+v0.4.0 operations 3건(#65 ~ #67)을 모두 마쳤고, 릴리스 준비는 #71(PR #72)에서 했다: 릴리스 노트(`RELEASE_NOTES_v0.4.0.md`), OVERVIEW 12절, OpenAPI `info.version` 0.4.0, GUIDE 2.11의 compose 명령(`up -d`, `restart` 금지), PLAN 6.4절, E2E 재실행. 결과 지표: backend 테스트 825건(99개 클래스, 1건은 verify 모드에서 건너뜀), admin-web 166건(18개 파일), 브라우저 E2E 24단계(새 볼륨, 로컬 실행).
+
+## 다음 작업 (v0.5.0 후보)
+
+v0.4.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다.
 
 | 순위 | 작업 | 우선순위 | 왜 필요한가 |
 |---|---|---|---|
-| 1 | ~~PII 키 교체(버전 → 키 맵, 재암호화 배치, HMAC 이중 해시 기간)~~ 완료 (#67): 암호문 형식 2(키 id), `POST /api/admin/pii/reencrypt`(남은 건수), HMAC 키는 기동 시 재계산([ADR 0022](adr/0022-pii-key-rotation.md), GUIDE 2.11) | 중간 | 키를 바꾸면 기동이 막혔다. 유출 시 대응 수단이 없었다 |
-| 2 | 배포(Render + Neon 또는 GHCR), dev·prod 프로필 | 중간 | 지금은 로컬 Docker 실행만 된다. `TRUSTED_PROXIES`는 배포 구성의 프록시 주소에 맞춰 정한다 |
-| 3 | 로그인 시도 제한의 공유 저장소와 `/refresh` 제한 | 중간 | 지금은 인메모리·인스턴스별이라 서버를 여러 대 두면 한도가 대수만큼 커지고, 키 10,000개를 넘으면 오래된 카운터를 잊는다. `/refresh`는 제한이 없다. **완료 (#66)**: 실패 기록을 `login_failures`(V13, HMAC 키만, advisory lock으로 자리 잡기, 5분마다 정리)로 옮기고 `/refresh`에 IP별 분당 30회 제한(429 `too_many_requests`), [ADR 0021](adr/0021-login-throttle-and-trusted-proxy.md) 변경 기록 |
-| 4 | 감사 로그 API의 액션 목록을 `AuditAction` enum에서 OpenAPI로 생성 | 낮음 | `AuditLogController`의 OpenAPI 설명에 액션 목록이 손으로 적혀 있어 enum과 어긋날 수 있다. **완료 (#65)**: `AuditOpenApiConfig`가 action 파라미터 enum을 채운다 |
-| 5 | 새 감사 행의 IP 검증 | 낮음 | IP 컬럼을 XFF 아래에서 확인하는 테스트가 `auth.login.failure` 하나뿐이다. `form.publish` 같은 행에도 한 건씩 추가한다. **완료 (#65)**: `AuditClientIpTest`가 form.publish·template.version.upload·creator.archive·auth.logout을 확인 |
+| 1 | 배포(Render + Neon 또는 GHCR), dev·prod 프로필 | 중간 | 지금은 로컬 Docker 실행만 된다. 계정과 비용은 저장소 소유자가 정해야 한다. `TRUSTED_PROXIES`는 배포 구성의 실제 프록시 주소에 맞춰 정한다 |
+| 2 | 기동 시 straggler 경합 처리 | 낮음 | 운영 실수로 이전 HMAC 키 인스턴스가 신청을 받은 뒤 기동하면, straggler 재계산이 방금 들어온 신청과 부딪혀 유니크 위반으로 기동이 실패할 수 있다(로그에는 해시만 실린다). `LeadHashRotation`에서 `DuplicateKeyException`을 `PiiKeyRotationException`으로 바꿔 안내한다 |
+| 3 | 재암호화를 비동기 작업으로 | 중간 | 지금은 요청 안에서 동기로 돈다. 신청이 많으면 admin-web nginx의 `proxy_read_timeout`(기본 60초)을 넘겨 응답이 끊긴다(backend는 계속 처리). 작업 id와 진행률 조회로 바꾸고, 관리자 화면 버튼은 그 뒤에 검토한다 |
+| 4 | 인스턴스별 메모리 상태의 공유 저장소 | 낮음 | 제출 rate limit과 `/refresh` 제한은 인메모리·인스턴스별이고, 로그인 제한이 한도에 걸린 키를 기억하는 빠른 거절 캐시도 프로세스 안에 있다(재시작하면 비워지고 DB가 다시 판정한다). 서버를 여러 대 두면 앞의 두 한도가 대수만큼 커진다 |
+| 5 | refresh 가족의 절대 수명 | 낮음 | 쓸 때마다 14일이 다시 시작되어 세션이 끝나지 않는다 |
+| 6 | HMAC 키를 서비스 중단 없이 교체(해시 컬럼 두 개) | 낮음 | 지금은 모든 인스턴스를 내려야 한다 |
+| 7 | KMS·봉투 암호화 | 낮음 | 키가 시크릿 저장소의 환경 변수로 들어온다 |
 
 ## 알려진 한계와 후속 개선 (리뷰에서 나온 것)
 
@@ -94,4 +110,4 @@ v0.3.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다.
 
 ## 그 뒤 (ROADMAP)
 
-배포(Render + Neon 또는 GHCR), Spring Authorization Server와 Google SSO, 로그인 시도 제한의 공유 저장소, lead.created 웹훅, 일별 추이와 QR 코드, 폼 A/B, Gradle 멀티모듈. 자세한 내용은 [ROADMAP.md](ROADMAP.md).
+Spring Authorization Server와 Google SSO, lead.created 웹훅, 일별 추이와 QR 코드, 폼 A/B, Gradle 멀티모듈. 배포는 위의 v0.5.0 후보다. 자세한 내용은 [ROADMAP.md](ROADMAP.md).

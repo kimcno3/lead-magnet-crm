@@ -73,6 +73,8 @@
 - visits: id, form_id, link_id, channel, visitor_id, referrer, user_agent, is_bot(봇 UA 방문, 지표에서 제외, ADR 0019), occurred_at
 - leads: id, form_id, campaign_id, link_id, channel, visitor_id, name_enc·phone_enc·email_enc(AES-GCM), phone_hash·email_hash(중복 판정용 HMAC), payload(jsonb), consent_at, consent_text·consent_sha256(신청 시점 동의 문구 증빙, ADR 0020), anonymized_at(보존 기간 파기 시각, ADR 0020), created_at (평문 연락처 컬럼은 없다, ADR 0015)
 - audit_logs: id, operator_id, action, target_type, target_id, campaign_id, detail(jsonb), ip, user_agent, created_at (명단 열람·다운로드 기록, ADR 0016)
+- login_failures: id, key_hash(HMAC, 이메일·IP 원문 없음), failed_at (로그인 시도 제한의 공유 저장소, 15분 창이 지난 행은 정리, ADR 0021)
+- pii_key_check: id(1만), enc_check, hmac_check (현재 키가 기존 데이터의 키와 같은지 기동 때 확인하는 표식 행, ADR 0015·0022)
 
 ### 지표 정의 (ADR로 확정할 가정)
 
@@ -125,7 +127,7 @@
   - 보안 영향: security
   - 범위: scope:core, scope:extra
   - 영역: area:*
-- 마일스톤: v0.1.0 core, v0.2.0 extras, v0.3.0 hardening
+- 마일스톤: v0.1.0 core, v0.2.0 extras, v0.3.0 hardening, v0.4.0 operations
 - 프로필: local(사용 중), dev와 prod(로드맵)
 - README에는 실행·테스트 방법만 쓴다. 다른 문서는 docs/에 둔다.
 
@@ -180,13 +182,21 @@
 4. Playwright E2E를 CI에 통합
 5. 크리에이터별 `utm_content`(V12)와 패키지 의존 방향 정리
 
+### 6.4 v0.4.0 operations (v0.3.0 최종 리뷰의 후속)
+
+구현 계획은 [plans/v0.4.0-operations.md](plans/v0.4.0-operations.md), 진행은 [WORKPLAN](WORKPLAN.md)에 있다. 배포는 계정과 비용 결정이 필요해 이번 범위에서 뺐다([ROADMAP](ROADMAP.md)).
+
+1. 감사 액션 목록의 OpenAPI 생성과 새 감사 행의 IP 검증 (#65)
+2. 로그인 시도 제한의 공유 저장소(`login_failures`, V13)와 `/refresh` 제한 ([ADR 0021](adr/0021-login-throttle-and-trusted-proxy.md) 변경 기록, #66)
+3. 개인정보 키 교체: 암호문 형식 2, 재암호화 API, HMAC 키 교체 ([ADR 0022](adr/0022-pii-key-rotation.md), #67)
+
 ### 로드맵
 
 이번 범위 밖의 작업은 [ROADMAP.md](ROADMAP.md)에 둔다.
 
 ### ADR 목록
 
-0001 기술 스택, 0002 HTML 격리, 0003 인증, 0004 HTML 폼 계약, 0005 지표 정의, 0006 채널 귀속, 0007 중복 신청 정책, 0008 신청 데이터 저장 구조, 0009 운영자 시드, 0010 단일 앱·포트 분리, 0011 관리자 UI, 0012 브랜치·환경 전략, 0013 캠페인·폼 상태 모델, 0014 크리에이터 귀속, 0015 개인정보 암호화, 0016 감사 로그와 명단 CSV 다운로드, 0017 업로드 HTML 검사 리포트, 0018 게시 시 템플릿 스냅샷과 새 버전 업로드, 0019 데이터 품질 방어, 0020 보존 기간 파기와 동의 문구 증빙, 0021 로그인 시도 제한과 신뢰 프록시 뒤 실제 IP
+0001 기술 스택, 0002 HTML 격리, 0003 인증, 0004 HTML 폼 계약, 0005 지표 정의, 0006 채널 귀속, 0007 중복 신청 정책, 0008 신청 데이터 저장 구조, 0009 운영자 시드, 0010 단일 앱·포트 분리, 0011 관리자 UI, 0012 브랜치·환경 전략, 0013 캠페인·폼 상태 모델, 0014 크리에이터 귀속, 0015 개인정보 암호화, 0016 감사 로그와 명단 CSV 다운로드, 0017 업로드 HTML 검사 리포트, 0018 게시 시 템플릿 스냅샷과 새 버전 업로드, 0019 데이터 품질 방어, 0020 보존 기간 파기와 동의 문구 증빙, 0021 로그인 시도 제한과 신뢰 프록시 뒤 실제 IP, 0022 개인정보 키 교체
 
 ### 결과 설명 초안 (docs/OVERVIEW.md와 제출 메일용)
 
