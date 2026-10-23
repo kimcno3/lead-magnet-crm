@@ -49,35 +49,49 @@
 
 v0.2.0 extras 7건을 모두 마쳤다. 마지막에 전체 브랜치 리뷰에서 나온 값싼 보강을 함께 넣었다(#49): JWT_SECRET이 다른 키와 같으면 기동 실패, 원문 CSV 전화번호 하이픈 형식, `visits.link_id`·`leads.link_id` 인덱스(V11), 테스트 소음 정리, 업그레이드 경로 문서(OVERVIEW 10절, TROUBLESHOOTING), 릴리스 노트(`RELEASE_NOTES_v0.2.0.md`). 결과 지표: backend 테스트 677건(79개 클래스), admin-web 155건(18개 파일), 브라우저 E2E 24단계.
 
-## 다음 작업 (v0.3.0 후보)
+## v0.3.0 hardening (완료)
 
-v0.2.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다. 위험이 큰 순서로 적었다.
+v0.2.0 최종 리뷰에서 나왔지만 그때 하지 않은 것 가운데 위험이 큰 것부터 닫았다.
+
+| 순위 | 작업 | 우선순위 | 왜 필요한가 | 상태 |
+|---|---|---|---|---|
+| 1 | 로그인 시도 제한(throttling) | 높음 | 비밀번호 대입을 막는 장치가 없었다. 감사 로그가 있어도 시도를 막지는 못한다 | 완료 (#51, PR #57) |
+| 2 | 감사 로그의 IP를 nginx 뒤에서도 정확히(신뢰 프록시 `TRUSTED_PROXIES`) | 높음 | `getRemoteAddr()`만 써서 프록시 뒤에서는 프록시 IP만 남았다. 제출 rate limit도 같은 문제 | 완료 (#51, PR #57) |
+| 3 | `payload`의 평문 연락처 처리(`extra_contact_field` 경고와 마스킹) | 높음 | 폼에 전화·이메일 모양의 추가 항목이 있으면 암호화 대상 밖인 `payload`에 평문으로 남는다 | 완료 (#52, PR #58) |
+| 4 | PII 키 교체 | 중간 | 키를 바꾸면 기동이 막힌다 | v0.4.0 후보로 이동 |
+| 5 | 감사 공백 메우기: refresh 재사용 감지, 로그아웃, 템플릿 새 버전, 게시, 크리에이터 보관 | 중간 | 운영 행위 중 기록되지 않는 것이 남아 있었다 | 완료 (#53, PR #60) |
+| 6 | 배포(Render + Neon 또는 GHCR), dev·prod 프로필 | 중간 | 로컬 Docker 실행만 된다 | v0.4.0 후보로 이동 |
+| 7 | Playwright E2E를 CI에 통합 | 중간 | 브라우저 E2E가 수동 실행이라 회귀를 놓칠 수 있었다 | 완료 (#54, PR #59) |
+| 8 | 크리에이터별 `utm_content` | 낮음 | 광고 도구에서 크리에이터를 구분하는 값. 귀속 자체는 `link_id`로 이미 된다 | 완료 (#55, PR #61) |
+| 9 | 계층 정리: `DateRange`를 common으로, `template` ↔ `form` 순환, `AuditActor` 위치 | 낮음 | 동작은 맞지만 패키지 의존 방향이 어긋나 있었다 | 완료 (#55, PR #61) |
+
+완료 표시: 1번(로그인 시도 제한)과 2번(nginx 뒤 실제 IP)은 #51에서 함께 끝냈다(PR #57, [ADR 0021](adr/0021-login-throttle-and-trusted-proxy.md)). 3번(payload의 연락처 모양 항목)은 #52에서 끝냈다(PR #58, `extra_contact_field` 경고 + 명단·마스킹 CSV 마스킹, [ADR 0015](adr/0015-pii-encryption.md) 변경 기록). 5번(감사 공백)은 #53에서 끝냈다(PR #60, [ADR 0016](adr/0016-audit-log.md) 변경 기록). 7번(Playwright E2E의 CI 통합)은 #54에서 끝냈다(PR #59, `.github/workflows/e2e.yml`, 결과는 CI 아티팩트 `e2e-results`). 8번(크리에이터 `utm_content`, V12)과 9번(계층 정리)은 #55에서 끝냈다(PR #61): `DateRange`는 `common/DateRange`, `AuditActor`는 `audit/domain`, `AuditActors`는 `audit/api`, 템플릿 새 버전 PUT은 `form/api/TemplateVersionController`로 옮겼고, 키 분리 검사는 `common/crypto/SecretKeyMaterial` 포트로 바꿨으며, 패키지 의존 규칙은 `PackageDependencyRulesTest`가 지킨다. `visits.link_id`·`leads.link_id` 인덱스는 v0.2.0에서 끝냈다(V11).
+
+v0.3.0 hardening 5건(#51 ~ #55)을 모두 마쳤고, 릴리스 준비는 #62(PR #63)에서 했다: 릴리스 노트(`RELEASE_NOTES_v0.3.0.md`), OVERVIEW 11절, OpenAPI `info.version` 0.3.0, ADR 0021의 한계 기록, E2E 재실행. 결과 지표: backend 테스트 768건(91개 클래스, 1건은 verify 모드에서 건너뜀), admin-web 162건(18개 파일), 브라우저 E2E 24단계(새 볼륨, 로컬 실행).
+
+## 다음 작업 (v0.4.0 후보)
+
+v0.3.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다.
 
 | 순위 | 작업 | 우선순위 | 왜 필요한가 |
 |---|---|---|---|
-| 1 | 로그인 시도 제한(throttling) | 높음 | 비밀번호 대입을 막는 장치가 없다. 감사 로그가 있어도 시도를 막지는 못한다 |
-| 2 | 감사 로그의 IP를 nginx 뒤에서도 정확히(remoteip, `internal-proxies`) | 높음 | 지금은 `getRemoteAddr()`만 써서 프록시 뒤에서는 프록시 IP만 남는다. 제출 rate limit도 같은 문제 |
-| 3 | `payload`의 평문 연락처 처리(`extra_contact_field` 경고 또는 마스킹) | 높음 | 폼에 전화·이메일 모양의 추가 항목이 있으면 암호화 대상 밖인 `payload`에 평문으로 남는다 |
-| 4 | PII 키 교체(버전 → 키 맵, 재암호화 배치, HMAC 이중 해시 기간) | 중간 | 지금은 키를 바꾸면 기동이 막힌다. 유출 시 대응 수단이 없다 |
-| 5 | 감사 공백 메우기: refresh 재사용 감지, 로그아웃, 템플릿 새 버전, 게시, 크리에이터 보관 | 중간 | 운영 행위 중 기록되지 않는 것이 남아 있다 |
-| 6 | 배포(Render + Neon 또는 GHCR), dev·prod 프로필 | 중간 | 지금은 로컬 Docker 실행만 된다. 위 2번의 프록시 설정과 함께 정한다 |
-| 7 | Playwright E2E를 CI에 통합 | 중간 | 브라우저 E2E가 수동 실행이라 회귀를 놓칠 수 있다 |
-| 8 | 크리에이터별 `utm_content` | 낮음 | 광고 도구에서 크리에이터를 구분하는 값. 귀속 자체는 `link_id`로 이미 된다 |
-| 9 | 계층 정리: `DateRange`를 common으로, `template` ↔ `form` 순환, `AuditActor` 위치 | 낮음 | 동작은 맞지만 패키지 의존 방향이 어긋나 있다 |
-
-완료 표시: `visits.link_id`·`leads.link_id` 인덱스는 이 PR에서 끝냈다(V11, 완료).
+| 1 | PII 키 교체(버전 → 키 맵, 재암호화 배치, HMAC 이중 해시 기간) | 중간 | 지금은 키를 바꾸면 기동이 막힌다. 유출 시 대응 수단이 없다 |
+| 2 | 배포(Render + Neon 또는 GHCR), dev·prod 프로필 | 중간 | 지금은 로컬 Docker 실행만 된다. `TRUSTED_PROXIES`는 배포 구성의 프록시 주소에 맞춰 정한다 |
+| 3 | 로그인 시도 제한의 공유 저장소와 `/refresh` 제한 | 중간 | 지금은 인메모리·인스턴스별이라 서버를 여러 대 두면 한도가 대수만큼 커지고, 키 10,000개를 넘으면 오래된 카운터를 잊는다. `/refresh`는 제한이 없다 |
+| 4 | 감사 로그 API의 액션 목록을 `AuditAction` enum에서 OpenAPI로 생성 | 낮음 | `AuditLogController`의 OpenAPI 설명에 액션 목록이 손으로 적혀 있어 enum과 어긋날 수 있다 |
+| 5 | 새 감사 행의 IP 검증 | 낮음 | IP 컬럼을 XFF 아래에서 확인하는 테스트가 `auth.login.failure` 하나뿐이다. `form.publish` 같은 행에도 한 건씩 추가한다 |
 
 ## 알려진 한계와 후속 개선 (리뷰에서 나온 것)
 
 - 공개 폼은 외부 이미지·웹폰트·외부 CSS를 막는다(보안 우선, ADR 0002). 업로드 단계에서 #16의 검사 리포트가 경고한다([ADR 0017](adr/0017-template-inspection.md)).
 - 캠페인 기간(startsAt/endsAt)은 참고용이다. 폼 자동 마감은 하지 않는다(ADR 0013).
-- refresh 토큰은 쓸 때마다 14일이 다시 시작되어 세션 절대 수명이 없다. 로그인 시도 횟수 제한도 없다(ROADMAP).
+- refresh 토큰은 쓸 때마다 14일이 다시 시작되어 세션 절대 수명이 없다(ROADMAP). 로그인 시도 제한(#51)은 인메모리·인스턴스별이라 서버를 여러 대 두면 한도가 대수만큼 커진다(ADR 0021).
 - 폼당 채널별 링크 1개 규칙(크리에이터 포함 시 폼 × 채널 × 크리에이터 1개)은 애플리케이션에서만 지킨다(동시 클릭 시 중복 가능성, ADR 0006·0014).
 - 관리자 화면: 저장하지 않고 떠날 때 경고가 없다. 로그인 화면은 서버 연결 실패를 제출 시점에만 알린다.
-- 제출 rate limit은 인메모리·인스턴스별이고 `getRemoteAddr()`만 쓴다. 리버스 프록시 뒤에서는 신뢰 프록시 설정이 필요하다(ADR 0019). 봇 판정은 User-Agent만 본다.
+- 제출 rate limit은 인메모리·인스턴스별이다. 공개 포트에는 앞단 프록시가 없다고 보고 `X-Forwarded-For`를 읽지 않으므로, 공개 포트 앞에 프록시를 두려면 ADR 0021을 다시 본다. 봇 판정은 User-Agent만 본다.
 - 보존 기간 파기는 DB 행만 익명화한다. 백업·내려받은 CSV의 파기, 감사 로그 자체의 보존 기간, 신청자별 즉시 파기(동의 철회)는 없다(ADR 0020). 애플리케이션 로그에 남는 가린 조각(가린 전화번호·이메일)도 파기 대상이 아니며 로그 보존 기간으로 관리해야 한다.
 - 지표 쿼리는 이번 규모에 맞춰 단순하게 두었다. 데이터가 커지면 visits 파티셔닝과 집계 테이블을 검토한다(ROADMAP).
 
 ## 그 뒤 (ROADMAP)
 
-배포(Render + Neon 또는 GHCR), Spring Authorization Server와 Google SSO, 로그인 rate limit, lead.created 웹훅, 일별 추이와 QR 코드, 폼 A/B, Playwright E2E의 CI 통합, Gradle 멀티모듈. 자세한 내용은 [ROADMAP.md](ROADMAP.md).
+배포(Render + Neon 또는 GHCR), Spring Authorization Server와 Google SSO, 로그인 시도 제한의 공유 저장소, lead.created 웹훅, 일별 추이와 QR 코드, 폼 A/B, Gradle 멀티모듈. 자세한 내용은 [ROADMAP.md](ROADMAP.md).

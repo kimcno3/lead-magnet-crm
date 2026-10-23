@@ -1,8 +1,8 @@
 package com.leadmagnet.crm.lead.application;
 
 import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
-import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.lead.config.RetentionProperties;
 import com.leadmagnet.crm.lead.domain.Lead;
 import com.leadmagnet.crm.lead.domain.LeadRepository;

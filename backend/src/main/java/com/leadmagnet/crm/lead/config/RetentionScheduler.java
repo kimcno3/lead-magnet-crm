@@ -1,6 +1,6 @@
 package com.leadmagnet.crm.lead.config;
 
-import com.leadmagnet.crm.common.web.AuditActor;
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.lead.application.LeadRetentionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

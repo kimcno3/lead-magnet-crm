@@ -1,5 +1,8 @@
 package com.leadmagnet.crm.form.application;
 
+import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditActor;
+import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.form.domain.FormRepository;
 import com.leadmagnet.crm.form.domain.FormStatus;
@@ -22,11 +25,13 @@ public class TemplateVersionService {
 
     private final TemplateService templates;
     private final FormRepository forms;
+    private final AuditService audit;
     private final Clock clock;
 
-    public TemplateVersionService(TemplateService templates, FormRepository forms, Clock clock) {
+    public TemplateVersionService(TemplateService templates, FormRepository forms, AuditService audit, Clock clock) {
         this.templates = templates;
         this.forms = forms;
+        this.audit = audit;
         this.clock = clock;
     }
 
@@ -38,7 +43,7 @@ public class TemplateVersionService {
      * 잠금 순서는 템플릿 → 폼이다. 게시({@code FormService.update})도 같은 순서라, 게시는 이 변경이 커밋되기 전/후의
      * 템플릿과 필드를 한 쌍으로 읽는다.
      */
-    public NewVersion upload(long templateId, String filename, byte[] bytes) {
+    public NewVersion upload(long templateId, String filename, byte[] bytes, AuditActor actor) {
         templates.requireExists(templateId); // 없는 템플릿은 파일이 잘못돼도 먼저 404다. 엔티티를 읽지 않는다(잠금 뒤 최신 상태를 읽기 위해)
         TemplateService.Inspected checked = templates.inspect(filename, bytes, null);
         HtmlTemplate template = templates.getForUpdate(templateId);
@@ -47,6 +52,8 @@ public class TemplateVersionService {
         template.newVersion(checked.content(), checked.fields(), checked.inspection(), now);
         List<Form> drafts = forms.findAllByTemplateIdAndStatusOrderByIdAsc(templateId, FormStatus.DRAFT);
         drafts.forEach(form -> form.resnapshotFields(previousFields, checked.fields(), now));
+        // 같은 트랜잭션에서 기록한다. 실패하면 새 버전과 draft 재스냅샷도 롤백된다(ADR 0016 변경 기록).
+        audit.recordRequired(actor, AuditEvent.templateVersionUpload(templateId, template.getVersion(), drafts.size()));
         return new NewVersion(template, checked.inspection(), drafts.size());
     }
 }

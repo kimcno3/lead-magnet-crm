@@ -6,7 +6,7 @@ info:
     공개 경로(`/f/{slug}`, `/l/{code}`, `/api/public/**`)는 같은 앱이지만 public 출처
     (`PUBLIC_BASE_URL`, 기본 :8081)에서만 열리고 인증이 없다. 서로의 포트에서는 404다 (ADR 0010).
     에러는 모두 ProblemDetail(`application/problem+json`, 확장 속성 `code`)이다.
-  version: 0.1.0
+  version: 0.3.0
 servers:
 - url: http://localhost:8080
   description: "admin 출처 (관리자 API, 이 문서)"
@@ -42,8 +42,11 @@ paths:
       - 감사 로그
       summary: 감사 로그
       description: "최신순. action은 lead.list, lead.contact.view, lead.export, lead.export.reveal,\
-        \ auth.login.success, auth.login.failure. from·to는 Asia/Seoul 날짜(yyyy-MM-dd,\
-        \ 양 끝 포함). page는 0부터, size는 1~100(기본 20). 이 조회 자체는 기록하지 않는다."
+        \ auth.login.success, auth.login.failure, auth.login.locked, retention.anonymize,\
+        \ campaign.retention.update, auth.refresh.reused, auth.logout, form.publish,\
+        \ form.close, template.version.upload, creator.archive. from·to는 Asia/Seoul\
+        \ 날짜(yyyy-MM-dd, 양 끝 포함). page는 0부터, size는 1~100(기본 20). 이 조회 자체는 기록하지 않는다\
+        ."
       operationId: listAuditLogs
       parameters:
       - name: action
@@ -114,7 +117,8 @@ paths:
       - 인증
       summary: 로그인
       description: "access token은 바디로, refresh token은 HttpOnly 쿠키(lm_refresh)로 준다\
-        . 성공·실패는 감사 로그에 남는다(ADR 0016)."
+        . 성공·실패는 감사 로그에 남는다(ADR 0016). (이메일, IP) 쌍·이메일 전체·IP별 실패가 창(기본 15분) 안에서 한도\
+        (기본 5회·50회·20회)에 닿으면 비밀번호를 확인하지 않고 429를 준다. 없는 이메일도 같은 규칙이다(ADR 0021)."
       operationId: login
       requestBody:
         content:
@@ -132,15 +136,28 @@ paths:
         "401":
           description: "invalid_credentials: 이메일 또는 비밀번호가 틀림"
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/TokenResponse"
+                $ref: "#/components/schemas/ProblemDetail"
         "422":
           description: "validation_failed: 요청 형식 오류"
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/TokenResponse"
+                $ref: "#/components/schemas/ProblemDetail"
+        "429":
+          description: "too_many_login_attempts: 로그인 시도 제한. Retry-After 헤더(초) 뒤에 다\
+            시 시도한다"
+          headers:
+            Retry-After:
+              description: 다시 시도할 수 있을 때까지의 초
+              style: simple
+              schema:
+                type: integer
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
   /api/admin/auth/logout:
     post:
       tags:
@@ -1025,7 +1042,8 @@ paths:
       - 폼
       summary: 폼 수정·게시·마감
       description: "없는 필드는 그대로 둔다. 내용(title, consentText, fieldConfig의 label·required)은\
-        \ draft에서만 수정. status는 published(draft→published) 또는 closed(published→closed)."
+        \ draft에서만 수정. status는 published(draft→published) 또는 closed(published→closed).\
+        \ 게시·마감은 감사 로그(form.publish, form.close)에 남고, 기록에 실패하면 상태도 바뀌지 않는다 (ADR 0016)."
       operationId: updateForm
       parameters:
       - name: id
@@ -1116,7 +1134,8 @@ paths:
       - 명단
       summary: 신청자 원문 연락처
       description: "명단은 가린 값만 준다. 원문 이름·전화번호(숫자만)·이메일은 이 엔드포인트로 한 건씩 본다 (ADR 0015).\
-        \ 응답은 캐시하지 않는다(Cache-Control: no-store). 열람은 감사 로그(lead.contact.view)에 남고\
+        \ phone·email 이외 이름의 전화·이메일 입력(payload)은 extraContacts(필드 이름 → 원문)로 함께 준다\
+        . 응답은 캐시하지 않는다(Cache-Control: no-store). 열람은 감사 로그(lead.contact.view)에 남고\
         , 기록에 실패하면 원문을 주지 않고 500이다(ADR 0016)."
       operationId: getLeadContact
       parameters:
@@ -1406,7 +1425,8 @@ paths:
       description: "업로드와 같은 파일 검사(multipart file, .html/.htm, UTF-8, 512KB 이하, 폼 계\
         약)를 통과하면 내용·sha256·필드·크기·검사 결과를 바꾸고 version을 올린다. 이 템플릿을 쓰는 draft 폼은 새 필드로\
         \ 다시 스냅샷한다(운영자가 바꾼 label·required는 같은 이름이면 유지). 게시·마감된 폼은 게시 시점 스냅샷을 쓰므로 영\
-        향이 없다. 응답 affectedDraftForms는 다시 스냅샷한 draft 폼 수. 이름은 바뀌지 않는다."
+        향이 없다. 감사 로그(template.version.upload)에 버전과 영향받은 draft 수가 남고, 기록에 실패하면 업로드도\
+        \ 롤백된다 (ADR 0016). 응답 affectedDraftForms는 다시 스냅샷한 draft 폼 수. 이름은 바뀌지 않는다."
       operationId: uploadTemplateVersion
       parameters:
       - name: id
@@ -1861,6 +1881,8 @@ components:
           type: string
         utmCampaign:
           type: string
+        utmContent:
+          type: string
         createdAt:
           type: string
           format: date-time
@@ -2200,6 +2222,10 @@ components:
           type: string
         email:
           type: string
+        extraContacts:
+          type: object
+          additionalProperties:
+            type: string
     LeadConsentResponse:
       type: object
       properties:

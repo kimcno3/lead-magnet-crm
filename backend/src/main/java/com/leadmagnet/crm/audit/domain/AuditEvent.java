@@ -3,6 +3,7 @@ package com.leadmagnet.crm.audit.domain;
 import com.leadmagnet.crm.common.PiiMasker;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -15,6 +16,9 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
     public static final String TARGET_LEAD = "lead";
     public static final String TARGET_CAMPAIGN = "campaign";
     public static final String TARGET_OPERATOR = "operator";
+    public static final String TARGET_FORM = "form";
+    public static final String TARGET_TEMPLATE = "template";
+    public static final String TARGET_CREATOR = "creator";
 
     public AuditEvent {
         detail = detail == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(detail));
@@ -54,6 +58,22 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
     }
 
     /**
+     * 로그인 시도 제한이 걸린 시점(ADR 0021). 잠금이 시작될 때 한 줄만 남기고 그 뒤의 거절(429)은 감사 로그에 쓰지 않는다
+     * (ADR 0016 결과 절). scopes는 한도에 닿은 범위(email_ip, email, ip), windowMinutes는 창 길이. 이메일은 가린 값만
+     * 남기고, IP 한도만 닿았으면(이메일과 무관한 잠금) 이메일을 넣지 않는다.
+     */
+    public static AuditEvent loginLocked(String rawEmail, List<String> scopes, long windowMinutes) {
+        String email = rawEmail == null ? "" : rawEmail.trim();
+        Map<String, Object> detail = new LinkedHashMap<>();
+        if (!scopes.equals(List.of("ip"))) {
+            detail.put("email", PiiMasker.maskEmail(email));
+        }
+        detail.put("scopes", List.copyOf(scopes));
+        detail.put("windowMinutes", windowMinutes);
+        return new AuditEvent(AuditAction.AUTH_LOGIN_LOCKED, TARGET_OPERATOR, null, null, detail);
+    }
+
+    /**
      * 보존 기간 파기 한 번(ADR 0020). 실행 단위로 한 줄만 남긴다. trigger는 scheduled 또는 manual, count는 이번 실행이
      * 익명화해 커밋한 신청 수다(0일 수 있다). completed는 오류 없이 끝났는지, interrupted는 다른 실행이 잠금을 쥐고 있어
      * 이번 실행이 멈췄는지, error는 실패했을 때 예외 클래스 이름(메시지는 넣지 않는다). 신청 id는 남기지 않는다.
@@ -77,6 +97,39 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
         detail.put("oldRetentionDays", oldRetentionDays);
         detail.put("newRetentionDays", newRetentionDays);
         return new AuditEvent(AuditAction.CAMPAIGN_RETENTION_UPDATE, TARGET_CAMPAIGN, campaignId, campaignId, detail);
+    }
+
+    /** refresh token 재사용 감지로 패밀리를 폐기한 일(ADR 0016 변경 기록). 토큰 값은 남기지 않는다. */
+    public static AuditEvent refreshReused(long operatorId) {
+        return new AuditEvent(AuditAction.AUTH_REFRESH_REUSED, TARGET_OPERATOR, operatorId, null, Map.of());
+    }
+
+    /** 로그아웃. refresh 쿠키가 운영자로 확인될 때만 남긴다. */
+    public static AuditEvent logout(long operatorId) {
+        return new AuditEvent(AuditAction.AUTH_LOGOUT, TARGET_OPERATOR, operatorId, null, Map.of());
+    }
+
+    /** 폼 게시·마감. detail은 폼 id와 slug(공개 주소의 일부이며 신청자 개인정보가 아니다). */
+    public static AuditEvent formStatusChange(boolean publish, long formId, long campaignId, String slug) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("formId", formId);
+        detail.put("slug", slug);
+        return new AuditEvent(publish ? AuditAction.FORM_PUBLISH : AuditAction.FORM_CLOSE, TARGET_FORM, formId,
+            campaignId, detail);
+    }
+
+    /** 템플릿 새 버전 업로드. version은 올린 뒤의 버전, affectedDraftForms는 다시 스냅샷한 draft 폼 수. */
+    public static AuditEvent templateVersionUpload(long templateId, int version, int affectedDraftForms) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("templateId", templateId);
+        detail.put("version", version);
+        detail.put("affectedDraftForms", affectedDraftForms);
+        return new AuditEvent(AuditAction.TEMPLATE_VERSION_UPLOAD, TARGET_TEMPLATE, templateId, null, detail);
+    }
+
+    public static AuditEvent creatorArchive(long creatorId) {
+        return new AuditEvent(AuditAction.CREATOR_ARCHIVE, TARGET_CREATOR, creatorId, null,
+            Map.of("creatorId", creatorId));
     }
 
     private static Map<String, Object> filterDetail(Long formId, String channel) {

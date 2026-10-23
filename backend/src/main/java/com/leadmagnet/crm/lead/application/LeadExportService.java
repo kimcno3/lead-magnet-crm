@@ -3,10 +3,11 @@ package com.leadmagnet.crm.lead.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leadmagnet.crm.audit.application.AuditService;
-import com.leadmagnet.crm.common.web.AuditActor;
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
 import com.leadmagnet.crm.common.Csv;
+import com.leadmagnet.crm.common.DateRange;
 import com.leadmagnet.crm.common.PhoneFormat;
 import com.leadmagnet.crm.common.crypto.PiiCryptoException;
 import com.leadmagnet.crm.common.error.DomainException;
@@ -17,11 +18,11 @@ import com.leadmagnet.crm.creator.domain.CreatorRepository;
 import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.form.domain.FormRepository;
 import com.leadmagnet.crm.lead.domain.Lead;
+import com.leadmagnet.crm.lead.domain.LeadRepository;
 import com.leadmagnet.crm.link.domain.AttributionChannel;
 import com.leadmagnet.crm.link.domain.DistributionLink;
-import com.leadmagnet.crm.lead.domain.LeadRepository;
 import com.leadmagnet.crm.link.domain.DistributionLinkRepository;
-import com.leadmagnet.crm.stats.domain.DateRange;
+import com.leadmagnet.crm.template.domain.FormField;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -51,7 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       (배치마다 COUNT 없음). 신청은 바뀌거나 지워지지 않으므로, maxId보다 작은 id의 신청이 그 사이에 늦게 커밋되는
  *       경우(동시 신청)가 아니면 기록한 건수와 내려주는 행 수가 같다.</li>
  * </ol>
- * 기본은 가린 값이고 reveal이면 원문이다. 보존 기간이 지나 파기된 신청은 연락처·추가 항목 칸이 비고 "파기" 칸에 "파기됨"이다. 복호화하지 못한 행은 연락처 칸에 "복호화 불가"를 적고 로그에는 신청 id만 남긴다.
+ * 기본은 가린 값(payload의 연락처처럼 보이는 항목 포함)이고 reveal이면 원문이다. 보존 기간이 지나 파기된 신청은 연락처·추가 항목 칸이 비고 "파기" 칸에 "파기됨"이다. 복호화하지 못한 행은 연락처 칸에 "복호화 불가"를 적고 로그에는 신청 id만 남긴다.
  */
 @Service
 public class LeadExportService {
@@ -161,7 +162,8 @@ public class LeadExportService {
         cells.add(lead.getChannel().value());
         cells.add(creator);
         cells.add(lookups.formTitles().get(lead.getFormId()));
-        cells.add(lead.isAnonymized() ? null : payloadJson(lead.getPayload()));
+        cells.add(lead.isAnonymized() ? null : payloadJson(reveal ? lead.getPayload()
+            : ExtraContacts.mask(lead.getPayload(), lookups.fieldsByForm().get(lead.getFormId()))));
         cells.add(lead.isAnonymized() ? ANONYMIZED : null);
         return cells;
     }
@@ -187,7 +189,9 @@ public class LeadExportService {
             .collect(Collectors.toMap(Creator::getId, Creator::getName));
         Map<Long, String> creatorByLink = campaignLinks.stream().filter(l -> l.getCreatorId() != null)
             .collect(Collectors.toMap(DistributionLink::getId, l -> creatorNames.get(l.getCreatorId())));
-        return new Lookups(titles, creatorByLink);
+        Map<Long, List<FormField>> fieldsByForm = campaignForms.stream()
+            .collect(Collectors.toMap(Form::getId, Form::getFieldConfig));
+        return new Lookups(titles, creatorByLink, fieldsByForm);
     }
 
     private String payloadJson(Map<String, Object> payload) {
@@ -202,7 +206,8 @@ public class LeadExportService {
         }
     }
 
-    private record Lookups(Map<Long, String> formTitles, Map<Long, String> creatorByLink) {
+    private record Lookups(Map<Long, String> formTitles, Map<Long, String> creatorByLink,
+            Map<Long, List<FormField>> fieldsByForm) {
     }
 
     /** 내보낼 범위. formId·channel은 null이면 필터 없음. maxId 이하의 행만 쓴다(기록한 건수와 맞추려고). */

@@ -13,7 +13,7 @@
 
 - Spring Authorization Server(Authorization Code + PKCE). 현재의 Resource Server 설정은 그대로 재사용한다.
 - access token 즉시 무효화(서버 세션 또는 블랙리스트).
-- 로그인 시도 횟수 제한(이메일·IP별 rate limit과 일시 잠금). v0.1.0에는 없다.
+- 로그인 시도 제한을 여러 인스턴스가 나눠 쓰는 저장소(Redis 등)로 옮기기. v0.3.0(#51)의 제한은 인메모리·인스턴스별이다(ADR 0021).
 - refresh token 패밀리의 절대 수명 상한. 지금은 교체마다 14일이 다시 시작되어 계속 쓰면 세션이 끝나지 않는다(ADR 0003).
 - Google SSO.
 
@@ -29,12 +29,12 @@
   - 암호화 키: 암호문 버전 바이트 → 키 맵을 두고 이전 키로 읽고 새 키로 다시 암호화하는 배치, 끝나면 확인 행을 새 키로 바꾼다.
   - HMAC 키: 새 해시 컬럼과 인덱스를 더해 두 해시를 함께 쓰는 기간을 두고, 재계산이 끝나면 옛 해시를 지운다(expand → contract).
   - KMS·시크릿 매니저 연동(봉투 암호화).
-- 리버스 프록시 뒤 배포 시 신뢰 프록시 목록과 `server.forward-headers-strategy`를 정하고 감사 로그 IP를 실제 클라이언트 주소로 바꾼다(ADR 0016). 지금은 `getRemoteAddr()`만 기록한다.
+- 배포 환경의 프록시·로드밸런서 주소를 `TRUSTED_PROXIES`에 넣는다. admin 포트의 신뢰 프록시 해석은 #51에서 넣었고(ADR 0021), 공개 포트 앞에 프록시를 둘 때는 그 ADR의 포트별 규칙을 다시 정한다.
 - 감사 로그 보존기한·파기와 위변조 방지(해시 체인 또는 별도 저장소), 비정상 다운로드 알림(ADR 0016).
 
 ## 테스트
 
-- Playwright E2E를 CI에 통합.
+- ~~Playwright E2E를 CI에 통합.~~ v0.3.0 #54에서 완료(`.github/workflows/e2e.yml`).
 
 ## 구조
 

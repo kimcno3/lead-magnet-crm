@@ -40,7 +40,7 @@ npm test
 npm run build
 ```
 
-브라우저 E2E(Playwright, Chromium)는 `docker compose up --build -d`로 전체 시스템을 띄운 뒤 `cd e2e && npm ci && npx playwright install chromium && npm test`로 돌린다. 화면은 `docs/e2e/screenshots/`, 단계별 결과는 `docs/e2e/results.json`에 남는다.
+브라우저 E2E(Playwright, Chromium)는 `docker compose up --build -d`로 전체 시스템을 띄운 뒤 `cd e2e && npm ci && npx playwright install chromium && npm test`로 돌린다. 화면은 `docs/e2e/screenshots/`, 단계별 결과는 `docs/e2e/results.json`에 남는다. CI(`.github/workflows/e2e.yml`)도 develop·main 대상 PR과 push마다 같은 E2E를 돌린다. CI는 키와 관리자 비밀번호를 새로 만든 `.env`로 띄우고, 결과를 `E2E_OUTPUT_DIR`(`e2e/ci-output`)에 써서 `e2e-results` 아티팩트로만 올린다(커밋된 `docs/e2e`는 로컬 실행만 갱신한다). 실패하면 Playwright 리포트·trace와 `docker compose logs`도 `e2e-failure-report`로 올린다.
 
 ## 문서
 
@@ -50,6 +50,7 @@ npm run build
 | [docs/AI_FORM_PROMPT.md](docs/AI_FORM_PROMPT.md) | AI에게 신청 폼 HTML을 만들게 할 때 붙여 넣는 프롬프트, 규칙별 검사 코드 대응표, 통과하는 예시 |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | 문제 해결: 실행·로그인·업로드·신청·지표 증상별 원인과 해결, 오류 코드표 |
 | [docs/WORKPLAN.md](docs/WORKPLAN.md) | 작업 계획과 진행 현황, 다음 작업 |
+| [docs/RELEASE_NOTES_v0.3.0.md](docs/RELEASE_NOTES_v0.3.0.md) | v0.3.0 릴리스 노트: 기능, v0.2.0에서 올리는 방법(네트워크 재생성·루프백 포트·TRUSTED_PROXIES) |
 | [docs/RELEASE_NOTES_v0.2.0.md](docs/RELEASE_NOTES_v0.2.0.md) | v0.2.0 릴리스 노트: 기능, v0.1.0에서 올리는 방법, 필수 키 |
 | [docs/OVERVIEW.md](docs/OVERVIEW.md) | 설계 개요: 아키텍처, 보안 설계, 테스트 전략 |
 | [docs/PLAN.md](docs/PLAN.md) | 과제 해석과 초기 계획 |

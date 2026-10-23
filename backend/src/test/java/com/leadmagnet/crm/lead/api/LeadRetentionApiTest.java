@@ -6,9 +6,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
-import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.common.web.PublicPort;
 import com.leadmagnet.crm.lead.application.LeadRetentionService;
 import com.leadmagnet.crm.support.AdminFixtures;
@@ -210,6 +210,27 @@ class LeadRetentionApiTest {
         assertThat(anonymized(a)).isTrue();
         assertThat(anonymized(b)).isFalse();
         assertThat(jdbc.queryForObject("SELECT phone_enc IS NOT NULL FROM leads WHERE id = ?", Boolean.class, b)).isTrue();
+    }
+
+    @Test
+    void 익명화된_신청의_tel_추가_항목은_명단과_CSV에서_값_없이_키만_남는다() {
+        String html = """
+            <form><input name="phone" type="tel"><input name="alt_phone" type="tel"></form>
+            """;
+        AdminFixtures.createPublishedFormIn(token, campaign, "form-c", html);
+        long id = submit("form-c", Map.of("phone", "010-1111-0001", "alt_phone", "010-9999-8888"));
+        createdAt(id, now().minus(Duration.ofDays(31)));
+        runManually();
+
+        authed().get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
+            .body("items[0].anonymizedAt", notNullValue()).body("items[0].payload.alt_phone", nullValue())
+            .body("items[0].payload", org.hamcrest.Matchers.hasKey("alt_phone"))
+            .body(org.hamcrest.Matchers.not(containsString("8888")));
+        for (String path : List.of("/api/admin/campaigns/{id}/leads.csv", "/api/admin/campaigns/{id}/leads.csv?reveal=true")) {
+            String csv = new String(authed().get(path, campaign).then().statusCode(200).extract().asByteArray(),
+                java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(csv).contains("파기됨").doesNotContain("8888", "alt_phone");
+        }
     }
 
     @Test
@@ -465,7 +486,7 @@ class LeadRetentionApiTest {
             .body("consentSha256", equalTo(row.get("consent_sha256")))
             .body("consentAt", notNullValue())
             .body("anonymizedAt", nullValue());
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action NOT LIKE 'auth.%'", Integer.class))
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action NOT LIKE 'auth.%' AND action <> 'form.publish'", Integer.class))
             .isZero();
     }
 

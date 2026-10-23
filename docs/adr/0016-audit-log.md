@@ -36,7 +36,7 @@ ADR 0015로 명단은 가린 값만 보이고 원문은 `GET /api/admin/leads/{i
 - **CSV 다운로드와 "같은 트랜잭션"**: 응답을 스트리밍하므로 기록과 파일 쓰기를 한 트랜잭션에 묶으면 기록 실패를 알 때 이미 200을 보냈을 수 있다. 그래서 두 단계로 나눈다. (1) `LeadExportService.start`가 필터를 검증하고 내보낼 범위(지금 보이는 가장 큰 신청 id = maxId)를 정한 뒤, 스트림과 같은 조건(`id <= maxId`)으로 건수를 세어 같은 트랜잭션에서 기록하고 커밋한다. 실패하면 첫 바이트 전에 500이다. (2) 같은 조건의 행만 id 순으로 500건씩 keyset(`id > 직전 id`, `LIMIT 500`, 배치마다 COUNT 없음)으로 읽어 쓴다. 신청은 바뀌거나 지워지지 않으므로 기록한 건수와 파일의 행 수는 같다. 단 동시에 들어온 신청이 id 순서와 다르게 커밋되면(maxId보다 작은 id가 기록 뒤에 커밋) 파일에 그 행이 더 들어갈 수 있다. 신청 id는 시퀀스라 이 차이는 다운로드 순간 진행 중이던 신청 몇 건에 그친다. 스트리밍 중에 연결이 끊기면 "다운로드 시도"가 기록으로 남는다(덜 기록하는 것보다 더 기록하는 쪽을 택했다). 스트리밍은 MVC 비동기 요청이라 제한 시간을 `spring.mvc.async.request-timeout: 10m`으로 명시했다(기본값인 Tomcat 30초면 큰 명단이 중간에 끊긴다). 다른 API는 비동기를 쓰지 않아 영향이 없다.
 - **CSV 형식**: `GET /api/admin/campaigns/{id}/leads.csv?formId&channel&reveal`. UTF-8 BOM(엑셀 한글), RFC 4180(쉼표·따옴표·줄바꿈이 있으면 따옴표로 감싸고 따옴표는 두 번, 줄 끝 CRLF). 열은 신청일(Asia/Seoul `yyyy-MM-dd HH:mm:ss`), 이름, 전화번호, 이메일, 채널, 크리에이터, 폼, 추가 항목(payload를 JSON 한 칸으로). 신청 순(id 오름차순). 기본은 가린 값, `reveal=true`면 원문(전화번호는 `010-1234-5678`처럼 하이픈을 넣는다. 숫자만 쓰면 엑셀이 숫자로 읽어 앞의 0을 지운다. 규칙은 관리자 화면 `formatPhone`과 같고 `common/PhoneFormat`이 한다). 복호화하지 못한 행은 연락처 세 칸에 "복호화 불가"(로그에는 신청 id만). 응답 헤더는 `Content-Type: text/csv;charset=UTF-8`, `Cache-Control: no-store`, `Content-Disposition: attachment; filename="leads-campaign-{id}-{yyyyMMdd-HHmmss}[-raw].csv"`(ASCII만).
 - **CSV 수식 주입 방지**: 앞의 공백 문자(스페이스, 탭, CR, LF)를 건너뛴 첫 글자가 `=`, `+`, `-`, `@`이거나 값이 탭·CR로 시작하면 앞에 `'`를 붙인다(`common/Csv`). 스프레드시트가 앞 공백을 무시하고 수식으로 읽는 경우도 막는다. `'`는 CSV를 열면 셀에 그대로 보인다(데이터로 들어가기 때문이다. 지우면 수식이 다시 살아난다). 신청자가 이름에 `=HYPERLINK(...)`를 넣어도 스프레드시트가 수식으로 실행하지 않는다. 가린 전화번호(`010-****-5678`)처럼 숫자로 시작하는 값은 그대로 둔다.
-- **요청 주체**: `common/web/AuditActors`가 요청에서 `AuditActor`(운영자 = JWT `sub`, IP, User-Agent)를 만든다. lead·auth·audit이 함께 쓰므로 common에 둔다.
+- **요청 주체**: `audit/api/AuditActors`가 요청에서 `audit/domain/AuditActor`(운영자 = JWT `sub`, IP, User-Agent)를 만든다. auth·lead·campaign 등이 audit을 한 방향으로 쓴다(#55에서 common/web에서 옮겼다).
 - **패키지 방향**: auth·lead → audit 한 방향이다. 감사 로그 화면의 운영자 이메일은 audit이 정의한 읽기 포트 `OperatorDirectory`를 auth가 구현해 api 계층(`AuditLogController`)이 붙인다. `AuditService.search`는 운영자 id만 돌려준다.
 - **IP·User-Agent**: IP는 `request.getRemoteAddr()`만 쓴다. `X-Forwarded-For`는 클라이언트가 마음대로 넣을 수 있고 신뢰할 프록시 설정이 없어 읽지 않는다. 그래서 리버스 프록시 뒤에 배포하면 프록시 주소가 남는다. User-Agent는 512자, IP는 45자로 자른다(`AuditActor`).
 - **조회 API**: `GET /api/admin/audit-logs?action&operatorId&campaignId&from&to&page&size`. 최신순(created_at, id 내림차순), size 1~100(기본 20), 모르는 action·잘못된 기간은 422. 기간은 지표와 같은 `DateRange`(Asia/Seoul 날짜, 양 끝 포함). 응답에 운영자 이메일을 붙인다(운영자 계정 정보이지 신청자 개인정보가 아니다).
@@ -66,3 +66,19 @@ ADR 0015로 명단은 가린 값만 보이고 원문은 `GET /api/admin/leads/{i
 
 - 2026-10-24 (ADR 0019): 이슈 #18은 공개 신청 제출에만 rate limit을 걸었다. 거절은 감사 로그에 쓰지 않고 애플리케이션 로그에 1분 단위 건수 한 줄만 남긴다(위 "결과" 절의 원칙). 로그인 시도 제한은 이번에 넣지 않았고, 넣을 때 위 절의 `auth.login.throttled` 방식을 따른다.
 - 2026-10-24 (ADR 0020): `retention.anonymize`(보존 기간 파기, 실행마다 한 줄, detail `trigger`·`count`·`completed`·`interrupted`·실패 시 `error`, 스케줄 실행은 운영자 없음)와 `campaign.retention.update`(캠페인 보존 기간 변경, detail `oldRetentionDays`·`newRetentionDays`, 같은 트랜잭션 `recordRequired`)를 더했다. campaign → audit 의존이 생겼다. 원문 API의 410 `lead_anonymized`와 동의 문구 조회(`/api/admin/leads/{id}/consent`, 개인정보 아님)는 기록하지 않는다. CSV에 마지막 열 "파기"가 생겼다. 감사 로그 자체의 보존 기간은 여전히 후속 작업이다.
+- 2026-10-24 (ADR 0021): IP 출처가 바뀌었다. 감사 IP는 여전히 `getRemoteAddr()`이지만, admin 포트에서 직전 피어가 신뢰 프록시(`TRUSTED_PROXIES`, 기본 compose의 admin-web 고정 주소 `172.16.57.10/32`)면 `common/web/ClientIpFilter`가 `X-Forwarded-For`를 오른쪽부터 읽어 고른 클라이언트 주소다. public 포트와 신뢰하지 않는 피어는 피어 주소 그대로다. 위 "IP·User-Agent"와 대안 표의 "`X-Forwarded-For` 첫 값" 행은 이 규칙으로 대체된다(첫 값이 아니라 신뢰 프록시를 건너뛴 오른쪽 값이다). 로그인 시도 제한도 결과 절의 방식대로 넣었다: 잠금 시작에 `auth.login.locked` 한 줄(detail `email` 가린 값(IP 한도만 닿았으면 없음)·`scopes`(`email_ip`·`email`·`ip`)·`windowMinutes`), 잠긴 뒤의 거절은 감사에 쓰지 않고 애플리케이션 로그에 1분 단위 건수만 남긴다. 결과 절에서 예로 든 `auth.login.throttled`라는 이름과 "창이 끝날 때 갱신"은 쓰지 않았다(감사 행을 고치지 않는다).
+- 2026-10-24 (이슈 #53): 감사 공백 여섯 가지를 더했다. action은 `VARCHAR(40)`에 모두 들어간다(가장 긴 `template.version.upload`는 23자, 마이그레이션 없음). 새 action 모두 API 필터 검증(`AuditAction`)과 관리자 감사 화면의 행동 필터·요약 문구에 들어간다.
+
+  | action | 정책 | target | detail |
+  |---|---|---|---|
+  | `auth.refresh.reused` | 최선 노력 | operator | 없음 |
+  | `auth.logout` | 최선 노력 | operator | 없음 |
+  | `form.publish`, `form.close` | 필수(같은 트랜잭션) | form, campaign_id | `formId`, `slug` |
+  | `template.version.upload` | 필수 | template | `templateId`, `version`(올린 뒤), `affectedDraftForms` |
+  | `creator.archive` | 필수 | creator | `creatorId` |
+
+  - `auth.refresh.reused`: 재사용을 감지해 패밀리를 폐기한 뒤 남긴다. 폐기는 `noRollbackFor`로 이미 커밋되었으므로 `AuthController.refresh`가 `RefreshTokenReusedException`(운영자 id 보유, `DomainException` 하위)을 잡아 트랜잭션 밖에서 `recordBestEffort`하고 같은 예외를 다시 던진다. 기록이 실패해도 응답은 401 `refresh_token_reused`이고 폐기는 유지된다. 모르는 토큰(`invalid_refresh_token`)은 운영자를 알 수 없어 남기지 않는다. 이미 폐기된 패밀리의 토큰을 다시 보내는 반복 재생은 폐기한 토큰이 0개이므로 남기지 않는다(`/refresh`에 시도 제한이 없어 재생마다 행이 쌓이는 것을 막는다).
+  - `auth.logout`: `AuthService.logout`이 쿠키가 운영자로 확인되고 살아 있는 토큰을 실제로 폐기했을 때만 그 id를 돌려주고(이미 로그아웃·폐기된 쿠키는 기록하지 않는다), 컨트롤러가 최선 노력으로 남긴다. 쿠키가 없거나 모르는 토큰이면 아무것도 쓰지 않고 응답은 그대로 204다.
+  - 폼 게시·마감, 템플릿 새 버전, 크리에이터 보관은 공개 콘텐츠나 공개 폼에 영향을 주는 상태 변경이라 같은 트랜잭션에서 `recordRequired`한다. 기록이 실패하면 변경도 롤백되고 500 `internal_error`다. 실제로 전이가 일어난 경우만 남기고(검증·409 실패, 내용만 수정은 제외) 잠금 순서(템플릿 → 폼)는 바꾸지 않는다.
+  - detail에는 id, slug(공개 주소의 일부), 버전, 건수만 넣는다. 크리에이터 이름·핸들, 토큰 값, 이메일은 넣지 않는다. 서비스 시그니처에 `AuditActor`가 추가되어 form·creator → audit 의존이 생겼다(auth·lead·campaign과 같은 방향).
+- 2026-10-24 (#55): `AuditActor`·`AuditActors`를 `common/web`에서 audit 패키지(`audit/domain`, `audit/api`)로 옮겼다. 동작은 같고, common이 도메인을 모르게 하려는 패키지 정리다. 감사 기록 목록 조회의 기간은 `common/DateRange`를 쓴다.

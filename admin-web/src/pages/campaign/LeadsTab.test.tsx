@@ -125,6 +125,29 @@ describe('원문 보기', () => {
     expect(within(row).queryByText('신청자0')).not.toBeInTheDocument()
   })
 
+  it('추가 항목의 가려진 연락처는 원문 보기에서 extraContacts 원문으로 바뀐다', async () => {
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+      if (url.pathname === '/api/admin/campaigns/7/leads') {
+        const page = leadPage(0, 1)
+        return json({ ...page, items: [{ ...page.items[0], payload: { company: '하늘상사', alt_phone: '010-****-8888' } }] })
+      }
+      if (url.pathname === '/api/admin/leads/100/contact') {
+        return json({ ...leadContact(0), extraContacts: { alt_phone: '01099998888' } })
+      }
+      return undefined
+    })
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    const row = await rowOf('신*0')
+    expect(within(row).getByText('company: 하늘상사 / alt_phone: 010-****-8888')).toBeInTheDocument()
+
+    fireEvent.click(within(row).getByRole('button', { name: /원문 보기$/ }))
+
+    expect(await within(row).findByText('company: 하늘상사 / alt_phone: 01099998888')).toBeInTheDocument()
+    fireEvent.click(within(row).getByRole('button', { name: /가리기$/ }))
+    expect(within(row).getByText('company: 하늘상사 / alt_phone: 010-****-8888')).toBeInTheDocument()
+  })
+
   it('다른 페이지로 가면 원문이 다시 가려진다', async () => {
     backend()
     renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')

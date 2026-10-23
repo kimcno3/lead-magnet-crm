@@ -1,13 +1,17 @@
 package com.leadmagnet.crm.form.api;
 
+import com.leadmagnet.crm.audit.api.AuditActors;
 import com.leadmagnet.crm.form.application.FormService;
 import com.leadmagnet.crm.form.domain.Form;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,7 +56,7 @@ public class FormController {
 
     @Operation(operationId = "updateForm", summary = "폼 수정·게시·마감",
         description = "없는 필드는 그대로 둔다. 내용(title, consentText, fieldConfig의 label·required)은 draft에서만 수정. "
-            + "status는 published(draft→published) 또는 closed(published→closed).",
+            + "status는 published(draft→published) 또는 closed(published→closed). 게시·마감은 감사 로그(form.publish, form.close)에 남고, 기록에 실패하면 상태도 바뀌지 않는다 (ADR 0016).",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "수정됨")
     @ApiResponse(responseCode = "401", description = "unauthorized")
@@ -60,9 +64,10 @@ public class FormController {
     @ApiResponse(responseCode = "409", description = "invalid_form_transition, form_not_editable")
     @ApiResponse(responseCode = "422", description = "validation_failed (필드 추가·삭제·이름 변경 포함)")
     @PatchMapping("/forms/{id}")
-    public FormResponse update(@PathVariable long id, @RequestBody UpdateFormRequest request) {
+    public FormResponse update(@PathVariable long id, @RequestBody UpdateFormRequest request,
+            @AuthenticationPrincipal Jwt jwt, HttpServletRequest httpRequest) {
         return response(formService.update(id, request.title(), request.consentText(),
-            request.fieldConfig(), request.status()));
+            request.fieldConfig(), request.status(), AuditActors.of(jwt, httpRequest)));
     }
 
     private FormResponse response(Form form) {

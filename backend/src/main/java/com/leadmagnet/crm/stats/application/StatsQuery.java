@@ -1,6 +1,6 @@
 package com.leadmagnet.crm.stats.application;
 
-import com.leadmagnet.crm.stats.domain.DateRange;
+import com.leadmagnet.crm.common.DateRange;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;

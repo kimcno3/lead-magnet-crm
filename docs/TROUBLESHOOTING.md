@@ -19,6 +19,7 @@
 | `.env`의 비밀번호를 바꿨는데 로그인이 안 된다 | 시드는 계정이 **없을 때만** 만든다. 이미 있는 계정은 바꾸지 않는다(ADR 0009) | `docker compose down -v`로 DB를 지우고 다시 띄운다(데이터 모두 삭제) |
 | `port is already allocated` | 5173, 8080, 8081, 5432 중 사용 중인 포트가 있음 | `.env`의 `ADMIN_WEB_PORT`, `ADMIN_PORT`, `PUBLIC_PORT`, `POSTGRES_PORT`를 바꾼다. 포트를 바꾸면 `ADMIN_ORIGIN`, `PUBLIC_BASE_URL`도 맞춘다 |
 | 관리자 화면이 "서버에 연결하지 못했습니다" | backend가 아직 기동 중이거나 멈춤 | `docker compose ps`에서 backend가 `healthy`인지 확인, `docker compose logs backend` |
+| `docker compose up`에서 `unknown flag: --wait` 또는 `unknown flag: --wait-timeout` | `--wait`를 지원하지 않는 오래된 docker compose다. CI의 e2e 워크플로가 이 플래그를 쓴다 | 로컬에서는 `docker compose up --build -d`로 올린다. `depends_on`의 health 조건이 기동 순서는 맞춰 주므로, 올라온 뒤 헬스 엔드포인트(`curl http://localhost:8080/actuator/health`)가 `UP`을 돌려줄 때까지 기다린다 |
 
 ## 2. 로그인과 세션
 
@@ -26,6 +27,9 @@
 |---|---|---|
 | "이메일 또는 비밀번호가 올바르지 않습니다" (`invalid_credentials`) | 계정 정보 불일치. 없는 이메일도 같은 문구로 답한다 | `.env`의 시드 값 확인. 바꿨다면 위 "로그인이 안 된다" 참고 |
 | 갑자기 로그인 화면으로 돌아간다 | refresh 토큰 만료(14일 미사용) 또는 재사용 감지(`refresh_token_reused`)로 세션 전체 폐기 | 다시 로그인한다. 같은 브라우저를 여러 탭에서 동시에 오래 열어 두었다면 재사용으로 판단될 수 있다(ADR 0003) |
+| 로그인이 "잠시 후 다시 시도해 주세요(약 N분)"로 거절된다 (`too_many_login_attempts`, 429) | 로그인 시도 제한(ADR 0021). 15분 안에 같은 IP에서 같은 이메일로 5번, 같은 IP에서 이메일 무관 20번, 또는 한 이메일로 모든 IP 합쳐 50번 틀리면 잠긴다. 다른 사람이 다른 IP에서 내 이메일로 틀린 것은 50번 전까지 나에게 영향이 없다. 없는 이메일도 같은 규칙이다. 잠긴 동안에는 올바른 비밀번호도 거절한다 | 화면의 분(응답 `Retry-After` 초를 올림)만큼 기다린다. 잠금은 첫 실패가 15분 창을 벗어나면 풀린다. 급하면 backend를 재시작하면 기록이 모두 지워진다(인메모리). 한도는 `app.auth.login-throttle.*`로 바꾼다 |
+| 감사 로그에 "로그인 시도 제한"(`auth.login.locked`)이 보인다 | 잠금이 시작된 시점에 한 줄 남는다(가린 이메일, 기준 이메일+IP·이메일 전체·IP, 창 길이. IP 기준만이면 이메일 없음). 잠긴 뒤의 거절은 한 건씩 남기지 않고 backend 로그에 `로그인 시도 제한 거절: 지난 기록 이후 N건`(1분에 많아야 한 줄)만 남긴다 | 운영자 본인이 아니라면 IP 열을 보고 대입 시도를 확인한다. 계정 자체는 잠기지 않고 창이 지나면 다시 시도할 수 있다(계정 잠금·해제 기능은 없다) |
+| 회사 등 같은 IP 뒤의 여러 사람이 함께 로그인이 막힌다 | IP 한도(15분 20회 실패)는 같은 공인 IP를 나눠 쓴다. 또는 `TRUSTED_PROXIES`가 실제 프록시와 맞지 않아 모든 요청이 프록시 주소 하나로 보인다 | 감사 로그 IP가 모두 같은 사설 주소면 아래 9절 IP 항목을 따라 `TRUSTED_PROXIES`를 맞춘다 |
 | 다른 포트·주소로 관리자 화면을 띄웠더니 API가 403 | 관리자 API CORS는 `ADMIN_ORIGIN` 하나만 허용 | `.env`의 `ADMIN_ORIGIN`을 실제 관리자 화면 주소로 맞춘다 |
 
 ## 3. 템플릿 업로드 (오류 코드별)
@@ -54,6 +58,7 @@
 | `large_inline_image` | 경고 | `data:` URI 합계가 200KB를 넘는다. 템플릿 용량 한도(512KB)에 가까워지고 폼이 느리게 열린다 | 이미지를 줄이거나(압축, 작은 해상도) 뺀다 |
 | `missing_label` | 경고 | 라벨이 없는 입력이다. 화면 읽기 도구가 읽지 못하고 필드 라벨이 `name`이나 placeholder로 대체된다 | `<label for="id">`를 연결하거나 입력을 `<label>`로 감싼다 |
 | `contact_not_required` | 경고 | `phone`·`email` 중 `required`인 것이 없다. 방문자가 연락처 없이 제출하면 신청이 거절된다 | 연락처 입력 하나 이상에 `required`를 붙인다 |
+| `extra_contact_field` | 경고 | `phone`·`email`이 아닌 이름으로 전화·이메일처럼 보이는 입력이다(`type="tel"`·`type="email"`, 또는 이름에 `phone`·`tel`·`mobile`·`hp`·`cell`·`email`·`mail`이 `_`·`-` 단위로 들어간 텍스트·숫자 입력). 암호화되지 않는 추가 항목(payload)에 저장된다. 명단과 마스킹 CSV에서는 가려지고 원문은 원문 열람·원문 CSV에만 나온다 | 연락처는 `name="phone"`·`name="email"` 하나씩만 둔다. `phone_model`·`cell_count`처럼 연락처가 아닌 텍스트 입력도 이름 때문에 걸려 명단에서 `****`로 보일 수 있다(원문 보기에서는 원문이 나온다). 이름을 바꾸면 사라진다. 보조 연락처가 꼭 필요하면 그대로 올려도 되지만 저장 값이 DB에 평문으로 남는다 |
 | `form_action_external` | 참고 | form `action`이 외부 주소다. 공개 폼은 래퍼가 제출을 받으므로 `action`은 쓰지 않는다 | 지워도 된다. 그대로 두어도 동작은 같다 |
 | `fetch_in_script` | 참고 | 스크립트에 `fetch`·`XMLHttpRequest`·`sendBeacon`·`WebSocket`·`EventSource`가 있다. 공개 폼은 `connect-src 'self'`라 외부로 나가지 못하고 신청 제출은 래퍼가 대신 보낸다 | 그 호출에 기대는 동작(외부 API로 우편번호 조회 등)은 빼거나 입력으로 바꾼다. 단순 검사 토큰 스캔이라 주석·문자열 속 단어도 잡힌다 |
 | `consent_in_html` | 참고 | 동의 체크박스로 보이는 입력이다. 개인정보 수집 동의는 폼을 만들 때 입력하는 동의 문구로 래퍼가 따로 받는다 | 개인정보 동의용이면 지운다(이름에 `agree`·`consent`·`privacy`, 라벨에 동의·개인정보·약관이 있으면 감지한다). 마케팅 수신 같은 선택 항목이면 그대로 둬도 된다(일반 선택 값으로 저장된다) |
@@ -138,12 +143,17 @@
 
 | 증상 | 원인 | 해결 |
 |---|---|---|
-| 원문 보기나 CSV 다운로드가 "서버 오류가 발생했습니다"(`internal_error`)로 실패하고 backend 로그에 `처리하지 못한 예외 … DataAccess…`가 있다 | 감사 로그를 저장하지 못했다(DB 연결·디스크 등). 원문은 기록 없이 내주지 않는다(ADR 0016) | DB 상태를 확인하고 다시 시도한다. 명단 조회는 그대로 된다 |
-| backend 로그에 `감사 로그 기록 실패(요청은 계속 처리): action=lead.list` | 명단 조회·로그인 기록을 저장하지 못했다. 응답은 정상으로 나갔다 | DB 상태를 확인한다. 이 기간의 조회 기록은 비어 있다 |
+| 원문 보기나 CSV 다운로드가 "서버 오류가 발생했습니다"(`internal_error`)로 실패하고 backend 로그에 `처리하지 못한 예외 … DataAccess…`가 있다 | 감사 로그를 저장하지 못했다(DB 연결·디스크 등). 폼 게시·마감, 템플릿 새 버전 업로드, 크리에이터 보관도 같은 이유로 500이 되며 변경은 적용되지 않는다. 원문은 기록 없이 내주지 않는다(ADR 0016) | DB 상태를 확인하고 다시 시도한다. 명단 조회는 그대로 된다 |
+| backend 로그에 `감사 로그 기록 실패(요청은 계속 처리): action=lead.list` | 명단 조회·로그인·로그아웃·토큰 재사용 감지(`auth.refresh.reused`) 기록을 저장하지 못했다. 응답은 정상으로 나갔다 | DB 상태를 확인한다. 이 기간의 조회 기록은 비어 있다 |
 | 엑셀에서 한글이 깨진다 | 파일을 다른 프로그램으로 다시 저장하며 BOM이 빠졌다 | 내려받은 파일을 그대로 연다. 구글 시트는 "가져오기"에서 UTF-8을 고른다 |
 | 이름 등 값 앞에 `'`가 보인다 | 앞 공백을 건너뛴 첫 글자가 `=`·`+`·`-`·`@`이거나 탭·CR로 시작하는 값은 스프레드시트가 수식으로 실행하지 않도록 `'`를 붙인다(CSV 수식 주입 방지, ADR 0016) | 정상이다. 엑셀에서 셀에 직접 `'`를 입력할 때와 달리, CSV로 연 `'`는 값의 일부로 들어가 셀에 그대로 보인다. 지우면 그 값이 수식으로 다시 실행될 수 있으니 신청자가 실제로 그렇게 입력한 값인지 확인한 뒤에만 지운다 |
 | 연락처 칸이 "복호화 불가" | 그 신청의 암호문이 손상됐거나 키가 다르다(5절 참고) | 명단 화면의 "복호화 불가"와 같은 원인이다 |
-| 감사 로그의 IP가 모두 같은 주소(프록시·로드밸런서 주소)다 | IP는 접속한 주소(`getRemoteAddr`)만 기록하고 `X-Forwarded-For`는 위조될 수 있어 읽지 않는다 | 배포 시 신뢰 프록시 설정과 함께 바꾼다(ADR 0016, ROADMAP) |
+| 감사 로그의 IP가 모두 같은 주소(admin-web·프록시·로드밸런서 주소)다 | admin 포트는 직전 피어가 `TRUSTED_PROXIES`(기본 `172.16.57.10/32`, compose의 admin-web 고정 주소) 안일 때만 `X-Forwarded-For`를 믿는다. 값이 비었거나 실제 프록시 주소와 다르면 프록시 주소가 남는다(ADR 0021) | compose를 쓰면 `docker compose down` 후 다시 올린다. 고정 전에 만든 네트워크·컨테이너가 남아 있으면 admin-web이 `172.16.57.10`이 아니다. 다른 프록시 뒤라면 그 주소를 `TRUSTED_PROXIES`에 쉼표로 넣는다(대역보다 주소 하나, 호스트 이름은 받지 않는다). 네트워크 대역 전체(`/24`)로 넓히지 않는다: 게이트웨이(.1)로 들어오는 호스트 포트 연결의 위조 XFF까지 믿게 된다 |
+| 감사 로그 IP가 `172.16.57.1`이다 | 호스트에서 `localhost:8080`으로 backend에 직접 보낸 요청(Swagger, curl, E2E의 API 호출)이다. 게이트웨이 주소는 신뢰하지 않아 XFF를 무시한다 | 정상이다. 관리자 화면(:5173)을 거친 요청은 브라우저 쪽 주소가 남는다 |
+| 다른 컴퓨터에서 `서버주소:8080`·`서버주소:5432`에 닿지 않는다 | compose가 admin 포트와 Postgres 포트를 호스트 루프백(`127.0.0.1`)에만 연다(ADR 0021) | 관리자 화면은 :5173으로 쓴다. 꼭 열어야 하면 `docker-compose.yml`의 포트 매핑을 바꾸되 `TRUSTED_PROXIES`는 넓히지 않는다 |
+| `docker compose up`이 `Address already in use`·`invalid address`나 네트워크 설정 오류로 실패한다 | 고정 전에 만든 `lead-magnet-crm_default` 네트워크가 남아 있거나(대역·주소 고정이 반영되지 않음), 다른 컨테이너가 `172.16.57.10`을 쓴다 | `docker compose down`으로 네트워크를 지우고 `docker compose up --build`로 다시 만든다(볼륨은 남는다) |
+| `docker compose up`이 `Pool overlaps with other one on this address space`로 실패한다 | compose default 네트워크 대역 `172.16.57.0/24`가 이 컴퓨터의 다른 docker 네트워크·VPN과 겹친다 | `docker-compose.yml`의 `networks.default.ipam`(대역·`ip_range`)과 admin-web `ipv4_address`, `.env`의 `TRUSTED_PROXIES`(그 주소 `/32`)를 함께 바꾸고 `docker compose down` 후 다시 올린다 |
+| 공개 폼 제출이 IP 한도(429)에 걸리는데 `X-Forwarded-For`를 바꿔도 그대로다 | 정상이다. 공개 포트(:8081)는 앞단 프록시가 없다고 보고 `X-Forwarded-For`·`X-Real-IP`를 읽지 않는다(위조로 한도를 우회하지 못하게, ADR 0021) | 공개 포트 앞에 프록시를 둘 때는 ADR 0021을 먼저 바꾼다 |
 | 감사 로그 화면에서 `validation_failed` | 모르는 action, 시작일이 종료일보다 늦음, 잘못된 날짜 | 필터를 지우고 다시 고른다 |
 
 ## 10. 보존 기간 파기와 동의 문구

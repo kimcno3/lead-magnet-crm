@@ -1,13 +1,13 @@
 package com.leadmagnet.crm.stats.application;
 
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
+import com.leadmagnet.crm.common.DateRange;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.creator.application.CreatorService;
 import com.leadmagnet.crm.creator.domain.Creator;
-import com.leadmagnet.crm.link.domain.Channel;
 import com.leadmagnet.crm.link.domain.AttributionChannel;
-import com.leadmagnet.crm.stats.domain.DateRange;
+import com.leadmagnet.crm.link.domain.Channel;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;

@@ -9,18 +9,18 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.auth.domain.Operator;
-import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
 import com.leadmagnet.crm.common.web.PublicPort;
 import com.leadmagnet.crm.support.AdminFixtures;
 import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
-import com.leadmagnet.crm.support.IntegrationTest;
-import com.leadmagnet.crm.support.PublicOrigin;
 import com.leadmagnet.crm.support.FormTokens;
+import com.leadmagnet.crm.support.IntegrationTest;
 import com.leadmagnet.crm.support.MutableClock;
+import com.leadmagnet.crm.support.PublicOrigin;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
@@ -85,6 +85,8 @@ class AuditLogApiTest {
         token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
         campaign = AdminFixtures.createCampaign(token, "봄 캠페인");
         formId = AdminFixtures.createPublishedFormIn(token, campaign, "form-a", HTML);
+        // 픽스처의 폼 게시 기록은 이 테스트의 건수 계산에서 뺀다(form.publish는 AuditGapsApiTest가 본다)
+        jdbc.update("DELETE FROM audit_logs WHERE action = 'form.publish'");
     }
 
     RequestSpecification authed() {

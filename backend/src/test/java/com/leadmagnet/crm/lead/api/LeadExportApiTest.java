@@ -45,7 +45,7 @@ class LeadExportApiTest {
 
     static final String HTML = """
         <form><input name="name"><input name="phone" type="tel"><input name="email" type="email">
-        <input name="memo"></form>
+        <input name="memo"><input name="alt_phone" type="tel"><input name="backup_email" type="email"></form>
         """;
     static final String BOM = "﻿";
     static final String HEADER = "신청일,이름,전화번호,이메일,채널,크리에이터,폼,추가 항목,파기";
@@ -156,6 +156,21 @@ class LeadExportApiTest {
         assertThat(log.get("action")).isEqualTo("lead.export.reveal");
         assertThat((String) log.get("detail")).contains("\"count\": 1", "\"reveal\": true")
             .doesNotContain("홍길동", "01012345678", "hong@example.com");
+    }
+
+    @Test
+    void 마스킹_CSV는_추가_항목의_연락처도_가리고_원문_CSV는_그대로_낸다() {
+        submit(Map.of("phone", "010-1234-5678", "memo", "오전", "alt_phone", "010-9999-8888",
+            "backup_email", "Secret@Example.com"), null);
+
+        String masked = text(authed().get("/api/admin/campaigns/{id}/leads.csv", campaign).then().statusCode(200)
+            .extract().response());
+        assertThat(masked).contains("alt_phone", "010-****-8888", "s***@example.com", "오전")
+            .doesNotContain("01099998888", "secret@example.com", "Secret@Example.com");
+
+        String raw = text(authed().get("/api/admin/campaigns/{id}/leads.csv?reveal=true", campaign).then()
+            .statusCode(200).extract().response());
+        assertThat(raw).contains("01099998888", "secret@example.com");
     }
 
     @Test

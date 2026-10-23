@@ -52,6 +52,9 @@ class PublishSnapshotConcurrencyTest {
         <label>메모 <input name="memo"></label></form></body></html>
         """;
 
+    static final com.leadmagnet.crm.audit.domain.AuditActor ACTOR =
+        new com.leadmagnet.crm.audit.domain.AuditActor(null, "127.0.0.1", "test");
+
     @LocalServerPort
     int port;
 
@@ -96,8 +99,8 @@ class PublishSnapshotConcurrencyTest {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
         Future<?> publish = tx.execute(status -> {
-            versionService.upload(template, "v2.html", V2.getBytes(StandardCharsets.UTF_8));
-            Future<?> waiting = executor.submit(() -> formService.update(form, null, null, null, "published"));
+            versionService.upload(template, "v2.html", V2.getBytes(StandardCharsets.UTF_8), ACTOR);
+            Future<?> waiting = executor.submit(() -> formService.update(form, null, null, null, "published", ACTOR));
             assertStillWaiting(waiting);
             return waiting;
         });
@@ -113,8 +116,8 @@ class PublishSnapshotConcurrencyTest {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
         Future<?> upload = tx.execute(status -> {
-            formService.update(form, null, null, null, "published");
-            Future<?> waiting = executor.submit(() -> versionService.upload(template, "v2.html", V2.getBytes(StandardCharsets.UTF_8)));
+            formService.update(form, null, null, null, "published", ACTOR);
+            Future<?> waiting = executor.submit(() -> versionService.upload(template, "v2.html", V2.getBytes(StandardCharsets.UTF_8), ACTOR));
             assertStillWaiting(waiting);
             return waiting;
         });
@@ -135,11 +138,11 @@ class PublishSnapshotConcurrencyTest {
             CountDownLatch start = new CountDownLatch(1);
             Future<?> publish = executor.submit(() -> {
                 start.await();
-                return formService.update(form, null, null, null, "published");
+                return formService.update(form, null, null, null, "published", ACTOR);
             });
             Future<?> upload = executor.submit(() -> {
                 start.await();
-                return versionService.upload(template, "v2.html", V2.getBytes(StandardCharsets.UTF_8));
+                return versionService.upload(template, "v2.html", V2.getBytes(StandardCharsets.UTF_8), ACTOR);
             });
             start.countDown();
             publish.get(10, TimeUnit.SECONDS);
@@ -159,8 +162,8 @@ class PublishSnapshotConcurrencyTest {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
         Future<?> second = tx.execute(status -> {
-            versionService.upload(template, "v2.html", v2.getBytes(StandardCharsets.UTF_8));
-            Future<?> waiting = executor.submit(() -> versionService.upload(template, "v3.html", v3.getBytes(StandardCharsets.UTF_8)));
+            versionService.upload(template, "v2.html", v2.getBytes(StandardCharsets.UTF_8), ACTOR);
+            Future<?> waiting = executor.submit(() -> versionService.upload(template, "v3.html", v3.getBytes(StandardCharsets.UTF_8), ACTOR));
             assertStillWaiting(waiting);
             return waiting;
         });
@@ -180,14 +183,14 @@ class PublishSnapshotConcurrencyTest {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
         Future<Form> creating = tx.execute(status -> {
-            versionService.upload(template, "v2.html", V2.getBytes(StandardCharsets.UTF_8));
+            versionService.upload(template, "v2.html", V2.getBytes(StandardCharsets.UTF_8), ACTOR);
             Future<Form> waiting = executor.submit(
                 () -> formService.create(campaign, template, "새 폼", "동의합니다", "race-c-new"));
             assertStillWaiting(waiting);
             return waiting;
         });
         long created = creating.get(10, TimeUnit.SECONDS).getId();
-        formService.update(created, null, null, null, "published");
+        formService.update(created, null, null, null, "published", ACTOR);
 
         assertSnapshotMatchesFields((int) created, V2, List.of("name", "phone", "memo"));
     }

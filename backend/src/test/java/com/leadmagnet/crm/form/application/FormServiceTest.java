@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.leadmagnet.crm.audit.application.AuditService;
 import com.leadmagnet.crm.campaign.domain.Campaign;
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
 import com.leadmagnet.crm.common.error.DomainException;
@@ -30,7 +31,7 @@ class FormServiceTest {
     CampaignRepository campaigns = mock(CampaignRepository.class);
     TemplateService templates = mock(TemplateService.class);
     Clock clock = Clock.fixed(Instant.parse("2026-10-23T00:00:00Z"), ZoneOffset.UTC);
-    FormService service = new FormService(forms, campaigns, templates, clock);
+    FormService service = new FormService(forms, campaigns, templates, mock(AuditService.class), clock);
 
     @BeforeEach
     void setUp() {

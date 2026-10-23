@@ -1,6 +1,6 @@
 package com.leadmagnet.crm.lead.api;
 
-import com.leadmagnet.crm.common.web.AuditActors;
+import com.leadmagnet.crm.audit.api.AuditActors;
 import com.leadmagnet.crm.lead.application.LeadRetentionService;
 import com.leadmagnet.crm.lead.application.LeadRetentionService.RetentionRun;
 import io.swagger.v3.oas.annotations.Operation;

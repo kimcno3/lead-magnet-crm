@@ -1,6 +1,6 @@
 package com.leadmagnet.crm.lead.api;
 
-import com.leadmagnet.crm.common.web.AuditActors;
+import com.leadmagnet.crm.audit.api.AuditActors;
 import com.leadmagnet.crm.audit.application.AuditService;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.lead.application.LeadQueryService;

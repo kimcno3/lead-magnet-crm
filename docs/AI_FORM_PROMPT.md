@@ -22,6 +22,7 @@ AI(ChatGPT, Claude 등)에게 신청 폼 HTML을 만들게 할 때 그대로 붙
 - <form>은 문서 전체에 정확히 하나만 둬. form에 action 속성은 쓰지 마. 제출 버튼은 form 안의 <button type="submit">.
 - 모든 입력에 name 속성을 붙여. name은 영문자로 시작하고 영문·숫자·밑줄만 쓴 50자 이하, 입력은 최대 50개.
 - 이름은 name="name", 전화번호는 name="phone"(type="tel"), 이메일은 name="email"(type="email")로 해. phone과 email 중 하나 이상은 반드시 넣고, 그중 최소 하나에는 required 속성을 붙여.
+- 연락처 입력은 name="phone" 하나, name="email" 하나만 둬. 보조 전화번호나 보조 이메일처럼 type="tel"·type="email" 입력이나 이름에 phone, tel, mobile, hp, email, mail이 들어간 입력을 더 만들지 마.
 - 여러 개 중 고르는 입력은 select, radio, checkbox를 써. radio·checkbox 묶음은 같은 name을 공유하고 각각 value를 줘.
 - 모든 입력에 <label for="id">를 연결하거나 입력을 <label>로 감싸. placeholder만 있는 입력은 안 돼.
 - type="file", type="password" 입력은 쓰지 마.
@@ -58,6 +59,7 @@ AI(ChatGPT, Claude 등)에게 신청 폼 HTML을 만들게 할 때 그대로 붙
 | `data:` URI 합계 200KB 이하 | `large_inline_image` | 경고 |
 | form에 `action` 쓰지 않기 | `form_action_external` | 참고 |
 | `fetch`·`XMLHttpRequest`·`sendBeacon`·`WebSocket`·`EventSource` 쓰지 않기 | `fetch_in_script` | 참고 |
+| 연락처 입력은 `phone`·`email` 하나씩만 | `extra_contact_field` | 경고 |
 | 동의 체크박스 넣지 않기 | `consent_in_html` | 참고 |
 
 오류는 업로드를 막고, 경고와 참고는 업로드를 막지 않는다. 경고는 공개 폼에서 실제로 문제가 생길 수 있는 것이고, 참고는 알아 두면 되는 것이다.

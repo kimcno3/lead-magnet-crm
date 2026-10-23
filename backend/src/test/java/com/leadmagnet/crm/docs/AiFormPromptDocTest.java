@@ -19,7 +19,7 @@ class AiFormPromptDocTest {
     private static final Path TROUBLESHOOTING = Path.of("..", "docs", "TROUBLESHOOTING.md");
     private static final List<String> WARNING_CODES = List.of("external_script", "external_stylesheet", "external_image",
         "external_font", "form_action_external", "fetch_in_script", "missing_label", "contact_not_required",
-        "consent_in_html", "large_inline_image");
+        "extra_contact_field", "consent_in_html", "large_inline_image");
 
     private static String block(String markdown, String lang) {
         Matcher m = Pattern.compile("```" + lang + "\\n(.*?)\\n```", Pattern.DOTALL).matcher(markdown);

@@ -1,4 +1,4 @@
-package com.leadmagnet.crm.template.api;
+package com.leadmagnet.crm.form.api;
 
 import com.leadmagnet.crm.form.application.TemplateVersionService.NewVersion;
 import com.leadmagnet.crm.template.domain.FormField;
