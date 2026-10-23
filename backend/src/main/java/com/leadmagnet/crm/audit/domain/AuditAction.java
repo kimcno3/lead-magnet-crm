@@ -13,7 +13,13 @@ public enum AuditAction {
     AUTH_LOGIN_FAILURE("auth.login.failure"),
     AUTH_LOGIN_LOCKED("auth.login.locked"),
     RETENTION_ANONYMIZE("retention.anonymize"),
-    CAMPAIGN_RETENTION_UPDATE("campaign.retention.update");
+    CAMPAIGN_RETENTION_UPDATE("campaign.retention.update"),
+    AUTH_REFRESH_REUSED("auth.refresh.reused"),
+    AUTH_LOGOUT("auth.logout"),
+    FORM_PUBLISH("form.publish"),
+    FORM_CLOSE("form.close"),
+    TEMPLATE_VERSION_UPLOAD("template.version.upload"),
+    CREATOR_ARCHIVE("creator.archive");
 
     private final String value;
 

@@ -42,8 +42,11 @@ paths:
       - 감사 로그
       summary: 감사 로그
       description: "최신순. action은 lead.list, lead.contact.view, lead.export, lead.export.reveal,\
-        \ auth.login.success, auth.login.failure. from·to는 Asia/Seoul 날짜(yyyy-MM-dd,\
-        \ 양 끝 포함). page는 0부터, size는 1~100(기본 20). 이 조회 자체는 기록하지 않는다."
+        \ auth.login.success, auth.login.failure, auth.login.locked, retention.anonymize,\
+        \ campaign.retention.update, auth.refresh.reused, auth.logout, form.publish,\
+        \ form.close, template.version.upload, creator.archive. from·to는 Asia/Seoul\
+        \ 날짜(yyyy-MM-dd, 양 끝 포함). page는 0부터, size는 1~100(기본 20). 이 조회 자체는 기록하지 않는다\
+        ."
       operationId: listAuditLogs
       parameters:
       - name: action
@@ -1039,7 +1042,8 @@ paths:
       - 폼
       summary: 폼 수정·게시·마감
       description: "없는 필드는 그대로 둔다. 내용(title, consentText, fieldConfig의 label·required)은\
-        \ draft에서만 수정. status는 published(draft→published) 또는 closed(published→closed)."
+        \ draft에서만 수정. status는 published(draft→published) 또는 closed(published→closed).\
+        \ 게시·마감은 감사 로그(form.publish, form.close)에 남고, 기록에 실패하면 상태도 바뀌지 않는다 (ADR 0016)."
       operationId: updateForm
       parameters:
       - name: id
@@ -1421,7 +1425,8 @@ paths:
       description: "업로드와 같은 파일 검사(multipart file, .html/.htm, UTF-8, 512KB 이하, 폼 계\
         약)를 통과하면 내용·sha256·필드·크기·검사 결과를 바꾸고 version을 올린다. 이 템플릿을 쓰는 draft 폼은 새 필드로\
         \ 다시 스냅샷한다(운영자가 바꾼 label·required는 같은 이름이면 유지). 게시·마감된 폼은 게시 시점 스냅샷을 쓰므로 영\
-        향이 없다. 응답 affectedDraftForms는 다시 스냅샷한 draft 폼 수. 이름은 바뀌지 않는다."
+        향이 없다. 감사 로그(template.version.upload)에 버전과 영향받은 draft 수가 남고, 기록에 실패하면 업로드도\
+        \ 롤백된다 (ADR 0016). 응답 affectedDraftForms는 다시 스냅샷한 draft 폼 수. 이름은 바뀌지 않는다."
       operationId: uploadTemplateVersion
       parameters:
       - name: id

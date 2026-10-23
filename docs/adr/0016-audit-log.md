@@ -67,3 +67,17 @@ ADR 0015로 명단은 가린 값만 보이고 원문은 `GET /api/admin/leads/{i
 - 2026-10-24 (ADR 0019): 이슈 #18은 공개 신청 제출에만 rate limit을 걸었다. 거절은 감사 로그에 쓰지 않고 애플리케이션 로그에 1분 단위 건수 한 줄만 남긴다(위 "결과" 절의 원칙). 로그인 시도 제한은 이번에 넣지 않았고, 넣을 때 위 절의 `auth.login.throttled` 방식을 따른다.
 - 2026-10-24 (ADR 0020): `retention.anonymize`(보존 기간 파기, 실행마다 한 줄, detail `trigger`·`count`·`completed`·`interrupted`·실패 시 `error`, 스케줄 실행은 운영자 없음)와 `campaign.retention.update`(캠페인 보존 기간 변경, detail `oldRetentionDays`·`newRetentionDays`, 같은 트랜잭션 `recordRequired`)를 더했다. campaign → audit 의존이 생겼다. 원문 API의 410 `lead_anonymized`와 동의 문구 조회(`/api/admin/leads/{id}/consent`, 개인정보 아님)는 기록하지 않는다. CSV에 마지막 열 "파기"가 생겼다. 감사 로그 자체의 보존 기간은 여전히 후속 작업이다.
 - 2026-10-24 (ADR 0021): IP 출처가 바뀌었다. 감사 IP는 여전히 `getRemoteAddr()`이지만, admin 포트에서 직전 피어가 신뢰 프록시(`TRUSTED_PROXIES`, 기본 compose의 admin-web 고정 주소 `172.16.57.10/32`)면 `common/web/ClientIpFilter`가 `X-Forwarded-For`를 오른쪽부터 읽어 고른 클라이언트 주소다. public 포트와 신뢰하지 않는 피어는 피어 주소 그대로다. 위 "IP·User-Agent"와 대안 표의 "`X-Forwarded-For` 첫 값" 행은 이 규칙으로 대체된다(첫 값이 아니라 신뢰 프록시를 건너뛴 오른쪽 값이다). 로그인 시도 제한도 결과 절의 방식대로 넣었다: 잠금 시작에 `auth.login.locked` 한 줄(detail `email` 가린 값(IP 한도만 닿았으면 없음)·`scopes`(`email_ip`·`email`·`ip`)·`windowMinutes`), 잠긴 뒤의 거절은 감사에 쓰지 않고 애플리케이션 로그에 1분 단위 건수만 남긴다. 결과 절에서 예로 든 `auth.login.throttled`라는 이름과 "창이 끝날 때 갱신"은 쓰지 않았다(감사 행을 고치지 않는다).
+- 2026-10-24 (이슈 #53): 감사 공백 여섯 가지를 더했다. action은 `VARCHAR(40)`에 모두 들어간다(가장 긴 `template.version.upload`는 23자, 마이그레이션 없음). 새 action 모두 API 필터 검증(`AuditAction`)과 관리자 감사 화면의 행동 필터·요약 문구에 들어간다.
+
+  | action | 정책 | target | detail |
+  |---|---|---|---|
+  | `auth.refresh.reused` | 최선 노력 | operator | 없음 |
+  | `auth.logout` | 최선 노력 | operator | 없음 |
+  | `form.publish`, `form.close` | 필수(같은 트랜잭션) | form, campaign_id | `formId`, `slug` |
+  | `template.version.upload` | 필수 | template | `templateId`, `version`(올린 뒤), `affectedDraftForms` |
+  | `creator.archive` | 필수 | creator | `creatorId` |
+
+  - `auth.refresh.reused`: 재사용을 감지해 패밀리를 폐기한 뒤 남긴다. 폐기는 `noRollbackFor`로 이미 커밋되었으므로 `AuthController.refresh`가 `RefreshTokenReusedException`(운영자 id 보유, `DomainException` 하위)을 잡아 트랜잭션 밖에서 `recordBestEffort`하고 같은 예외를 다시 던진다. 기록이 실패해도 응답은 401 `refresh_token_reused`이고 폐기는 유지된다. 모르는 토큰(`invalid_refresh_token`)은 운영자를 알 수 없어 남기지 않는다. 이미 폐기된 패밀리의 토큰을 다시 보내는 반복 재생은 폐기한 토큰이 0개이므로 남기지 않는다(`/refresh`에 시도 제한이 없어 재생마다 행이 쌓이는 것을 막는다).
+  - `auth.logout`: `AuthService.logout`이 쿠키가 운영자로 확인되고 살아 있는 토큰을 실제로 폐기했을 때만 그 id를 돌려주고(이미 로그아웃·폐기된 쿠키는 기록하지 않는다), 컨트롤러가 최선 노력으로 남긴다. 쿠키가 없거나 모르는 토큰이면 아무것도 쓰지 않고 응답은 그대로 204다.
+  - 폼 게시·마감, 템플릿 새 버전, 크리에이터 보관은 공개 콘텐츠나 공개 폼에 영향을 주는 상태 변경이라 같은 트랜잭션에서 `recordRequired`한다. 기록이 실패하면 변경도 롤백되고 500 `internal_error`다. 실제로 전이가 일어난 경우만 남기고(검증·409 실패, 내용만 수정은 제외) 잠금 순서(템플릿 → 폼)는 바꾸지 않는다.
+  - detail에는 id, slug(공개 주소의 일부), 버전, 건수만 넣는다. 크리에이터 이름·핸들, 토큰 값, 이메일은 넣지 않는다. 서비스 시그니처에 `AuditActor`가 추가되어 form·creator → audit 의존이 생겼다(auth·lead·campaign과 같은 방향).

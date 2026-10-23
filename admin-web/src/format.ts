@@ -143,6 +143,21 @@ export function summarizeAuditDetail(detail: Record<string, unknown>): string {
           parts.push(`기준 ${value.map((v) => LOGIN_LOCK_SCOPE_LABELS[String(v)] ?? String(v)).join('·')}`)
         }
         break
+      case 'slug':
+        parts.push(`slug ${String(value)}`)
+        break
+      case 'templateId':
+        parts.push(`템플릿 #${String(value)}`)
+        break
+      case 'version':
+        parts.push(`v${String(value)}`)
+        break
+      case 'affectedDraftForms':
+        parts.push(`draft 폼 ${formatNumber(Number(value))}개 갱신`)
+        break
+      case 'creatorId':
+        parts.push(`크리에이터 #${String(value)}`)
+        break
       case 'windowMinutes':
         parts.push(`${String(value)}분 창`)
         break
