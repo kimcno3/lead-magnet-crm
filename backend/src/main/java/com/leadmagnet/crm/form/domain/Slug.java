@@ -15,7 +15,7 @@ public record Slug(String value) {
 
     public Slug {
         if (value == null || !PATTERN.matcher(value).matches()) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED,
+            throw DomainException.validation("slug",
                 "slug는 소문자, 숫자, 하이픈으로 3~64자여야 하고 하이픈으로 시작하거나 끝날 수 없습니다");
         }
     }

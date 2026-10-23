@@ -115,7 +115,7 @@ public class Form {
      * fieldConfig는 기존 필드와 이름이 정확히 같아야 하고, 필드마다 label·required만 반영한다(type·options는 유지).
      * 검증을 모두 마친 뒤에 값을 바꾸므로 실패하면 아무것도 바뀌지 않는다.
      */
-    public void edit(String title, String consentText, List<FormField> fieldConfig, Instant now) {
+    public void edit(String title, String consentText, List<FieldChange> fieldConfig, Instant now) {
         if (status != FormStatus.DRAFT) {
             throw new DomainException(ErrorCode.FORM_NOT_EDITABLE);
         }
@@ -138,44 +138,51 @@ public class Form {
         this.updatedAt = now;
     }
 
-    private List<FormField> mergeFields(List<FormField> requested) {
+    private List<FormField> mergeFields(List<FieldChange> requested) {
         Set<String> seen = new HashSet<>();
-        for (FormField field : requested) {
+        for (FieldChange field : requested) {
             if (field == null || field.name() == null || !seen.add(field.name())) {
-                throw invalid("fieldConfig의 필드 이름이 올바르지 않거나 중복되었습니다");
+                throw invalid("fieldConfig", "fieldConfig의 필드 이름이 올바르지 않거나 중복되었습니다");
             }
-            if (field.label() == null || field.label().isBlank() || field.label().length() > MAX_LABEL_LENGTH) {
-                throw invalid("필드 label은 1~" + MAX_LABEL_LENGTH + "자여야 합니다: " + field.name());
+            if (field.label() != null && (field.label().isBlank() || field.label().length() > MAX_LABEL_LENGTH)) {
+                throw invalid("fieldConfig", "필드 label은 1~" + MAX_LABEL_LENGTH + "자여야 합니다: " + field.name());
             }
         }
         Set<String> existing = new HashSet<>();
         fieldConfig.forEach(f -> existing.add(f.name()));
         if (!existing.equals(seen)) {
-            throw invalid("fieldConfig는 필드를 추가·삭제하거나 이름을 바꿀 수 없습니다");
+            throw invalid("fieldConfig", "fieldConfig는 필드를 추가·삭제하거나 이름을 바꿀 수 없습니다");
         }
         return fieldConfig.stream()
             .map(current -> {
-                FormField change = requested.stream().filter(r -> r.name().equals(current.name())).findFirst().orElseThrow();
-                return new FormField(current.name(), current.type(), change.required(), change.label().trim(),
-                    current.options());
+                FieldChange change = requested.stream().filter(r -> r.name().equals(current.name())).findFirst().orElseThrow();
+                return new FormField(current.name(), current.type(),
+                    change.required() != null ? change.required() : current.required(),
+                    change.label() != null ? change.label().trim() : current.label(), current.options());
             })
             .toList();
     }
 
+    /** 제목·동의 문구 규칙. 생성 전에 다른 검사보다 먼저 호출할 수 있다. */
+    public static void validateContent(String title, String consentText) {
+        validateTitle(title);
+        validateConsent(consentText);
+    }
+
     private static void validateTitle(String title) {
         if (title == null || title.isBlank() || title.trim().length() > MAX_TITLE_LENGTH) {
-            throw invalid("title은 1~" + MAX_TITLE_LENGTH + "자여야 합니다");
+            throw invalid("title", "title은 1~" + MAX_TITLE_LENGTH + "자여야 합니다");
         }
     }
 
     private static void validateConsent(String consentText) {
         if (consentText == null || consentText.isBlank() || consentText.length() > MAX_CONSENT_LENGTH) {
-            throw invalid("consentText는 1~" + MAX_CONSENT_LENGTH + "자여야 합니다");
+            throw invalid("consentText", "consentText는 1~" + MAX_CONSENT_LENGTH + "자여야 합니다");
         }
     }
 
-    private static DomainException invalid(String detail) {
-        return new DomainException(ErrorCode.VALIDATION_FAILED, detail);
+    private static DomainException invalid(String field, String detail) {
+        return DomainException.validation(field, detail);
     }
 
     public Long getId() {

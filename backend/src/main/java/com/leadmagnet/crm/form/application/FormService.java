@@ -4,11 +4,11 @@ import com.leadmagnet.crm.campaign.domain.Campaign;
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
+import com.leadmagnet.crm.form.domain.FieldChange;
 import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.form.domain.FormRepository;
 import com.leadmagnet.crm.form.domain.Slug;
 import com.leadmagnet.crm.template.application.TemplateService;
-import com.leadmagnet.crm.template.domain.FormField;
 import com.leadmagnet.crm.template.domain.HtmlTemplate;
 import java.time.Clock;
 import java.time.Instant;
@@ -43,8 +43,9 @@ public class FormService {
             throw new DomainException(ErrorCode.CAMPAIGN_ARCHIVED);
         }
         if (templateId == null) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "templateId가 필요합니다");
+            throw DomainException.validation("templateId", "templateId가 필요합니다");
         }
+        Form.validateContent(title, consentText);
         HtmlTemplate template = templates.get(templateId);
         Slug slug = requestedSlug != null ? new Slug(requestedSlug) : randomFreeSlug();
         if (forms.existsBySlug(slug.value())) {
@@ -67,10 +68,10 @@ public class FormService {
     }
 
     /** null인 필드는 바꾸지 않는다. 내용 수정은 draft에서만, status는 "published"·"closed"만 받는다. */
-    public Form update(long id, String title, String consentText, List<FormField> fieldConfig, String status) {
+    public Form update(long id, String title, String consentText, List<FieldChange> fieldConfig, String status) {
         Form form = find(id);
         if (status != null && !PUBLISHED.equals(status) && !CLOSED.equals(status)) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "status는 \"published\" 또는 \"closed\"만 지정할 수 있습니다");
+            throw DomainException.validation("status", "status는 \"published\" 또는 \"closed\"만 지정할 수 있습니다");
         }
         Instant now = clock.instant();
         if (title != null || consentText != null || fieldConfig != null) {

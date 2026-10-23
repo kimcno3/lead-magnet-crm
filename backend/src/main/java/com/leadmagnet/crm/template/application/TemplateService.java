@@ -74,7 +74,7 @@ public class TemplateService {
         String name = requested == null || requested.isBlank() ? fromFile.trim() : requested.trim();
         if (name.length() > MAX_NAME_LENGTH) {
             if (requested != null && !requested.isBlank()) {
-                throw new DomainException(ErrorCode.VALIDATION_FAILED, "name은 " + MAX_NAME_LENGTH + "자 이하여야 합니다");
+                throw DomainException.validation("name", "name은 " + MAX_NAME_LENGTH + "자 이하여야 합니다");
             }
             name = name.substring(0, MAX_NAME_LENGTH);
         }

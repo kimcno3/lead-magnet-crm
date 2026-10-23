@@ -54,7 +54,7 @@ public class CampaignService {
             String status) {
         Campaign campaign = find(id);
         if (status != null && !ARCHIVED.equals(status)) {
-            throw new DomainException(ErrorCode.VALIDATION_FAILED, "status는 \"archived\"만 지정할 수 있습니다");
+            throw DomainException.validation("status", "status는 \"archived\"만 지정할 수 있습니다");
         }
         Instant now = clock.instant();
         campaign.update(name, description, startsAt, endsAt, now);

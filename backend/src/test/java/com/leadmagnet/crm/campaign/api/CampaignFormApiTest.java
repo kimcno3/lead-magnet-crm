@@ -2,7 +2,6 @@ package com.leadmagnet.crm.campaign.api;
 
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
@@ -72,7 +71,7 @@ class CampaignFormApiTest {
                 "startsAt", "2026-11-01T00:00:00Z", "endsAt", "2026-12-01T00:00:00Z"))
             .post("/api/admin/campaigns")
             .then().statusCode(201)
-            .header("Location", endsWith("/api/admin/campaigns/1"))
+            .header("Location", matchesPattern(".*/api/admin/campaigns/\\d+"))
             .body("name", equalTo("봄 캠페인"))
             .body("description", equalTo("설명"))
             .body("status", equalTo("active"))
@@ -88,12 +87,14 @@ class CampaignFormApiTest {
     @Test
     void 캠페인_입력이_잘못되면_422이다() {
         authed().body(Map.of("name", "")).post("/api/admin/campaigns")
-            .then().statusCode(422).body("code", equalTo("validation_failed"));
+            .then().statusCode(422).body("code", equalTo("validation_failed"))
+            .body("errors[0].field", equalTo("name"));
         authed().body(Map.of("name", "a".repeat(101))).post("/api/admin/campaigns").then().statusCode(422);
         authed().body(Map.of("name", "c", "description", "a".repeat(2001))).post("/api/admin/campaigns")
             .then().statusCode(422);
         authed().body(Map.of("name", "c", "startsAt", "2026-12-01T00:00:00Z", "endsAt", "2026-11-01T00:00:00Z"))
-            .post("/api/admin/campaigns").then().statusCode(422).body("code", equalTo("validation_failed"));
+            .post("/api/admin/campaigns").then().statusCode(422).body("code", equalTo("validation_failed"))
+            .body("errors[0].field", equalTo("startsAt"));
         authed().body("{}").post("/api/admin/campaigns").then().statusCode(422);
     }
 
@@ -182,7 +183,8 @@ class CampaignFormApiTest {
         int id = createCampaign("c");
 
         authed().body(Map.of("status", "active")).patch("/api/admin/campaigns/{id}", id)
-            .then().statusCode(422).body("code", equalTo("validation_failed"));
+            .then().statusCode(422).body("code", equalTo("validation_failed"))
+            .body("errors[0].field", equalTo("status"));
         authed().body(Map.of("status", "bogus")).patch("/api/admin/campaigns/{id}", id).then().statusCode(422);
     }
 
@@ -196,7 +198,7 @@ class CampaignFormApiTest {
         int id = authed().body(Map.of("templateId", template, "title", "제목", "consentText", "동의합니다"))
             .post("/api/admin/campaigns/{id}/forms", campaign)
             .then().statusCode(201)
-            .header("Location", endsWith("/api/admin/forms/1"))
+            .header("Location", matchesPattern(".*/api/admin/forms/\\d+"))
             .body("campaignId", equalTo(campaign))
             .body("templateId", equalTo(template))
             .body("slug", matchesPattern("[a-z0-9]{8}"))
@@ -227,7 +229,8 @@ class CampaignFormApiTest {
 
         for (String bad : List.of("A-b", "-ab", "a", "ab", "a_b")) {
             authed().body(Map.of("templateId", template, "title", "t", "consentText", "c", "slug", bad))
-                .post("/api/admin/campaigns/{id}/forms", campaign).then().statusCode(422);
+                .post("/api/admin/campaigns/{id}/forms", campaign).then().statusCode(422)
+                .body("errors[0].field", equalTo("slug"));
         }
     }
 
@@ -343,7 +346,8 @@ class CampaignFormApiTest {
 
         authed().body(Map.of("fieldConfig", List.of(
                 Map.of("name", "name", "type", "text", "required", true, "label", "이름"))))
-            .patch("/api/admin/forms/{id}", form).then().statusCode(422).body("code", equalTo("validation_failed"));
+            .patch("/api/admin/forms/{id}", form).then().statusCode(422).body("code", equalTo("validation_failed"))
+            .body("errors[0].field", equalTo("fieldConfig"));
         authed().body(Map.of("fieldConfig", List.of(
                 Map.of("name", "name", "type", "text", "required", true, "label", "이름"),
                 Map.of("name", "phone", "type", "tel", "required", false, "label", "전화"),
@@ -358,10 +362,37 @@ class CampaignFormApiTest {
     }
 
     @Test
+    void 필드에_required를_생략하면_현재_값을_유지한다() {
+        int form = createForm(createCampaign("c"), uploadTemplate(), null);
+
+        authed().body(Map.of("fieldConfig", List.of(
+                Map.of("name", "name", "label", "성함"),
+                Map.of("name", "phone"),
+                Map.of("name", "plan"))))
+            .patch("/api/admin/forms/{id}", form)
+            .then().statusCode(200)
+            .body("fieldConfig[0].label", equalTo("성함"))
+            .body("fieldConfig[0].required", equalTo(true))
+            .body("fieldConfig[1].required", equalTo(false));
+    }
+
+    @Test
+    void 제목이_잘못되고_slug가_중복이면_409가_아니라_422이다() {
+        int campaign = createCampaign("c");
+        int template = uploadTemplate();
+        createForm(campaign, template, "same-slug");
+
+        authed().body(Map.of("templateId", template, "title", " ", "consentText", "c", "slug", "same-slug"))
+            .post("/api/admin/campaigns/{id}/forms", campaign)
+            .then().statusCode(422).body("errors[0].field", equalTo("title"));
+    }
+
+    @Test
     void 제목이나_동의문구가_비면_422이다() {
         int form = createForm(createCampaign("c"), uploadTemplate(), null);
 
-        authed().body(Map.of("title", " ")).patch("/api/admin/forms/{id}", form).then().statusCode(422);
+        authed().body(Map.of("title", " ")).patch("/api/admin/forms/{id}", form).then().statusCode(422)
+            .body("errors[0].field", equalTo("title"));
         authed().body(Map.of("consentText", "")).patch("/api/admin/forms/{id}", form).then().statusCode(422);
     }
 

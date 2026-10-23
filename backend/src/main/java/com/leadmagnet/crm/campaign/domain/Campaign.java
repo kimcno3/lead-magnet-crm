@@ -96,18 +96,18 @@ public class Campaign {
 
     private static void validate(String name, String description, Instant startsAt, Instant endsAt) {
         if (name == null || name.isBlank() || name.trim().length() > MAX_NAME_LENGTH) {
-            throw invalid("name은 1~" + MAX_NAME_LENGTH + "자여야 합니다");
+            throw invalid("name", "name은 1~" + MAX_NAME_LENGTH + "자여야 합니다");
         }
         if (description != null && description.length() > MAX_DESCRIPTION_LENGTH) {
-            throw invalid("description은 " + MAX_DESCRIPTION_LENGTH + "자 이하여야 합니다");
+            throw invalid("description", "description은 " + MAX_DESCRIPTION_LENGTH + "자 이하여야 합니다");
         }
         if (startsAt != null && endsAt != null && !startsAt.isBefore(endsAt)) {
-            throw invalid("startsAt은 endsAt보다 빨라야 합니다");
+            throw invalid("startsAt", "startsAt은 endsAt보다 빨라야 합니다");
         }
     }
 
-    private static DomainException invalid(String detail) {
-        return new DomainException(ErrorCode.VALIDATION_FAILED, detail);
+    private static DomainException invalid(String field, String detail) {
+        return DomainException.validation(field, detail);
     }
 
     public Long getId() {

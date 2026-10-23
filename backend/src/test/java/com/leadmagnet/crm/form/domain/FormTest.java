@@ -100,8 +100,8 @@ class FormTest {
         Form f = draft();
 
         f.edit(null, null, List.of(
-            new FormField("name", "text", false, "성함", null),
-            new FormField("plan", "select", true, "플랜", List.of("a", "b"))), T1);
+            new FieldChange("name", "성함", false),
+            new FieldChange("plan", "플랜", true)), T1);
 
         assertThat(f.getFieldConfig().get(0).label()).isEqualTo("성함");
         assertThat(f.getFieldConfig().get(0).required()).isFalse();
@@ -113,15 +113,33 @@ class FormTest {
     void 필드_추가_삭제_이름변경은_검증_실패이고_값은_그대로다() {
         Form f = draft();
 
-        assertInvalid(() -> f.edit(null, null, List.of(FIELDS.get(0)), T1));
-        assertInvalid(() -> f.edit(null, null, List.of(FIELDS.get(0), FIELDS.get(1),
-            new FormField("extra", "text", false, "x", null)), T1));
-        assertInvalid(() -> f.edit(null, null, List.of(FIELDS.get(0),
-            new FormField("renamed", "select", false, "플랜", List.of("a", "b"))), T1));
-        assertInvalid(() -> f.edit(null, null, List.of(FIELDS.get(0), FIELDS.get(0)), T1));
-        assertInvalid(() -> f.edit(null, null, List.of(FIELDS.get(0),
-            new FormField("plan", "select", false, " ", List.of("a", "b"))), T1));
+        FieldChange name = new FieldChange("name", "이름", true);
+        FieldChange plan = new FieldChange("plan", "플랜", false);
+        assertInvalid(() -> f.edit(null, null, List.of(name), T1));
+        assertInvalid(() -> f.edit(null, null, List.of(name, plan, new FieldChange("extra", "x", false)), T1));
+        assertInvalid(() -> f.edit(null, null, List.of(name, new FieldChange("renamed", "플랜", false)), T1));
+        assertInvalid(() -> f.edit(null, null, List.of(name, name), T1));
+        assertInvalid(() -> f.edit(null, null, List.of(name, new FieldChange("plan", " ", false)), T1));
         assertThat(f.getFieldConfig()).isEqualTo(FIELDS);
+    }
+
+    @Test
+    void 필드의_label이나_required를_생략하면_현재_값을_유지한다() {
+        Form f = draft();
+
+        f.edit(null, null, List.of(new FieldChange("name", null, null), new FieldChange("plan", "새 플랜", null)), T1);
+
+        assertThat(f.getFieldConfig().get(0)).isEqualTo(FIELDS.get(0));
+        assertThat(f.getFieldConfig().get(0).required()).isTrue();
+        assertThat(f.getFieldConfig().get(1).label()).isEqualTo("새 플랜");
+        assertThat(f.getFieldConfig().get(1).required()).isFalse();
+    }
+
+    @Test
+    void 검증_실패는_errors에_담길_필드를_가진다() {
+        assertThatThrownBy(() -> Form.create(1L, 2L, new Slug("spring"), " ", "c", FIELDS, T0))
+            .isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.getErrors()).extracting(DomainException.FieldError::field).containsExactly("title"));
     }
 
     @Test
