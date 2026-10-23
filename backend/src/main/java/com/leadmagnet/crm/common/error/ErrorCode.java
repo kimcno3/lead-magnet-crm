@@ -17,6 +17,14 @@ public enum ErrorCode {
     NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "not_acceptable", "요청한 응답 형식을 제공할 수 없습니다"),
     PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "payload_too_large", "요청 본문이 너무 큽니다"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported_media_type", "지원하지 않는 Content-Type입니다"),
+    TEMPLATE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "template_too_large", "템플릿 파일은 512KB 이하여야 합니다"),
+    TEMPLATE_EMPTY(HttpStatus.UNPROCESSABLE_ENTITY, "template_empty", "빈 파일은 올릴 수 없습니다"),
+    TEMPLATE_INVALID_EXTENSION(HttpStatus.UNPROCESSABLE_ENTITY, "template_invalid_extension", "확장자는 .html 또는 .htm이어야 합니다"),
+    TEMPLATE_NOT_UTF8(HttpStatus.UNPROCESSABLE_ENTITY, "template_not_utf8", "UTF-8 텍스트 파일이어야 합니다"),
+    TEMPLATE_FORM_COUNT_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "template_form_count_invalid", "문서에 form이 정확히 하나 있어야 합니다"),
+    TEMPLATE_FORBIDDEN_FIELD(HttpStatus.UNPROCESSABLE_ENTITY, "template_forbidden_field", "file, password 입력은 사용할 수 없습니다"),
+    TEMPLATE_FIELD_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "template_field_invalid", "필드 규칙을 위반했습니다"),
+    TEMPLATE_CONTACT_FIELD_MISSING(HttpStatus.UNPROCESSABLE_ENTITY, "template_contact_field_missing", "phone 또는 email 필드가 필요합니다"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "서버 오류가 발생했습니다");
 
     private static final String TYPE_PREFIX = "https://leadmagnet.example/problems/";

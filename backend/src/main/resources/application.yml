@@ -3,6 +3,10 @@ spring:
     name: lead-magnet-crm
   profiles:
     default: local
+  servlet:
+    multipart:
+      max-file-size: 1MB
+      max-request-size: 1MB
   jpa:
     open-in-view: false
     hibernate:
@@ -27,6 +31,9 @@ app:
     jwt-secret: ${JWT_SECRET}
     admin-origin: ${ADMIN_ORIGIN:http://localhost:5173}
     cookie-secure: ${COOKIE_SECURE:false}
+  template:
+    # 업로드 HTML 최대 바이트(512KB). multipart 한도(1MB)와의 사이 크기는 애플리케이션이 413으로 막는다 (ADR 0004)
+    max-bytes: 524288
   seed:
     operator:
       email: ${ADMIN_SEED_EMAIL:}
