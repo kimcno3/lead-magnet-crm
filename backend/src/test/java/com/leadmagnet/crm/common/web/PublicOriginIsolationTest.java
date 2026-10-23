@@ -80,7 +80,7 @@ class PublicOriginIsolationTest {
     @Test
     void public_포트로_관리자_헬스_문서_경로를_요청하면_404다() {
         for (String path : List.of("/api/admin/auth/me", "/api/admin/campaigns", "/actuator/health",
-                "/actuator/env", "/v3/api-docs", "/swagger-ui/index.html", "/swagger-ui.html", "/error", "/",
+                "/actuator/env", "/v3/api-docs", "/v3/api-docs.yaml", "/swagger-ui/index.html", "/swagger-ui.html", "/error", "/",
                 "/favicon.ico")) {
             PublicOrigin.given(publicPort).get(path)
                 .then().statusCode(404).contentType(PROBLEM_JSON)

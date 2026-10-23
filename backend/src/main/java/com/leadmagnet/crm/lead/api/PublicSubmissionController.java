@@ -31,7 +31,7 @@ public class PublicSubmissionController {
         this.visitorCookie = visitorCookie;
     }
 
-    @Operation(summary = "신청 제출", description = "Content-Type: application/json만 받는다. Origin: null(sandbox 프레임)은 거절한다. "
+    @Operation(operationId = "submitForm", summary = "신청 제출", description = "Content-Type: application/json만 받는다. Origin: null(sandbox 프레임)은 거절한다. "
         + "name·phone·email 필드는 컬럼으로, 나머지는 payload로 저장한다. 같은 폼의 같은 전화번호·이메일은 409.")
     @ApiResponse(responseCode = "201", description = "접수됨 {status: received}")
     @ApiResponse(responseCode = "400", description = "malformed_request")

@@ -39,7 +39,7 @@ public class PublicFormPageController {
         this.visitorCookie = visitorCookie;
     }
 
-    @Operation(summary = "공개 폼 페이지", description = "래퍼 셸 HTML. 방문 1건 기록, 방문자 쿠키 lm_vid 발급. "
+    @Operation(operationId = "showPublicFormPage", summary = "공개 폼 페이지", description = "래퍼 셸 HTML. 방문 1건 기록, 방문자 쿠키 lm_vid 발급. "
         + "lm이 이 폼의 링크 code면 그 채널로, 아니면 direct로 귀속한다.")
     @ApiResponse(responseCode = "200", description = "래퍼 셸")
     @ApiResponse(responseCode = "404", description = "없는 slug 또는 draft (HTML 안내)")

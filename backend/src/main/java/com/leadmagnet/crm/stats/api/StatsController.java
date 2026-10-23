@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "성과 지표", description = "캠페인·채널별 방문, 방문자, 신청, 전환 방문자, 전환율 (ADR 0005)")
+@Tag(name = "성과 조회", description = "캠페인·채널별 방문, 방문자, 신청, 전환 방문자, 전환율 (ADR 0005)")
 @RestController
 @RequestMapping("/api/admin")
 public class StatsController {
@@ -25,7 +25,7 @@ public class StatsController {
         this.stats = stats;
     }
 
-    @Operation(summary = "캠페인 지표", description = PERIOD, security = @SecurityRequirement(name = "bearer"))
+    @Operation(operationId = "getCampaignStats", summary = "캠페인 지표", description = PERIOD, security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "캠페인 전체 지표")
     @ApiResponse(responseCode = "401", description = "unauthorized")
     @ApiResponse(responseCode = "404", description = "없는 캠페인 (not_found)")
@@ -36,7 +36,7 @@ public class StatsController {
         return CampaignStatsResponse.of(campaignId, from, to, stats.campaign(campaignId, from, to));
     }
 
-    @Operation(summary = "캠페인 채널별 지표", description = PERIOD + " 다섯 채널을 항상 0 포함해 돌려준다.",
+    @Operation(operationId = "getCampaignChannelStats", summary = "캠페인 채널별 지표", description = PERIOD + " 다섯 채널을 항상 0 포함해 돌려준다.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "instagram, x, youtube, threads, direct 순서")
     @ApiResponse(responseCode = "401", description = "unauthorized")
@@ -48,7 +48,7 @@ public class StatsController {
         return ChannelStatsResponse.of(campaignId, from, to, stats.channels(campaignId, from, to));
     }
 
-    @Operation(summary = "캠페인별 지표 목록", description = PERIOD + " 최신 캠페인순, 데이터가 없는 캠페인도 포함.",
+    @Operation(operationId = "listCampaignStats", summary = "캠페인별 지표 목록", description = PERIOD + " 최신 캠페인순, 데이터가 없는 캠페인도 포함.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "캠페인별 지표")
     @ApiResponse(responseCode = "401", description = "unauthorized")

@@ -27,7 +27,7 @@ public class FormController {
         this.formService = formService;
     }
 
-    @Operation(summary = "폼 생성", description = "템플릿 fields를 스냅샷으로 복사한 draft 폼을 만든다. slug를 생략하면 8자 랜덤.",
+    @Operation(operationId = "createForm", summary = "폼 생성", description = "템플릿 fields를 스냅샷으로 복사한 draft 폼을 만든다. slug를 생략하면 8자 랜덤.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "201", description = "생성됨. Location에 상세 경로")
     @ApiResponse(responseCode = "401", description = "unauthorized")
@@ -41,7 +41,7 @@ public class FormController {
         return ResponseEntity.created(URI.create("/api/admin/forms/" + created.getId())).body(FormResponse.from(created));
     }
 
-    @Operation(summary = "폼 상세", security = @SecurityRequirement(name = "bearer"))
+    @Operation(operationId = "getForm", summary = "폼 상세", security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "상세")
     @ApiResponse(responseCode = "401", description = "unauthorized")
     @ApiResponse(responseCode = "404", description = "not_found")
@@ -50,7 +50,7 @@ public class FormController {
         return FormResponse.from(formService.get(id));
     }
 
-    @Operation(summary = "폼 수정·게시·마감",
+    @Operation(operationId = "updateForm", summary = "폼 수정·게시·마감",
         description = "없는 필드는 그대로 둔다. 내용(title, consentText, fieldConfig의 label·required)은 draft에서만 수정. "
             + "status는 published(draft→published) 또는 closed(published→closed).",
         security = @SecurityRequirement(name = "bearer"))

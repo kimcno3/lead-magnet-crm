@@ -114,6 +114,12 @@ class AdminResourceServerTest {
             .then().statusCode(200).body("openapi", startsWith("3."));
     }
 
+    @Test
+    void 인증_없이_OpenAPI_YAML_문서를_볼_수_있다() {
+        given().when().get("/v3/api-docs.yaml")
+            .then().statusCode(200).body(startsWith("openapi: 3."));
+    }
+
     private io.restassured.response.Response me(String token) {
         return given().auth().oauth2(token).when().get("/api/admin/auth/me");
     }

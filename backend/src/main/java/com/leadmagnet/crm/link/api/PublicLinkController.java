@@ -34,7 +34,7 @@ public class PublicLinkController {
         this.visitorCookie = visitorCookie;
     }
 
-    @Operation(summary = "단축 URL 리다이렉트", description = "302 Location: /f/{slug}?lm={code}")
+    @Operation(operationId = "redirectShortLink", summary = "단축 URL 리다이렉트", description = "302 Location: /f/{slug}?lm={code}")
     @ApiResponse(responseCode = "302", description = "공개 폼으로 이동")
     @ApiResponse(responseCode = "404", description = "없는 code 또는 draft 폼 (HTML 안내)")
     @ApiResponse(responseCode = "410", description = "closed 폼 (HTML 안내)")
