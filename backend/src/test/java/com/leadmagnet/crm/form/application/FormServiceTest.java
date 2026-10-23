@@ -38,7 +38,7 @@ class FormServiceTest {
         when(campaigns.findById(1L)).thenReturn(Optional.of(campaign));
         HtmlTemplate template = HtmlTemplate.create("t", "<form></form>",
             List.of(new FormField("name", "text", true, "이름", null)), List.of(), 1L, clock.instant());
-        when(templates.get(2L)).thenReturn(template);
+        when(templates.getForUpdate(2L)).thenReturn(template);
     }
 
     @Test

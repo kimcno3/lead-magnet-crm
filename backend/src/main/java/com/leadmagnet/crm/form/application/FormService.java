@@ -46,7 +46,8 @@ public class FormService {
             throw DomainException.validation("templateId", "templateId가 필요합니다");
         }
         Form.validateContent(title, consentText);
-        HtmlTemplate template = templates.get(templateId);
+        // 새 버전 업로드가 이 템플릿의 draft 폼을 다시 스냅샷하는 중이면 끝날 때까지 기다린다(ADR 0018 잠금 경로 1).
+        HtmlTemplate template = templates.getForUpdate(templateId);
         Slug slug = requestedSlug != null ? new Slug(requestedSlug) : randomFreeSlug();
         if (forms.existsBySlug(slug.value())) {
             throw new DomainException(ErrorCode.SLUG_TAKEN);

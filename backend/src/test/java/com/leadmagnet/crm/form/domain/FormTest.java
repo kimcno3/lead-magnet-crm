@@ -87,6 +87,18 @@ class FormTest {
     }
 
     @Test
+    void 다시_스냅샷할_때_없어진_필드는_사라지고_타입이_바뀐_필드의_수정은_유지하지_않는다() {
+        Form f = draft();
+        f.edit(null, null, List.of(new FieldChange("name", "신청자", null), new FieldChange("plan", "내 플랜", true)), T1);
+        List<FormField> next = List.of(
+            new FormField("plan", "checkbox", false, "동의 플랜", null)); // name 삭제, plan은 select → checkbox
+
+        f.resnapshotFields(FIELDS, next, T2);
+
+        assertThat(f.getFieldConfig()).containsExactly(new FormField("plan", "checkbox", false, "동의 플랜", null));
+    }
+
+    @Test
     void 게시된_폼은_다시_스냅샷할_수_없다() {
         Form f = draft();
         f.publish(T1, HTML, SHA);

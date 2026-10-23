@@ -148,4 +148,26 @@ describe('템플릿 상세', () => {
     expect(alert).toHaveTextContent('template_contact_field_missing')
     expect(detailReads).toBe(1)
   })
+
+  it('올리는 중에 다이얼로그를 닫아도 요청이 끝나면 상세를 다시 읽는다', async () => {
+    let detailReads = 0
+    let finish: (r: Response) => void = () => {}
+    mockBackend((url, init) => {
+      if (url.pathname !== '/api/admin/templates/3') return undefined
+      if (init?.method === 'PUT') return new Promise<Response>((resolve) => (finish = resolve)) as unknown as Response
+      detailReads += 1
+      return json(template)
+    })
+    renderPage('/templates/:id', <TemplateDetailPage />, '/templates/3')
+    fireEvent.click(await screen.findByRole('button', { name: '새 버전 업로드' }))
+    const dialog = await screen.findByRole('dialog', { name: '새 버전 업로드' })
+    fireEvent.change(within(dialog).getByLabelText(/HTML 파일/), {
+      target: { files: [new File(['<form><input name="phone"></form>'], 'v3.html', { type: 'text/html' })] },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: '새 버전 올리기' }))
+    fireEvent.click(within(dialog).getAllByRole('button', { name: '취소' }).at(-1)!)
+    finish(json({ id: 3, name: 'x', size: 1, sha256: 'n', version: 3, updatedAt: '2026-10-24T01:00:00Z', affectedDraftForms: 0, fields: [], inspection: [] }))
+
+    await waitFor(() => expect(detailReads).toBe(2))
+  })
 })

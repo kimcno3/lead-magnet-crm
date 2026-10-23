@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.leadmagnet.crm.auth.domain.Operator;
 import com.leadmagnet.crm.auth.domain.OperatorRepository;
+import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.support.AdminFixtures;
 import com.leadmagnet.crm.support.AdminLogin;
 import com.leadmagnet.crm.support.DatabaseCleaner;
@@ -30,7 +31,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 게시와 새 버전 업로드가 동시에 일어나도 폼의 published_html과 field_config는 같은 버전에서 온다 (ADR 0018).
- * 잠금 순서(템플릿 → 폼)가 지켜지는지 한 쪽 트랜잭션을 연 채로 다른 쪽이 기다리는지로 확인한다.
+ * 한 쪽 트랜잭션을 연 채로 다른 쪽이 기다리는지로 "같은 템플릿 행을 두고 직렬화된다"를 확인한다.
+ * 이 테스트는 잠금 순서(템플릿 → 폼)가 맞는지, 곧 교착이 없는지는 가려내지 못한다(폼 먼저 잠그는 구현도
+ * 같은 대기를 보인다). 교착 없음은 코드로 논증한다: 템플릿을 바꾸거나 폼을 새 스냅샷으로 만드는 경로는
+ * {@code TemplateVersionService.upload}, {@code FormService.update}, {@code FormService.create} 셋이고
+ * 모두 템플릿 행을 먼저 잠근 뒤에만 폼 행을 잠근다(ADR 0018).
  */
 @IntegrationTest
 class PublishSnapshotConcurrencyTest {
@@ -143,6 +148,26 @@ class PublishSnapshotConcurrencyTest {
             String html = jdbc.queryForObject("SELECT published_html FROM forms WHERE id = ?", String.class, form);
             assertSnapshotMatchesFields(form, html, html.equals(V2) ? List.of("name", "phone", "memo") : List.of("name", "phone"));
         }
+    }
+
+    @Test
+    void 새_버전_업로드가_진행_중이면_폼_생성은_기다렸다가_새_필드로_만들어진다() throws Exception {
+        int draft = AdminFixtures.createDraftForm(token, "race-c", V1);
+        long template = templateIdOf(draft);
+        int campaign = jdbc.queryForObject("SELECT campaign_id FROM forms WHERE id = ?", Integer.class, draft);
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+
+        Future<Form> creating = tx.execute(status -> {
+            versionService.upload(template, "v2.html", V2.getBytes(StandardCharsets.UTF_8));
+            Future<Form> waiting = executor.submit(
+                () -> formService.create(campaign, template, "새 폼", "동의합니다", "race-c-new"));
+            assertStillWaiting(waiting);
+            return waiting;
+        });
+        long created = creating.get(10, TimeUnit.SECONDS).getId();
+        formService.update(created, null, null, null, "published");
+
+        assertSnapshotMatchesFields((int) created, V2, List.of("name", "phone", "memo"));
     }
 
     private void assertStillWaiting(Future<?> waiting) {

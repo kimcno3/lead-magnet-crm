@@ -26,9 +26,12 @@ export function NewVersionDialog({ open, templateId, onClose, onApplied }: Props
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<TemplateVersionResult | null>(null)
   const resultHeading = useRef<HTMLHeadingElement>(null)
+  // 올리는 중에 다이얼로그를 닫아도 요청은 계속되므로, 끝나면 결과를 못 봐도 화면은 새로 읽는다.
+  const closedWhileBusy = useRef(false)
 
   function close() {
     const applied = result !== null
+    closedWhileBusy.current = busy
     setFile(null)
     setFileError(undefined)
     setFailure(null)
@@ -46,8 +49,15 @@ export function NewVersionDialog({ open, templateId, onClose, onApplied }: Props
     setBusy(true)
     setFailure(null)
     setFileError(undefined)
+    closedWhileBusy.current = false
     try {
-      setResult(await uploadTemplateVersion(templateId, file))
+      const applied = await uploadTemplateVersion(templateId, file)
+      if (closedWhileBusy.current) {
+        closedWhileBusy.current = false
+        onApplied()
+        return
+      }
+      setResult(applied)
       queueMicrotask(() => resultHeading.current?.focus())
     } catch (err) {
       if (err instanceof ApiError) {

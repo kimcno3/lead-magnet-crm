@@ -217,6 +217,22 @@ public class TemplateVersionApiTest {
     }
 
     @Test
+    void 없는_템플릿에_잘못된_파일을_올려도_404가_먼저다() {
+        put(9999, "bad.txt", NO_CONTACT).statusCode(404).body("code", equalTo("not_found"));
+    }
+
+    @Test
+    void 목록은_수정일_최신순이다() {
+        int first = templateIdOf(AdminFixtures.createDraftForm(token, "list-a", V1));
+        int second = templateIdOf(AdminFixtures.createDraftForm(token, "list-b", V1));
+        given().auth().oauth2(token).get("/api/admin/templates").then().body("id", org.hamcrest.Matchers.contains(second, first));
+
+        put(first, "v2.html", V2).statusCode(200);
+
+        given().auth().oauth2(token).get("/api/admin/templates").then().body("id", org.hamcrest.Matchers.contains(first, second));
+    }
+
+    @Test
     void 토큰_없이는_새_버전_업로드가_401이다() {
         int template = templateIdOf(AdminFixtures.createDraftForm(token, "anon", V1));
 

@@ -82,7 +82,7 @@ public class TemplateService {
 
     @Transactional(readOnly = true)
     public List<HtmlTemplate> list() {
-        return templates.findAllByOrderByCreatedAtDescIdDesc();
+        return templates.findAllByOrderByUpdatedAtDescIdDesc();
     }
 
     @Transactional(readOnly = true)

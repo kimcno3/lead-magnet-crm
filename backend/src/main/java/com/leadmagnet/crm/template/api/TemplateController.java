@@ -73,7 +73,7 @@ public class TemplateController {
             checked.inspection());
     }
 
-    @Operation(operationId = "listTemplates", summary = "템플릿 목록", description = "최신순", security = @SecurityRequirement(name = "bearer"))
+    @Operation(operationId = "listTemplates", summary = "템플릿 목록", description = "수정일 최신순", security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "목록")
     @ApiResponse(responseCode = "401", description = "unauthorized")
     @GetMapping

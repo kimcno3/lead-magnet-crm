@@ -119,6 +119,7 @@ public class Form {
     /**
      * 템플릿에 새 버전이 올라왔을 때 draft 폼의 필드를 새 필드로 다시 만든다. 이름이 같은 필드는 운영자가 바꾼
      * label·required만 유지한다(이전 템플릿 값과 달라진 것이 운영자 수정이다). 나머지는 새 템플릿 값을 따른다.
+     * 필드의 type이 바뀌었으면 옛 입력에 대한 수정이라 의미가 달라지므로 유지하지 않고 새 템플릿 값을 쓴다.
      */
     public void resnapshotFields(List<FormField> previousTemplateFields, List<FormField> newTemplateFields, Instant now) {
         if (status != FormStatus.DRAFT) {
@@ -127,7 +128,7 @@ public class Form {
         this.fieldConfig = newTemplateFields.stream().map(next -> {
             FormField current = fieldConfig.stream().filter(f -> f.name().equals(next.name())).findFirst().orElse(null);
             FormField previous = previousTemplateFields.stream().filter(f -> f.name().equals(next.name())).findFirst().orElse(null);
-            if (current == null || previous == null) {
+            if (current == null || previous == null || !current.type().equals(next.type())) {
                 return next;
             }
             String label = current.label() != null && !current.label().equals(previous.label()) ? current.label() : next.label();

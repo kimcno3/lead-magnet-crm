@@ -14,7 +14,7 @@
 **새 버전 업로드** `PUT /api/admin/templates/{id}`(multipart `file`, 이름은 바뀌지 않음).
 - 검사는 업로드와 같은 `TemplateService.inspect`(확장자·크기·UTF-8·폼 계약·경고, ADR 0017)다. 실패하면 422·413이고 아무것도 바뀌지 않는다(검사는 DB를 바꾸기 전에 끝난다).
 - 성공하면 `content`, `sha256`, `fields`, `size`, `inspection`을 바꾸고 `version`을 1 올리며 `updated_at`을 갱신한다.
-- 이 템플릿을 쓰는 **draft 폼**은 `field_config`를 새 필드로 다시 스냅샷한다. 이름이 같은 필드는 **운영자가 바꾼 label·required만** 유지한다. 운영자가 바꿨는지는 "폼의 값이 이전 템플릿 값과 다른가"로 판단하므로(별도 override 컬럼을 두지 않는다), 건드리지 않은 값은 새 템플릿을 따른다. type·options는 항상 새 템플릿 값이다. 없어진 필드는 사라지고 새 필드는 추가된다.
+- 이 템플릿을 쓰는 **draft 폼**은 `field_config`를 새 필드로 다시 스냅샷한다. 이름이 같은 필드는 **운영자가 바꾼 label·required만** 유지한다. 운영자가 바꿨는지는 "폼의 값이 이전 템플릿 값과 다른가"로 판단하므로(별도 override 컬럼을 두지 않는다), 건드리지 않은 값은 새 템플릿을 따른다. type·options는 항상 새 템플릿 값이다. 필드의 type이 바뀌었으면(예: text → checkbox) 옛 입력에 대한 수정이므로 유지하지 않고 새 템플릿의 label·required를 쓴다. 없어진 필드는 사라지고 새 필드는 추가된다.
 - **게시·마감된 폼은 건드리지 않는다.** 응답의 `affectedDraftForms`가 다시 스냅샷한 draft 폼 수다.
 - draft가 새 버전 뒤에 게시되면 그때의 새 템플릿이 스냅샷된다.
 
@@ -22,12 +22,13 @@
 - 새 버전 업로드: 템플릿 잠금 → 템플릿 변경 → draft 폼들 잠금·재스냅샷 → 커밋.
 - 게시/폼 수정(`FormService.update`): 폼 엔티티를 읽지 않고 `template_id`만 조회 → 템플릿 잠금 → 폼 잠금 → 읽은 템플릿으로 게시.
 - 한 쪽이 커밋하기 전에는 다른 쪽이 기다리고, 커밋된 뒤의 행을 다시 읽으므로 폼의 `published_html`·`published_template_sha256`·`field_config`는 항상 같은 버전에서 온다. 순서가 같아 교착이 없다. 대가로 같은 템플릿을 쓰는 폼의 게시·수정은 서로 직렬화된다(운영자 몇 명 규모에서 문제 없음). 같은 이유로 폼의 필드 수정(PATCH)과 새 버전 업로드도 갱신 유실 없이 한쪽씩 적용된다.
+- 잠금 경로 전체(이 셋뿐이며 모두 템플릿 → 폼 순서): `TemplateVersionService.upload`(템플릿, 그다음 draft 폼들), `FormService.update`(템플릿, 그다음 해당 폼), `FormService.create`(템플릿만 잠그고 새 행을 삽입). `create`가 템플릿을 잠그지 않으면 "v1을 읽은 create → v2 업로드가 커밋된 draft만 재스냅샷 → create가 v1 필드의 draft 커밋"으로 나중에 게시할 때 v2 HTML과 v1 필드가 짝지어진다. 잠금 순서(교착 없음)는 위 세 경로를 코드로 점검해 논증하며, 테스트는 "같은 템플릿을 두고 직렬화된다"만 확인한다(순서가 맞는지는 테스트가 가려내지 못한다). 없는 템플릿에 대한 PUT은 파일 검사 전에 잠금 없이 존재만 확인해 404를 준다.
 - 낙관적 버전(`@Version`) 대신 비관적 잠금을 쓴 이유: 충돌 시 재시도·409 처리를 만들지 않아도 되고, 충돌 가능성이 낮아 잠금 대기가 거의 생기지 않는다.
 
-**기존 데이터(V8 백필)**: `UPDATE forms SET published_html = t.content, published_template_sha256 = t.sha256 FROM html_templates t WHERE t.id = forms.template_id AND forms.status <> 'draft'`. 기존 게시·마감 폼은 지금 템플릿 내용으로 고정된다. 템플릿에는 `version INTEGER NOT NULL DEFAULT 1`과 `updated_at`(기존 행은 `created_at`)을 더한다. 추가만 하는 변경이다(expand 단계 불필요).
+**기존 데이터(V8 백필)**: `UPDATE forms SET published_html = t.content, published_template_sha256 = t.sha256 FROM html_templates t WHERE t.id = forms.template_id AND forms.status <> 'draft'`. 기존 게시·마감 폼은 지금 템플릿 내용으로 고정된다. 템플릿에는 `version INTEGER NOT NULL DEFAULT 1`과 `updated_at`(기존 행은 `created_at`)을 더한다. 컬럼 추가는 호환되지만 `ck_forms_published_snapshot` CHECK는 순수한 추가가 아니다: 롤링 배포 중에 이 버전 이전의 인스턴스가 스냅샷 없이 폼을 게시하면 제약 위반으로 실패한다. 지금은 단일 인스턴스로 배포하므로 감수한다(다중 인스턴스가 되면 제약을 별도 PR로 나눈다).
 
 **관리자 화면**
-- 템플릿 목록은 버전과 수정일을, 상세는 `v{version}`과 수정 시각을 보인다. 상세의 **새 버전 업로드** 다이얼로그는 성공 시 검사 결과와 새 필드로 다시 만든 draft 폼 수를 보여 주고, 닫으면 상세를 다시 읽는다.
+- 템플릿 목록은 수정일 최신순이고 버전과 수정일을, 상세는 `v{version}`과 수정 시각을 보인다. 상세의 **새 버전 업로드** 다이얼로그는 성공 시 검사 결과와 새 필드로 다시 만든 draft 폼 수를 보여 주고, 닫으면 상세를 다시 읽는다.
 - 폼 패널은 `publishedTemplateSha256`과 `templateSha256`(템플릿의 현재 sha256, 폼 응답에 함께 온다)이 다르면 "게시 시점 템플릿과 현재 템플릿이 다릅니다"를 보인다. 색 없이 기존 `note` 스타일(ADR 0011 흑백 체계)이다.
 - 관리자 API CORS에 `PUT`을 허용한다.
 

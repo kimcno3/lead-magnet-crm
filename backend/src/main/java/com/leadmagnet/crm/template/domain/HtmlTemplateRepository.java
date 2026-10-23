@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface HtmlTemplateRepository extends JpaRepository<HtmlTemplate, Long> {
 
-    List<HtmlTemplate> findAllByOrderByCreatedAtDescIdDesc();
+    List<HtmlTemplate> findAllByOrderByUpdatedAtDescIdDesc();
 
     /** 게시·새 버전 업로드가 같은 템플릿을 동시에 바꾸지 못하게 행을 잠그고 읽는다 (ADR 0018). */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

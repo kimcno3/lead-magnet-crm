@@ -1149,7 +1149,7 @@ paths:
       tags:
       - HTML 템플릿
       summary: 템플릿 목록
-      description: 최신순
+      description: 수정일 최신순
       operationId: listTemplates
       responses:
         "200":

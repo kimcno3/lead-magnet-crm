@@ -65,12 +65,14 @@
 
 - operators: id, email(unique), password_hash, created_at
 - refresh_tokens: id, operator_id, token_hash, family_id, expires_at, revoked_at
-- html_templates: id, name, content, sha256, fields(jsonb), size, created_by, created_at
+- html_templates: id, name, content, sha256, fields(jsonb), inspection(jsonb, 업로드 검사 경고, ADR 0017), size, version(새 버전마다 +1), created_by, created_at, updated_at (ADR 0018)
 - campaigns: id, name, description, status, starts_at, ends_at
-- forms: id, campaign_id, template_id, slug(unique), title, field_config(jsonb), consent_text, status(draft|published|closed)
-- distribution_links: id, form_id, channel(instagram|x|youtube|threads), code(unique), utm_*
+- forms: id, campaign_id, template_id, slug(unique), title, field_config(jsonb), consent_text, status(draft|published|closed), published_html·published_template_sha256(게시 시점 템플릿 스냅샷, ADR 0018)
+- creators: id, name, status(active|archived), created_by, created_at (ADR 0014)
+- distribution_links: id, form_id, creator_id(nullable), channel(instagram|x|youtube|threads), code(unique), utm_*
 - visits: id, form_id, link_id, channel, visitor_id, referrer, user_agent, occurred_at
-- leads: id, form_id, campaign_id, link_id, channel, visitor_id, name, phone, email, payload(jsonb), consent_at, created_at
+- leads: id, form_id, campaign_id, link_id, channel, visitor_id, name_enc·phone_enc·email_enc(AES-GCM), phone_hash·email_hash(중복 판정용 HMAC), payload(jsonb), consent_at, created_at (평문 연락처 컬럼은 없다, ADR 0015)
+- audit_logs: id, operator_id, action, target_type, target_id, campaign_id, detail(jsonb), ip, user_agent, created_at (명단 열람·다운로드 기록, ADR 0016)
 
 ### 지표 정의 (ADR로 확정할 가정)
 
