@@ -7,6 +7,8 @@ import com.leadmagnet.crm.template.domain.FormContractParser;
 import com.leadmagnet.crm.template.domain.FormField;
 import com.leadmagnet.crm.template.domain.HtmlTemplate;
 import com.leadmagnet.crm.template.domain.HtmlTemplateRepository;
+import com.leadmagnet.crm.template.domain.InspectionWarning;
+import com.leadmagnet.crm.template.domain.TemplateInspector;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
@@ -15,6 +17,7 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -33,7 +36,22 @@ public class TemplateService {
         this.clock = clock;
     }
 
+    /** 업로드 파일 검증 결과. 저장하지 않는 "검사만 하기"와 업로드, 새 버전 업로드(#17)가 함께 쓴다. */
+    public record Inspected(String name, String content, List<FormField> fields, List<InspectionWarning> inspection) {
+    }
+
     public HtmlTemplate upload(String filename, byte[] bytes, String requestedName, long operatorId) {
+        Inspected checked = inspect(filename, bytes, requestedName);
+        return templates.save(HtmlTemplate.create(checked.name(), checked.content(), checked.fields(),
+            checked.inspection(), operatorId, clock.instant()));
+    }
+
+    /**
+     * 파일 계약(확장자·크기·UTF-8·폼 계약)을 검사하고 경고를 계산한다. 아무것도 저장하지 않는다.
+     * 계약을 어기면 업로드와 같은 DomainException(422·413)을 던진다.
+     */
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+    public Inspected inspect(String filename, byte[] bytes, String requestedName) {
         String baseName = baseName(filename);
         String lower = baseName.toLowerCase(Locale.ROOT);
         boolean html = lower.endsWith(".html");
@@ -53,7 +71,13 @@ public class TemplateService {
         String name = resolveName(requestedName, baseName.substring(0, baseName.lastIndexOf('.')));
 
         List<FormField> fields = FormContractParser.parse(content);
-        return templates.save(HtmlTemplate.create(name, content, fields, operatorId, clock.instant()));
+        return new Inspected(name, content, fields, TemplateInspector.inspect(content));
+    }
+
+    /** 저장된 검사 결과. 기존 템플릿(null)은 지금 계산해 돌려주고 저장하지는 않는다(ADR 0017). */
+    public List<InspectionWarning> inspectionOf(HtmlTemplate template) {
+        List<InspectionWarning> stored = template.getInspection();
+        return stored != null ? stored : TemplateInspector.inspect(template.getContent());
     }
 
     @Transactional(readOnly = true)

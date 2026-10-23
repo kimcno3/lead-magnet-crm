@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +34,7 @@ public class TemplateController {
         this.templateService = templateService;
     }
 
-    @Operation(operationId = "uploadTemplate", summary = "템플릿 업로드", description = "multipart file(.html/.htm, UTF-8, 512KB 이하)과 선택 name. 폼 계약을 검사해 필드를 추출한다.",
+    @Operation(operationId = "uploadTemplate", summary = "템플릿 업로드", description = "multipart file(.html/.htm, UTF-8, 512KB 이하)과 선택 name. 폼 계약을 검사해 필드를 추출하고, 응답 inspection에 경고(외부 리소스 등)를 담는다. 경고는 업로드를 막지 않는다.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "201", description = "등록됨. Location에 상세 경로")
     @ApiResponse(responseCode = "401", description = "unauthorized")
@@ -48,7 +49,24 @@ public class TemplateController {
         HtmlTemplate created = templateService.upload(file.getOriginalFilename(), file.getBytes(), name,
             Long.parseLong(jwt.getSubject()));
         return ResponseEntity.created(URI.create("/api/admin/templates/" + created.getId()))
-            .body(TemplateResponse.from(created));
+            .body(TemplateResponse.from(created, templateService.inspectionOf(created)));
+    }
+
+    @Operation(operationId = "inspectTemplate", summary = "템플릿 검사만 하기",
+        description = "업로드와 같은 파일 검사를 하고 추출될 필드와 경고(inspection)만 돌려준다. 아무것도 저장하지 않는다. "
+            + "경고는 업로드를 막지 않고, 계약 오류는 업로드와 같은 오류 코드로 답한다.",
+        security = @SecurityRequirement(name = "bearer"))
+    @ApiResponse(responseCode = "200", description = "검사 리포트(저장 안 됨)")
+    @ApiResponse(responseCode = "401", description = "unauthorized")
+    @ApiResponse(responseCode = "413", description = "template_too_large 또는 payload_too_large")
+    @ApiResponse(responseCode = "422", description = "업로드와 같은 계약 오류(template_*)")
+    @PostMapping(path = "/inspect", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public TemplateInspectionResponse inspect(@RequestPart("file") MultipartFile file,
+            @RequestParam(name = "name", required = false) String name) throws IOException {
+        TemplateService.Inspected checked = templateService.inspect(file.getOriginalFilename(), file.getBytes(), name);
+        return new TemplateInspectionResponse(checked.name(),
+            checked.content().getBytes(StandardCharsets.UTF_8).length, checked.fields(),
+            checked.inspection());
     }
 
     @Operation(operationId = "listTemplates", summary = "템플릿 목록", description = "최신순", security = @SecurityRequirement(name = "bearer"))
@@ -59,12 +77,13 @@ public class TemplateController {
         return templateService.list().stream().map(TemplateSummaryResponse::from).toList();
     }
 
-    @Operation(operationId = "getTemplate", summary = "템플릿 상세", description = "원문 content와 추출한 fields 포함", security = @SecurityRequirement(name = "bearer"))
+    @Operation(operationId = "getTemplate", summary = "템플릿 상세", description = "원문 content, 추출한 fields, 검사 경고 inspection 포함. 검사 결과가 없는 기존 템플릿은 읽을 때 계산한다.", security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "상세")
     @ApiResponse(responseCode = "401", description = "unauthorized")
     @ApiResponse(responseCode = "404", description = "not_found")
     @GetMapping("/{id}")
     public TemplateDetailResponse get(@PathVariable long id) {
-        return TemplateDetailResponse.from(templateService.get(id));
+        HtmlTemplate template = templateService.get(id);
+        return TemplateDetailResponse.from(template, templateService.inspectionOf(template));
     }
 }

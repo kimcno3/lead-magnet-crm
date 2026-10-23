@@ -38,6 +38,11 @@ public class HtmlTemplate {
     @Column(nullable = false, columnDefinition = "jsonb")
     private List<FormField> fields;
 
+    /** 업로드 시점의 검사 경고. null이면 아직 계산하지 않은 기존 행이다(ADR 0017). */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private List<InspectionWarning> inspection;
+
     @Column(nullable = false)
     private int size;
 
@@ -50,20 +55,22 @@ public class HtmlTemplate {
     protected HtmlTemplate() {
     }
 
-    private HtmlTemplate(String name, String content, List<FormField> fields, Long createdBy, Instant createdAt) {
+    private HtmlTemplate(String name, String content, List<FormField> fields, List<InspectionWarning> inspection,
+            Long createdBy, Instant createdAt) {
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         this.name = name;
         this.content = content;
         this.sha256 = sha256Hex(bytes);
         this.fields = List.copyOf(fields);
+        this.inspection = List.copyOf(inspection);
         this.size = bytes.length;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
     }
 
-    public static HtmlTemplate create(String name, String content, List<FormField> fields, Long createdBy,
-            Instant createdAt) {
-        return new HtmlTemplate(name, content, fields, createdBy, createdAt);
+    public static HtmlTemplate create(String name, String content, List<FormField> fields,
+            List<InspectionWarning> inspection, Long createdBy, Instant createdAt) {
+        return new HtmlTemplate(name, content, fields, inspection, createdBy, createdAt);
     }
 
     private static String sha256Hex(byte[] bytes) {
@@ -92,6 +99,11 @@ public class HtmlTemplate {
 
     public List<FormField> getFields() {
         return fields;
+    }
+
+    /** 저장된 검사 경고. 기존 행은 null이다. 화면에는 {@code TemplateService.inspectionOf}로 얻는다. */
+    public List<InspectionWarning> getInspection() {
+        return inspection;
     }
 
     public int getSize() {

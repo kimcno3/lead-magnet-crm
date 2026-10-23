@@ -1003,3 +1003,68 @@
 .user-agent details p {
   margin: 4px 0 0;
 }
+
+/* ---------- 업로드 검사 결과 ---------- */
+.inspection {
+  display: grid;
+  gap: 12px;
+}
+
+.inspection-group {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.inspection-title {
+  margin: 0;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--surface-sunken);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.inspection-count {
+  margin: 0;
+  padding: 6px 12px 0;
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+}
+
+.inspection-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inspection-item {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.inspection-item:first-child {
+  border-top: 0;
+}
+
+.inspection-message {
+  margin: 0 0 4px;
+}
+
+.inspection-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+}
+
+.inspection-location {
+  overflow-wrap: anywhere;
+}
+
+.copy-status {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+}

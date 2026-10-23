@@ -126,13 +126,32 @@ export interface TemplateSummary {
   createdAt: string
 }
 
+export type InspectionSeverity = 'warning' | 'info'
+
+/** 업로드 HTML 검사 경고 하나(백엔드 InspectionWarning). 업로드를 막지 않는다. */
+export interface InspectionWarning {
+  code: string
+  severity: InspectionSeverity
+  message: string
+  location: string
+}
+
 export interface Template {
   id: number
   name: string
   size: number
   sha256: string
   fields: FormField[]
+  inspection: InspectionWarning[]
   createdAt: string
+}
+
+/** POST /api/admin/templates/inspect 응답. 저장하지 않은 리포트다. */
+export interface TemplateInspection {
+  name: string
+  size: number
+  fields: FormField[]
+  inspection: InspectionWarning[]
 }
 
 export interface TemplateDetail extends Template {

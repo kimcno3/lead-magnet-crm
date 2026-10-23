@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router'
 import { getTemplate } from '../api/templates'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { FieldsTable } from '../components/FieldsTable'
+import { InspectionReport } from '../components/InspectionReport'
 import { SandboxPreview } from '../components/SandboxPreview'
 import { PageHeader } from '../components/PageHeader'
 import { formatBytes, formatDateTime } from '../format'
@@ -33,6 +34,11 @@ export function TemplateDetailPage() {
               추출된 필드
             </h2>
             <FieldsTable fields={data.fields} caption="추출된 필드" />
+            <h2 id="inspection-heading" className="section-title">
+              검사 결과
+            </h2>
+            <p className="note">경고가 있어도 이 템플릿으로 폼을 만들 수 있습니다. 공개 폼은 외부 이미지·웹폰트·CSS·스크립트를 불러오지 않습니다.</p>
+            <InspectionReport warnings={data.inspection} />
           </section>
           <section aria-labelledby="preview-heading" className="split-side">
             <h2 id="preview-heading" className="section-title">
