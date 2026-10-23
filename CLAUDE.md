@@ -51,6 +51,7 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
   - 지표(ADR 0005): `stats`는 엔티티 없이 `StatsQuery`(NamedParameterJdbcTemplate 네이티브 SQL, 지표 정의를 SQL 주석으로 인용)가 집계한다. 기간은 `stats/domain/DateRange`가 Asia/Seoul 날짜 `[from 00:00, to+1 00:00)`로 바꾸고 형식 오류·`from > to`는 422. 전환 방문자는 방문∩신청 `visitor_id` 교집합(채널별은 같은 채널 안), `visitor_id` NULL 신청은 전환에 넣지 않는다.
   - 운영자 계정은 기동 시 `auth/application/OperatorSeeder`가 `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD`로 만든다(ADR 0009). 로그용 개인정보 마스킹은 `common/PiiMasker`.
   - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. `RestAssured.port`는 admin 포트로 두고 public 포트 요청은 `PublicOrigin.given(publicPort)`로 보낸다. Docker가 떠 있어야 backend 테스트가 돈다.
+  - 시나리오 테스트(`scenario` 테스트 패키지): `HappyPath`·`Failure`·`Isolation`이 두 포트를 오가며 로그인→업로드→배포→방문→신청→지표를 실제 HTTP로 잇는다. 기능별 테스트를 복제하지 않고 앞 단계 출력이 다음 입력이 되는지만 본다. 공통 도우미는 `support/ScenarioBase`, 방문자 쿠키를 들고 `/l/{code}` 302를 직접 따라가는 `support/PublicVisitor`. 지표는 테스트 주석에 손계산 표를 두고 정확히 비교한다.
 - `admin-web/`: React + Vite + TypeScript 관리자 SPA. 운영 시에는 nginx(`admin-web/nginx.conf`), 개발 시에는 Vite가 `/api/admin/`과 `/actuator/health`를 backend admin 포트로 프록시한다. 브라우저 입장에서는 admin-web 출처 하나뿐이어서 refresh 쿠키(SameSite=Strict, Path=/api/admin/auth)가 그대로 동작하고, public 출처(:8081)와는 출처가 다르다.
 - `docker-compose.yml`: postgres → backend → admin-web 순서로 헬스체크를 기다린다. 값은 루트 `.env`에서 읽는다.
 - `docs/`: `PLAN.md`(과제 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `ROADMAP.md`(범위 밖), `adr/`.
