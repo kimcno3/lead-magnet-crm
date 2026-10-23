@@ -37,4 +37,4 @@
 
 ## 변경 기록
 
-- 2026-10-23 (ADR 0015): 연락처를 암호화하면서 같은 규칙을 HMAC 해시 컬럼으로도 보장한다(`V4`: `ux_leads_form_phone_hash`, `ux_leads_form_email_hash`). `ON CONFLICT DO NOTHING`은 대상을 지정하지 않아 평문·해시 인덱스 모두에서 충돌을 거른다. 해시는 숫자만 남긴 전화번호와 앞뒤 공백을 자르고 소문자로 바꾼 이메일로 만든다. contract 단계(V5)에서 평문 인덱스를 지우면 해시 인덱스만 남는다.
+- 2026-10-23 (ADR 0015): 연락처를 암호화하면서 같은 규칙을 HMAC 해시 컬럼으로도 보장한다(`V4`: `ux_leads_form_phone_hash`, `ux_leads_form_email_hash`). `ON CONFLICT DO NOTHING`은 대상을 지정하지 않아 평문·해시 인덱스 모두에서 충돌을 거른다. 해시는 숫자만 남긴 전화번호와 앞뒤 공백을 자르고 소문자로 바꾼 이메일로 만든다. contract 단계(V5, PR #43)에서 평문 인덱스를 지워 지금은 해시 인덱스만 남아 있다.
