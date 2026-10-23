@@ -42,6 +42,7 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
   - 도메인 패키지는 `domain`(엔티티·리포지토리), `application`(유스케이스 서비스), `api`(컨트롤러·DTO), `config`(보안·웹 설정)로 나눈다.
   - 인증(ADR 0003): `auth/config/SecurityConfig`에 필터 체인 두 개(admin `/api/admin/**` Bearer JWT, 기본 체인은 헬스·문서·공개 경로 외 denyAll). 토큰 발급·교체는 `auth/application/AuthService`, 키·CORS·쿠키 설정은 `AuthProperties`(`JWT_SECRET` 필수, `ADMIN_ORIGIN`, `COOKIE_SECURE`). 현재 시각은 `Clock` 빈(`common/ClockConfig`)으로 얻는다.
   - 에러는 `common/error`의 `ErrorCode`·`DomainException`을 던지면 `GlobalExceptionHandler`가 ProblemDetail(`code` 포함)로 바꾼다. Security 401·403도 같은 형식이다.
+  - 캠페인·폼(ADR 0013): `campaign`과 `form` 애그리거트는 서로 id로만 참조한다. 폼의 `fieldConfig`는 생성 시 템플릿 `fields`를 복사한 스냅샷이며 `label`·`required`만 draft에서 수정할 수 있다. 상태 값은 DB CHECK에 맞춰 소문자로 저장하므로(`*StatusConverter`) enum에 `@Enumerated`를 쓰지 않는다.
   - 운영자 계정은 기동 시 `auth/application/OperatorSeeder`가 `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD`로 만든다(ADR 0009). 로그용 개인정보 마스킹은 `common/PiiMasker`.
   - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. Docker가 떠 있어야 backend 테스트가 돈다.
 - `admin-web/`: React + Vite + TypeScript 관리자 SPA. 운영 시에는 nginx(`admin-web/nginx.conf`), 개발 시에는 Vite가 `/api/admin/`과 `/actuator/health`를 backend admin 포트로 프록시한다. 브라우저 입장에서는 admin-web 출처 하나뿐이어서 refresh 쿠키(SameSite=Strict, Path=/api/admin/auth)가 그대로 동작하고, public 출처(:8081)와는 출처가 다르다.

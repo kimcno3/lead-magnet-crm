@@ -25,6 +25,11 @@ public enum ErrorCode {
     TEMPLATE_FORBIDDEN_FIELD(HttpStatus.UNPROCESSABLE_ENTITY, "template_forbidden_field", "file, password 입력은 사용할 수 없습니다"),
     TEMPLATE_FIELD_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "template_field_invalid", "필드 규칙을 위반했습니다"),
     TEMPLATE_CONTACT_FIELD_MISSING(HttpStatus.UNPROCESSABLE_ENTITY, "template_contact_field_missing", "phone 또는 email 필드가 필요합니다"),
+    CAMPAIGN_ALREADY_ARCHIVED(HttpStatus.CONFLICT, "campaign_already_archived", "이미 보관된 캠페인입니다"),
+    CAMPAIGN_ARCHIVED(HttpStatus.CONFLICT, "campaign_archived", "보관된 캠페인에는 폼을 만들 수 없습니다"),
+    INVALID_FORM_TRANSITION(HttpStatus.CONFLICT, "invalid_form_transition", "허용하지 않는 폼 상태 전이입니다"),
+    FORM_NOT_EDITABLE(HttpStatus.CONFLICT, "form_not_editable", "초안 상태의 폼만 내용을 수정할 수 있습니다"),
+    SLUG_TAKEN(HttpStatus.CONFLICT, "slug_taken", "이미 사용 중인 slug입니다"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "서버 오류가 발생했습니다");
 
     private static final String TYPE_PREFIX = "https://leadmagnet.example/problems/";
