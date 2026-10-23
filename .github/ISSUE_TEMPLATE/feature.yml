@@ -1,0 +1,25 @@
+name: 기능
+description: 새 기능 또는 작업 단위
+labels: ["type:feat"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 이 작업으로 무엇이 가능해지는가
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 작업 범위
+      description: 만들 것과 만들지 않을 것
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      description: 성공·실패 테스트, ADR, 문서
+    validations:
+      required: true

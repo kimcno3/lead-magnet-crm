@@ -1,0 +1,23 @@
+name: 버그
+description: 기대와 다르게 동작하는 문제
+labels: ["type:fix"]
+body:
+  - type: textarea
+    id: actual
+    attributes:
+      label: 현재 동작
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법
+      description: 개인정보 원문은 적지 않는다
+    validations:
+      required: true
