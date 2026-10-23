@@ -1881,6 +1881,8 @@ components:
           type: string
         utmCampaign:
           type: string
+        utmContent:
+          type: string
         createdAt:
           type: string
           format: date-time
