@@ -12,6 +12,7 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "invalid_refresh_token", "다시 로그인해야 합니다"),
     REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "refresh_token_reused", "이미 사용된 refresh token입니다. 다시 로그인해야 합니다"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "forbidden", "접근 권한이 없습니다"),
+    FORBIDDEN_ORIGIN(HttpStatus.FORBIDDEN, "forbidden_origin", "허용하지 않는 출처의 요청입니다"),
     NOT_FOUND(HttpStatus.NOT_FOUND, "not_found", "리소스를 찾을 수 없습니다"),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "method_not_allowed", "허용하지 않는 메서드입니다"),
     NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "not_acceptable", "요청한 응답 형식을 제공할 수 없습니다"),
@@ -32,6 +33,7 @@ public enum ErrorCode {
     SLUG_TAKEN(HttpStatus.CONFLICT, "slug_taken", "이미 사용 중인 slug입니다"),
     LINK_EXISTS(HttpStatus.CONFLICT, "link_exists", "이 폼에는 해당 채널의 링크가 이미 있습니다"),
     FORM_CLOSED(HttpStatus.CONFLICT, "form_closed", "마감된 폼에는 링크를 만들 수 없습니다"),
+    DUPLICATE_SUBMISSION(HttpStatus.CONFLICT, "duplicate_submission", "이미 신청한 연락처입니다"),
     GONE(HttpStatus.GONE, "gone", "마감되어 더 이상 사용할 수 없습니다"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "서버 오류가 발생했습니다");
 

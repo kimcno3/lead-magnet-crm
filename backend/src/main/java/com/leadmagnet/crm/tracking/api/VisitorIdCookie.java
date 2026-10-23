@@ -49,7 +49,8 @@ public class VisitorIdCookie {
         return issued;
     }
 
-    private static Optional<UUID> read(HttpServletRequest request) {
+    /** 요청 쿠키의 방문자 id. 없거나 형식이 틀리면 비어 있다. 쿠키를 발급하지 않는다(신청 접수 등 읽기 전용 사용). */
+    public Optional<UUID> read(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
             return Optional.empty();
