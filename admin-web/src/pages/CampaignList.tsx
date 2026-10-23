@@ -9,21 +9,29 @@ import { Dialog } from '../components/Dialog'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { errorText } from '../errors'
-import { focusFirstInvalid } from '../dom'
 import { Field } from '../components/Field'
-import { PageHeader, SkeletonRows, TableWrap } from '../components/Table'
+import { PageHeader } from '../components/PageHeader'
+import { SkeletonRows, TableWrap } from '../components/Table'
 import { formatNumber, formatPercent, formatPeriod, seoulDateToInstant } from '../format'
-import { useAsync } from '../hooks'
+import { useAsync, useFocusFirstInvalid } from '../hooks'
 
+/** 지표는 보조 정보다. 지표 조회가 실패해도 목록은 보여주고 오류만 따로 돌려준다. */
 async function loadRows() {
-  const [campaigns, stats] = await Promise.all([listCampaigns(), campaignListStats()])
-  const byId = new Map(stats.campaigns.map((s) => [s.campaignId, s]))
-  return campaigns.map((c) => ({ ...c, metrics: byId.get(c.id) }))
+  const [campaigns, stats] = await Promise.all([
+    listCampaigns(),
+    campaignListStats().then(
+      (value) => ({ value, error: undefined as unknown }),
+      (error: unknown) => ({ value: undefined, error }),
+    ),
+  ])
+  const byId = new Map(stats.value?.campaigns.map((s) => [s.campaignId, s]) ?? [])
+  return { rows: campaigns.map((c) => ({ ...c, metrics: byId.get(c.id) })), statsError: stats.error }
 }
 
 export function CampaignListPage() {
   const navigate = useNavigate()
-  const { data, error, loading, reload } = useAsync(loadRows, [])
+  const { data: result, error, loading, reload } = useAsync(loadRows, [])
+  const data = result?.rows
   const [creating, setCreating] = useState(false)
 
   return (
@@ -37,6 +45,14 @@ export function CampaignListPage() {
         }
       />
       <ErrorMessage error={error} onRetry={reload} />
+      {result?.statsError !== undefined && (
+        <div className="error-box" role="alert">
+          <p>지표를 불러오지 못했습니다. 목록은 지표 없이 표시합니다. ({errorText(result.statsError)})</p>
+          <Button size="sm" onClick={reload}>
+            다시 시도
+          </Button>
+        </div>
+      )}
       {data && data.length === 0 ? (
         <EmptyState
           message="아직 캠페인이 없습니다. 캠페인을 만든 뒤 템플릿으로 폼을 만들고 채널별 링크를 배포하세요."
@@ -103,6 +119,7 @@ export function CampaignListPage() {
 }
 
 function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: number) => void }) {
+  const { formRef, focusFirstInvalid } = useFocusFirstInvalid()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -120,9 +137,8 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
     setFormError(null)
   }
 
-  async function submit(e: FormEvent<HTMLFormElement>) {
+  async function submit(e: FormEvent) {
     e.preventDefault()
-    const formEl = e.currentTarget
     setBusy(true)
     setErrors({})
     setFormError(null)
@@ -138,7 +154,7 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
     } catch (err) {
       if (err instanceof ApiError && err.errors.length) {
         setErrors(err.fieldErrors)
-        focusFirstInvalid(formEl)
+        focusFirstInvalid()
       } else setFormError(errorText(err))
     } finally {
       setBusy(false)
@@ -169,7 +185,7 @@ function NewCampaignDialog({ open, onClose, onCreated }: { open: boolean; onClos
         </>
       }
     >
-      <form id="new-campaign" onSubmit={submit} noValidate>
+      <form ref={formRef} id="new-campaign" onSubmit={submit} noValidate>
         <Field label="이름" error={errors.name}>
           {(p) => <input {...p} type="text" value={name} autoComplete="off" onChange={(e) => setName(e.target.value)} required />}
         </Field>

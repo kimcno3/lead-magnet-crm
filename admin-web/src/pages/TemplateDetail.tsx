@@ -3,7 +3,7 @@ import { getTemplate } from '../api/templates'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { FieldsTable } from '../components/FieldsTable'
 import { SandboxPreview } from '../components/SandboxPreview'
-import { PageHeader } from '../components/Table'
+import { PageHeader } from '../components/PageHeader'
 import { formatBytes, formatDateTime } from '../format'
 import { useAsync } from '../hooks'
 

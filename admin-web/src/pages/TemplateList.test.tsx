@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { clearSession } from '../api/client'
 import { json, mockBackend } from '../test/http'
@@ -82,5 +82,45 @@ describe('템플릿 목록', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '업로드' }))
     expect(await within(dialog).findByText('업로드할 HTML 파일을 골라 주세요')).toBeInTheDocument()
     expect(uploadCalls(fetchMock)).toHaveLength(0)
+  })
+  it('이름 필드 오류는 이름 입력 아래에 붙고 그 입력으로 포커스가 간다', async () => {
+    mockBackend((url, init) => {
+      if (url.pathname !== '/api/admin/templates') return undefined
+      if (init?.method === 'POST') {
+        return json(
+          { status: 422, code: 'validation_failed', detail: '입력값이 올바르지 않습니다', errors: [{ field: 'name', message: 'name은 1~100자여야 합니다' }] },
+          422,
+        )
+      }
+      return json([summary])
+    })
+    renderPage('/templates', <TemplateListPage />)
+    const dialog = await openUpload()
+    fireEvent.change(within(dialog).getByLabelText(/HTML 파일/), { target: { files: [htmlFile()] } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '업로드' }))
+
+    const nameInput = within(dialog).getByLabelText(/이름/)
+    await waitFor(() => expect(nameInput).toHaveAttribute('aria-invalid', 'true'))
+    expect(nameInput).toHaveAccessibleDescription(/name은 1~100자여야 합니다/)
+    await waitFor(() => expect(nameInput).toHaveFocus())
+  })
+
+  it('413이 ProblemDetail이 아닌 HTML(nginx 기본 페이지)이어도 크기 안내를 보여준다', async () => {
+    mockBackend((url, init) => {
+      if (url.pathname !== '/api/admin/templates') return undefined
+      if (init?.method === 'POST') {
+        return new Response('<html><body><h1>413 Request Entity Too Large</h1></body></html>', {
+          status: 413,
+          headers: { 'Content-Type': 'text/html' },
+        })
+      }
+      return json([summary])
+    })
+    renderPage('/templates', <TemplateListPage />)
+    const dialog = await openUpload()
+    fireEvent.change(within(dialog).getByLabelText(/HTML 파일/), { target: { files: [htmlFile()] } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '업로드' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('512KB 이하 파일만 올릴 수 있습니다')
   })
 })

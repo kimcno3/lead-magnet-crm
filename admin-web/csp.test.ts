@@ -27,4 +27,9 @@ describe('관리자 CSP', () => {
     const blocks = nginx.split(/\blocation\b/).slice(1)
     for (const block of blocks) expect(block).not.toContain('add_header')
   })
+
+  it('관리자 API 프록시는 2MB까지 받아 1~2MB 업로드도 Spring의 ProblemDetail 413을 받게 한다', () => {
+    const api = nginx.slice(nginx.indexOf('location /api/admin/'), nginx.indexOf('}', nginx.indexOf('location /api/admin/')))
+    expect(api).toMatch(/client_max_body_size 2m;/)
+  })
 })

@@ -15,7 +15,7 @@
 
 1. **스택**: React 19 + Vite + TypeScript(strict), 라우팅은 `react-router` 7(`BrowserRouter`). UI 라이브러리·CSS 프레임워크·차트 라이브러리를 쓰지 않고 CSS 변수 토큰과 CSS 파일 세 개(`tokens`, `base`, `components`)로 스타일한다. 데이터 로딩은 작은 `useAsync` 훅으로 충분하다.
 2. **같은 출처 프록시**: 운영은 nginx, 개발은 Vite가 `/api/admin/`을 backend admin 포트로 프록시한다. 브라우저는 admin-web 출처 하나만 보므로 CORS가 필요 없고 refresh 쿠키가 그대로 실린다.
-3. **토큰**: `api/client.ts` 모듈 변수에만 둔다. 앱 시작 시 `POST /api/admin/auth/refresh`로 세션을 복원한다. API가 401이면 refresh를 한 번만 하고 원 요청을 다시 보낸다. 동시에 난 401은 진행 중인 refresh 하나를 기다리고, 요청 사이에 이미 토큰이 바뀌었으면 refresh 없이 다시 보낸다. 재시도도 401이거나 refresh가 실패하면 세션을 끝내고 로그인 화면으로 보낸다. 로그인·refresh·logout 요청에는 `Authorization`을 붙이지 않는다(만료 토큰이 있으면 Resource Server가 401을 낸다). 새로고침하면 메모리 토큰은 사라지지만 refresh 쿠키로 다시 복원된다.
+3. **토큰**: `api/client.ts` 모듈 변수에만 둔다. 앱 시작 시 `POST /api/admin/auth/refresh`로 세션을 복원한다. API가 401이면 refresh를 한 번만 하고 원 요청을 다시 보낸다. 동시에 난 401은 진행 중인 refresh 하나를 기다리고, 요청 사이에 이미 토큰이 바뀌었으면 refresh 없이 다시 보낸다. 재시도도 401이거나 refresh가 실패하면 세션을 끝내고 로그인 화면으로 보낸다. refresh 요청이 서버에 닿지 못한 경우(fetch 자체가 실패)는 세션이 끝났는지 알 수 없으므로 로그아웃으로 보지 않는다: 토큰을 지우지 않고 오류를 던지며, 시작 시 복원이라면 '서버에 연결하지 못했습니다'와 다시 시도를 보여준다. refresh는 됐지만 `/me`가 실패하면 메모리 토큰을 지우고 로그인 화면으로 보낸다. 로그인·refresh·logout 요청에는 `Authorization`을 붙이지 않는다(만료 토큰이 있으면 Resource Server가 401을 낸다). 새로고침하면 메모리 토큰은 사라지지만 refresh 쿠키로 다시 복원된다.
 4. **미리보기 격리**: 업로드 HTML은 `<iframe sandbox="allow-scripts allow-forms" srcdoc>`로만 렌더링한다(`components/SandboxPreview.tsx`). `allow-same-origin`, `dangerouslySetInnerHTML`, `src`(blob:·data:)를 쓰지 않는다.
 5. **CSP**: 관리자 화면 응답에 다음 CSP를 붙인다(nginx `add_header ... always`, Vite dev `server.headers`). 값의 원천은 `admin-web/csp.ts`이고 `csp.test.ts`가 nginx.conf와 같은지 확인한다.
 

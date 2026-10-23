@@ -81,6 +81,8 @@ export function StatsTab({ campaignId }: { campaignId: number }) {
 
       <h2 className="section-title">채널별</h2>
       <ErrorMessage error={byChannel.error} onRetry={byChannel.reload} />
+      {!byChannel.error && (
+        <>
       <TableWrap label="채널별 성과">
         <table className={`table${byChannel.loading ? ' is-stale' : ''}`}>
           <caption className="visually-hidden">채널별 성과</caption>
@@ -116,6 +118,8 @@ export function StatsTab({ campaignId }: { campaignId: number }) {
           </tbody>
         </table>
       </TableWrap>
+        </>
+      )}
     </>
   )
 }

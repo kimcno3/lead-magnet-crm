@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearSession } from '../../api/client'
 import { json, mockBackend, requestsTo } from '../../test/http'
@@ -60,10 +60,25 @@ describe('캠페인 성과 탭', () => {
     fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-10-01' } })
     fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-10-15' } })
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       const last = requestsTo(fetchMock, '/api/admin/campaigns/7/stats').at(-1)!
       expect(last.searchParams.get('from')).toBe('2026-10-01')
       expect(last.searchParams.get('to')).toBe('2026-10-15')
     })
+  })
+})
+
+describe('성과 탭 오류', () => {
+  it('채널별 지표가 실패하면 표를 숨기고 오류와 다시 시도를 보여준다', async () => {
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+      if (url.pathname === '/api/admin/campaigns/7/stats') return json(stats)
+      if (url.pathname === '/api/admin/campaigns/7/stats/channels') return json({ code: 'internal_error', detail: '서버 오류가 발생했습니다' }, 500)
+      return undefined
+    })
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7')
+    expect(await screen.findByRole('alert')).toHaveTextContent('서버 오류가 발생했습니다')
+    expect(screen.queryByRole('table', { name: '채널별 성과' })).not.toBeInTheDocument()
+    expect(screen.getByRole('list', { name: '핵심 지표' })).toBeInTheDocument()
   })
 })

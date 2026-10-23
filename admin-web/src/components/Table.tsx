@@ -25,15 +25,3 @@ export function SkeletonRows({ columns, rows = 4 }: { columns: number; rows?: nu
     </>
   )
 }
-
-export function PageHeader({ title, actions, children }: { title: ReactNode; actions?: ReactNode; children?: ReactNode }) {
-  return (
-    <header className="page-head">
-      <div className="page-title">
-        <h1>{title}</h1>
-        {children}
-      </div>
-      {actions && <div className="page-actions">{actions}</div>}
-    </header>
-  )
-}

@@ -1,25 +1,22 @@
-import { Fragment, useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router'
-import { ApiError } from '../../api/client'
-import { createForm, getForm, updateForm } from '../../api/forms'
+import { Fragment, useState } from 'react'
+import { useSearchParams } from 'react-router'
+import { getForm, updateForm } from '../../api/forms'
 import { createLink, listLinks } from '../../api/links'
-import { listTemplates } from '../../api/templates'
-import { LINK_CHANNELS, type Campaign, type Form, type FormSummary, type LinkChannel } from '../../api/types'
+import { LINK_CHANNELS, type Campaign, type FormSummary, type LinkChannel } from '../../api/types'
 import { StatusBadge } from '../../components/Badge'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { CopyButton } from '../../components/CopyButton'
-import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorMessage } from '../../components/ErrorMessage'
 import { errorText } from '../../errors'
-import { focusFirstInvalid } from '../../dom'
-import { Field } from '../../components/Field'
 import { FieldsTable } from '../../components/FieldsTable'
 import { TableWrap } from '../../components/Table'
 import { formatDateTime } from '../../format'
 import { useAsync } from '../../hooks'
 import { CHANNEL_LABELS, publicBaseFrom } from '../../labels'
+import { FieldConfigEditor } from './FieldConfigEditor'
+import { NewFormDialog } from './NewFormDialog'
 
 export function FormsTab({ campaign, onChanged }: { campaign: Campaign; onChanged: () => void }) {
   // 펼친 폼은 URL(?open=)에 남겨 새로고침·공유해도 같은 패널이 열린다.
@@ -261,209 +258,5 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
         onClose={() => setTransition(null)}
       />
     </div>
-  )
-}
-
-function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () => void }) {
-  const [rows, setRows] = useState(() => form.fieldConfig.map((f) => ({ ...f, label: f.label ?? '' })))
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
-
-  function change(index: number, patch: Partial<{ label: string; required: boolean }>) {
-    setMessage(null)
-    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)))
-  }
-
-  async function save(e: FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    setMessage(null)
-    try {
-      await updateForm(form.id, {
-        fieldConfig: rows.map((r) => ({ name: r.name, label: r.label.trim() || undefined, required: r.required })),
-      })
-      setMessage({ kind: 'ok', text: '필드 설정을 저장했습니다' })
-      onSaved()
-    } catch (err) {
-      // 백엔드는 fieldConfig 하나로 오류를 묶고 메시지에 필드 이름을 넣는다.
-      const detail = err instanceof ApiError ? err.fieldErrors.fieldConfig : undefined
-      setMessage({ kind: 'error', text: detail ?? errorText(err) })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form onSubmit={save}>
-      <TableWrap label={`${form.title} 필드 설정`}>
-        <table className="table table-compact">
-          <caption className="visually-hidden">{form.title} 필드 설정</caption>
-          <thead>
-            <tr>
-              <th scope="col">이름</th>
-              <th scope="col">유형</th>
-              <th scope="col">라벨</th>
-              <th scope="col">필수</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-                <tr key={r.name}>
-                  <td className="mono" translate="no">{r.name}</td>
-                  <td className="mono">{r.type}</td>
-                  <td>
-                    <input
-                      type="text"
-                      className="input-inline"
-                      aria-label={`${r.name} 라벨`}
-                      value={r.label}
-                      autoComplete="off"
-                      onChange={(e) => change(i, { label: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <label className="check">
-                      <input type="checkbox" checked={r.required} onChange={(e) => change(i, { required: e.target.checked })} />
-                      <span>필수</span>
-                    </label>
-                  </td>
-                </tr>
-            ))}
-          </tbody>
-        </table>
-      </TableWrap>
-      <div className="inline-row form-actions">
-        <Button type="submit" size="sm" variant="primary" busy={busy}>
-          필드 설정 저장
-        </Button>
-        <span className={message?.kind === 'error' ? 'form-error' : 'muted small'} role="status">
-          {message?.text}
-        </span>
-      </div>
-    </form>
-  )
-}
-
-function NewFormDialog({
-  open,
-  campaignId,
-  onClose,
-  onCreated,
-}: {
-  open: boolean
-  campaignId: number
-  onClose: () => void
-  onCreated: (form: Form) => void
-}) {
-  const templates = useAsync(() => (open ? listTemplates() : Promise.resolve(null)), [open])
-  const [templateId, setTemplateId] = useState('')
-  const [title, setTitle] = useState('')
-  const [consentText, setConsentText] = useState('')
-  const [slug, setSlug] = useState('')
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [formError, setFormError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  function close() {
-    setTemplateId('')
-    setTitle('')
-    setConsentText('')
-    setSlug('')
-    setErrors({})
-    setFormError(null)
-    onClose()
-  }
-
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const formEl = e.currentTarget
-    setBusy(true)
-    setErrors({})
-    setFormError(null)
-    try {
-      const created = await createForm(campaignId, {
-        templateId: templateId ? Number(templateId) : null,
-        title: title.trim(),
-        consentText: consentText.trim(),
-        slug: slug.trim() || null,
-      })
-      setTemplateId('')
-      setTitle('')
-      setConsentText('')
-      setSlug('')
-      onCreated(created)
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'slug_taken') setErrors({ slug: err.message })
-      else if (err instanceof ApiError && err.errors.length) setErrors(err.fieldErrors)
-      else setFormError(errorText(err))
-      focusFirstInvalid(formEl)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const list = templates.data ?? []
-  return (
-    <Dialog
-      open={open}
-      title="새 폼"
-      onClose={close}
-      footer={
-        <>
-          <Button onClick={close}>취소</Button>
-          <Button variant="primary" type="submit" form="new-form" busy={busy} disabled={templates.data?.length === 0}>
-            만들기
-          </Button>
-        </>
-      }
-    >
-      <form id="new-form" onSubmit={submit} noValidate>
-        <ErrorMessage error={templates.error} onRetry={templates.reload} />
-        {templates.data?.length === 0 ? (
-          <p className="note">
-            먼저 HTML 템플릿을 등록해야 합니다. <Link to="/templates">템플릿 화면으로 이동</Link>
-          </p>
-        ) : (
-          <>
-            <Field label="템플릿" error={errors.templateId}>
-              {(p) => (
-                <select {...p} value={templateId} onChange={(e) => setTemplateId(e.target.value)} required>
-                  <option value="">{templates.loading ? '불러오는 중…' : '템플릿 선택'}</option>
-                  {list.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} (필드 {t.fieldCount}개)
-                    </option>
-                  ))}
-                </select>
-              )}
-            </Field>
-            <Field label="제목" error={errors.title}>
-              {(p) => <input {...p} type="text" value={title} autoComplete="off" onChange={(e) => setTitle(e.target.value)} required />}
-            </Field>
-            <Field label="동의 문구" error={errors.consentText} hint="신청자가 체크해야 하는 개인정보 수집·이용 동의 문구입니다">
-              {(p) => <textarea {...p} rows={4} autoComplete="off" value={consentText} onChange={(e) => setConsentText(e.target.value)} required />}
-            </Field>
-            <Field label="slug" optional error={errors.slug} hint="공개 주소 /f/{slug}. 비우면 자동으로 만듭니다. 소문자·숫자·하이픈 3~64자">
-              {(p) => (
-                <input
-                  {...p}
-                  type="text"
-                  value={slug}
-                  autoComplete="off"
-                  spellCheck={false}
-                  autoCapitalize="none"
-                  onChange={(e) => setSlug(e.target.value)}
-                />
-              )}
-            </Field>
-          </>
-        )}
-        {formError && (
-          <p className="form-error" role="alert">
-            {formError}
-          </p>
-        )}
-      </form>
-    </Dialog>
   )
 }

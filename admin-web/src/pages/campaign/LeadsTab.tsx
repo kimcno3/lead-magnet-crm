@@ -74,7 +74,16 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
       </div>
 
       <ErrorMessage error={error} onRetry={reload} />
-      {data && data.totalElements === 0 ? (
+      {data && data.totalElements > 0 && data.items.length === 0 ? (
+        <EmptyState
+          message="이 페이지에는 신청이 없습니다. 마지막 페이지를 넘었습니다."
+          action={
+            <Button size="sm" onClick={() => update({ page: null })}>
+              첫 페이지로
+            </Button>
+          }
+        />
+      ) : data && data.totalElements === 0 ? (
         <EmptyState
           message={
             formId || channel
@@ -131,15 +140,21 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
           </TableWrap>
           {totalPages > 0 && (
             <nav className="pager" aria-label="명단 페이지">
-              <Button size="sm" disabled={page <= 0} onClick={() => update({ page: page - 1 > 0 ? String(page - 1) : null })} aria-label="이전 페이지">
-                이전
-              </Button>
-              <span className="num" aria-current="page">
-                {page + 1} / {totalPages} 페이지
-              </span>
-              <Button size="sm" disabled={page + 1 >= totalPages} onClick={() => update({ page: String(page + 1) })} aria-label="다음 페이지">
-                다음
-              </Button>
+              <ul className="pager-list">
+                <li>
+                  <Button size="sm" disabled={page <= 0} onClick={() => update({ page: page - 1 > 0 ? String(page - 1) : null })} aria-label="이전 페이지">
+                    이전
+                  </Button>
+                </li>
+                <li className="num" aria-current="page">
+                  {page + 1} / {totalPages} 페이지
+                </li>
+                <li>
+                  <Button size="sm" disabled={page + 1 >= totalPages} onClick={() => update({ page: String(page + 1) })} aria-label="다음 페이지">
+                    다음
+                  </Button>
+                </li>
+              </ul>
               <span className="muted small">페이지당 {LEAD_PAGE_SIZE}명</span>
             </nav>
           )}

@@ -7,11 +7,11 @@ import { Dialog } from '../components/Dialog'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { errorText } from '../errors'
-import { focusFirstInvalid } from '../dom'
 import { Field } from '../components/Field'
-import { PageHeader, SkeletonRows, TableWrap } from '../components/Table'
+import { PageHeader } from '../components/PageHeader'
+import { SkeletonRows, TableWrap } from '../components/Table'
 import { formatBytes, formatDateTime, formatNumber } from '../format'
-import { useAsync } from '../hooks'
+import { useAsync, useFocusFirstInvalid } from '../hooks'
 import { TEMPLATE_ERROR_GUIDES } from '../labels'
 
 export function TemplateListPage() {
@@ -83,11 +83,13 @@ export function TemplateListPage() {
 }
 
 function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { formRef, focusFirstInvalid } = useFocusFirstInvalid()
   const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
   const [name, setName] = useState('')
   const [dragging, setDragging] = useState(false)
   const [fileError, setFileError] = useState<string>()
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [failure, setFailure] = useState<{ guide?: string; detail: string; code?: string } | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -95,6 +97,7 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
     setFile(null)
     setName('')
     setFileError(undefined)
+    setFieldErrors({})
     setFailure(null)
     onClose()
   }
@@ -111,22 +114,31 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
     pick(e.dataTransfer.files[0])
   }
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!file) {
       setFileError('업로드할 HTML 파일을 골라 주세요')
-      focusFirstInvalid(e.currentTarget)
+      focusFirstInvalid()
       return
     }
     setBusy(true)
     setFailure(null)
+    setFieldErrors({})
     try {
       const created = await uploadTemplate(file, name)
       close()
       navigate(`/templates/${created.id}`)
     } catch (err) {
-      if (err instanceof ApiError) {
-        setFailure({ guide: err.code ? TEMPLATE_ERROR_GUIDES[err.code] : undefined, detail: err.message, code: err.code })
+      if (err instanceof ApiError && err.errors.length) {
+        // 필드 오류(file, name)는 해당 입력 아래에 붙인다.
+        const { file: fileMessage, ...rest } = err.fieldErrors
+        setFileError(fileMessage)
+        setFieldErrors(rest)
+        focusFirstInvalid()
+      } else if (err instanceof ApiError) {
+        // nginx 기본 413 페이지처럼 ProblemDetail이 아닌 응답도 상태로 크기 안내를 고른다.
+        const guide = (err.code && TEMPLATE_ERROR_GUIDES[err.code]) || (err.status === 413 ? TEMPLATE_ERROR_GUIDES.template_too_large : undefined)
+        setFailure({ guide, detail: err.message, code: err.code })
       } else setFailure({ detail: errorText(err) })
     } finally {
       setBusy(false)
@@ -147,7 +159,7 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
         </>
       }
     >
-      <form id="upload-form" onSubmit={onSubmit} noValidate>
+      <form ref={formRef} id="upload-form" onSubmit={onSubmit} noValidate>
         <div
           className={`dropzone${dragging ? ' is-dragging' : ''}`}
           data-testid="dropzone"
@@ -167,7 +179,7 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
             </p>
           )}
         </div>
-        <Field label="이름" optional hint="비우면 파일 이름을 씁니다">
+        <Field label="이름" optional error={fieldErrors.name} hint="비우면 파일 이름을 씁니다">
           {(p) => <input {...p} type="text" name="name" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />}
         </Field>
         {failure && (

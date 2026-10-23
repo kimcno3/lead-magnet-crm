@@ -82,27 +82,27 @@ export async function login(email: string, password: string): Promise<void> {
   accessToken = ((await res.json()) as TokenResponse).accessToken
 }
 
-/** refresh 쿠키로 새 access token을 받는다. 동시에 불려도 요청은 하나다. */
+/**
+ * refresh 쿠키로 새 access token을 받는다. 동시에 불려도 요청은 하나다.
+ * - 서버가 거절하면(401 등) false: 세션이 끝났다.
+ * - 서버에 닿지 못하면(fetch가 던짐) 거절(TypeError): 세션이 끝났는지 알 수 없으므로 토큰을 지우지 않는다.
+ */
 export function restoreSession(): Promise<boolean> {
   if (!refreshInFlight) {
     const attempt = (async () => {
-      try {
-        const res = await authPost('/refresh')
-        if (!res.ok) {
-          accessToken = null
-          return false
-        }
-        accessToken = ((await res.json()) as TokenResponse).accessToken
-        return true
-      } catch {
+      const res = await authPost('/refresh')
+      if (!res.ok) {
         accessToken = null
         return false
       }
+      accessToken = ((await res.json()) as TokenResponse).accessToken
+      return true
     })()
     refreshInFlight = attempt
-    void attempt.finally(() => {
+    const settle = () => {
       if (refreshInFlight === attempt) refreshInFlight = null
-    })
+    }
+    attempt.then(settle, settle)
   }
   return refreshInFlight
 }
@@ -160,6 +160,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (res.status === 401) {
     // 다른 요청이 이미 토큰을 바꿨으면 refresh 없이 새 토큰으로 다시 보낸다.
+    // refresh가 네트워크 오류로 거절되면 그대로 던진다(세션을 끝내지 않는다).
     const refreshed = accessToken !== null && accessToken !== usedToken ? true : await restoreSession()
     if (!refreshed) {
       const problem = await readProblem(res)

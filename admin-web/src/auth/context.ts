@@ -1,13 +1,16 @@
 import { createContext, useContext } from 'react'
 import type { Me } from '../api/types'
 
-export type AuthStatus = 'restoring' | 'authenticated' | 'anonymous'
+/** unreachable: refresh 요청이 서버에 닿지 못했다. 세션이 끝났는지 알 수 없으므로 로그아웃으로 보지 않는다. */
+export type AuthStatus = 'restoring' | 'authenticated' | 'anonymous' | 'unreachable'
 
 export interface AuthContextValue {
   status: AuthStatus
   operator: Me | null
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  /** 세션 복원을 다시 시도한다(unreachable일 때). */
+  retry: () => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

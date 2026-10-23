@@ -245,12 +245,12 @@
 .btn-danger {
   background: var(--danger);
   border-color: var(--danger);
-  color: #fff;
+  color: var(--danger-text);
 }
 
 .btn-danger:hover:not(:disabled) {
   background: var(--danger);
-  color: #fff;
+  color: var(--danger-text);
   filter: brightness(0.92);
 }
 
@@ -894,4 +894,13 @@
 
 .table-expandable td {
   overflow-wrap: anywhere;
+}
+
+.pager-list {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }

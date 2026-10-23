@@ -34,7 +34,13 @@ export function Layout() {
             busy={busy}
             onClick={async () => {
               setBusy(true)
-              await signOut()
+              try {
+                await signOut()
+              } catch {
+                // 서버 로그아웃이 실패해도 signOut이 메모리 세션을 지웠다. 화면은 로그인으로 넘어간다.
+              } finally {
+                setBusy(false)
+              }
             }}
           >
             로그아웃

@@ -176,6 +176,68 @@ describe('401 처리', () => {
   })
 })
 
+describe('토큰이 이미 바뀐 뒤의 401', () => {
+  it('다른 요청이 refresh를 끝낸 뒤 옛 토큰의 401이 오면 refresh 없이 새 토큰으로 다시 보낸다', async () => {
+    let releaseSlow: (r: Response) => void = () => {}
+    let slowCalls = 0
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const auth = new Headers(init?.headers).get('Authorization')
+      if (url === '/api/admin/auth/login') return Promise.resolve(token('A1'))
+      if (url === '/api/admin/auth/refresh') return Promise.resolve(token('A2'))
+      if (url === '/api/admin/slow' && auth === 'Bearer A1') {
+        slowCalls += 1
+        return new Promise<Response>((resolve) => (releaseSlow = resolve))
+      }
+      if (auth === 'Bearer A1') return Promise.resolve(json({}, 401))
+      return Promise.resolve(json({ url, auth }))
+    })
+
+    await login('ops@example.com', 'pw-123456789')
+    const slow = apiRequest('/api/admin/slow')
+    await vi.waitFor(() => expect(slowCalls).toBe(1))
+    // 빠른 요청이 401 → refresh(A2) → 재시도까지 끝낸다.
+    await expect(apiRequest('/api/admin/fast')).resolves.toEqual({ url: '/api/admin/fast', auth: 'Bearer A2' })
+    // 그 뒤 A1로 보냈던 느린 요청이 401로 돌아온다.
+    releaseSlow(json({}, 401))
+
+    await expect(slow).resolves.toEqual({ url: '/api/admin/slow', auth: 'Bearer A2' })
+    expect(callsTo(fetchMock, '/api/admin/auth/refresh')).toHaveLength(1)
+  })
+})
+
+describe('네트워크 오류', () => {
+  it('401 뒤 refresh가 네트워크 오류면 세션을 끝내지 않고 오류를 그대로 던진다', async () => {
+    const expired = vi.fn()
+    const off = onSessionExpired(expired)
+    fetchMock
+      .mockResolvedValueOnce(token('A1'))
+      .mockResolvedValueOnce(json({}, 401))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    await login('ops@example.com', 'pw-123456789')
+    const error = await apiRequest('/api/admin/campaigns').catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(TypeError)
+    expect(error).not.toBeInstanceOf(ApiError)
+    expect(hasSession()).toBe(true)
+    expect(expired).not.toHaveBeenCalled()
+    off()
+  })
+
+  it('세션 복원 중 네트워크 오류는 false(로그아웃)가 아니라 거절로 알린다', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await expect(restoreSession()).rejects.toBeInstanceOf(TypeError)
+  })
+
+  it('네트워크 오류 뒤 다시 부르면 refresh를 새로 시도한다', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(token('A9'))
+    await expect(restoreSession()).rejects.toBeInstanceOf(TypeError)
+    await expect(restoreSession()).resolves.toBe(true)
+    expect(hasSession()).toBe(true)
+  })
+})
+
 describe('ProblemDetail', () => {
   it('detail, code, errors를 ApiError로 옮긴다', async () => {
     fetchMock.mockResolvedValueOnce(token('A1')).mockResolvedValueOnce(

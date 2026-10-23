@@ -18,6 +18,8 @@
 
   --danger: #8a3b24;
   --danger-soft: #f6ebe6;
+  /* 위험 버튼 글자. 밝은 테마 흰색/#8a3b24 7.69:1, 어두운 테마 #1c0f0a/#e0927a 7.63:1 */
+  --danger-text: #ffffff;
   --closed: #8a3b24;
   --focus: #1f6f4a;
 
@@ -57,6 +59,7 @@
 
     --danger: #e0927a;
     --danger-soft: #3a231c;
+    --danger-text: #1c0f0a;
     --closed: #e0927a;
     --focus: #6cc79b;
     --shadow-dialog: 0 12px 32px rgb(0 0 0 / 0.5);
