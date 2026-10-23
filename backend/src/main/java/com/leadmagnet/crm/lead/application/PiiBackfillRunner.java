@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -15,9 +14,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * expand 단계 백필 (ADR 0015). 기동 시 평문만 있고 암호문이 비어 있는 신청 행을 배치로 암호화·해시해 채운다.
  * 이미 채운 컬럼은 건드리지 않으므로 여러 번 돌려도 같다(멱등). 배치마다 따로 커밋하고 id 순으로 앞으로만 간다.
  * 로그에는 건수만 남긴다. 키가 DB 밖(환경 변수)에 있어 Flyway SQL로는 할 수 없다.
+ * 키가 기존 데이터와 같은지는 PiiKeyCheck가 웹 서버가 뜨기 전에 이미 확인했다.
  */
 @Component
-@Order(1) // PiiKeyCheck(키가 기존 데이터와 같은지 확인) 다음에 돈다.
 public class PiiBackfillRunner implements ApplicationRunner {
 
     static final int BATCH_SIZE = 500;

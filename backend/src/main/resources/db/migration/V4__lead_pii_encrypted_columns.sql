@@ -2,6 +2,8 @@
 -- *_enc: AES-256-GCM, 형식 version(1B)|iv(12B)|ciphertext+tag. *_hash: HMAC-SHA256(LEAD_HMAC_KEY, 정규화한 값) hex.
 -- 기존 행은 애플리케이션 기동 시 PiiBackfillRunner가 채운다(키가 DB 밖에 있어 SQL로는 채울 수 없다).
 -- 평문 컬럼·평문 유니크 인덱스 삭제와 ck_leads_contact 교체는 contract 단계(V5)에서 한다.
+-- 이 파일은 병합 전 리뷰에서 바뀌었다(pii_key_check 추가). 공유 환경에는 적용된 적이 없다. 이전 초안을 적용한 로컬 DB는
+-- Flyway 체크섬이 맞지 않아 기동하지 못하므로 docker compose down -v로 지우고 다시 띄운다.
 ALTER TABLE leads
     ADD COLUMN name_enc   BYTEA,
     ADD COLUMN phone_enc  BYTEA,

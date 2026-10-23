@@ -3,16 +3,23 @@ package com.leadmagnet.crm.common.crypto;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.leadmagnet.crm.LeadMagnetApplication;
 import com.leadmagnet.crm.common.crypto.PiiKeyCheck.Result;
 import com.leadmagnet.crm.support.IntegrationTest;
 import java.util.Base64;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.boot.web.context.WebServerInitializedEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.core.NestedExceptionUtils;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /** 기동 시 현재 키가 기존 데이터를 만든 키와 같은지 확인한다 (ADR 0015). */
@@ -39,6 +46,9 @@ class PiiKeyCheckTest {
 
     @Autowired
     PiiHasher hasher;
+
+    @Autowired
+    PostgreSQLContainer<?> postgres;
 
     @BeforeEach
     void setUp() {
@@ -102,6 +112,27 @@ class PiiKeyCheckTest {
         PiiKeyCheck other = new PiiKeyCheck(jdbc, new PiiCipher(OTHER), new PiiHasher(OTHER));
 
         assertThatThrownBy(other::verify).hasMessageContaining("LEAD_ENC_KEY");
+    }
+
+    @Test
+    void 다른_키로_기동하면_웹_서버가_요청을_받기_전에_컨텍스트가_실패한다(CapturedOutput output) {
+        keyCheck.verify();
+        AtomicBoolean webServerStarted = new AtomicBoolean(false);
+        String otherKey = Base64.getEncoder().encodeToString(OTHER);
+        SpringApplicationBuilder app = new SpringApplicationBuilder(LeadMagnetApplication.class)
+            .properties("DB_URL=" + postgres.getJdbcUrl(),
+                "DB_USERNAME=" + postgres.getUsername(),
+                "DB_PASSWORD=" + postgres.getPassword(),
+                "JWT_SECRET=test-only-jwt-secret-not-for-production-0123456789",
+                "LEAD_ENC_KEY=" + otherKey, "LEAD_HMAC_KEY=" + IntegrationTest.TEST_HMAC_KEY,
+                "ADMIN_PORT=0", "PUBLIC_PORT=0", "spring.main.banner-mode=off")
+            .listeners((ApplicationListener<WebServerInitializedEvent>) e -> webServerStarted.set(true));
+
+        assertThatThrownBy(app::run).satisfies(e -> assertThat(NestedExceptionUtils.getMostSpecificCause(e))
+            .isInstanceOf(PiiKeyCheck.KeyMismatchException.class).hasMessageContaining("LEAD_ENC_KEY"));
+        // 커넥터가 요청을 받기 시작하기(WebServerInitializedEvent) 전에 멈췄다.
+        assertThat(webServerStarted).isFalse();
+        assertThat(output.getAll()).doesNotContain(otherKey).doesNotContain(IntegrationTest.TEST_HMAC_KEY);
     }
 
     private static void assertNoKeyMaterial(CapturedOutput output) {
