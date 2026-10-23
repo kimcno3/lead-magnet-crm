@@ -141,7 +141,7 @@ PR(저장소 https://github.com/kimcno3/lead-magnet-crm):
 
 ## 9. 범위 밖과 로드맵
 
-실제 AI 연동, 외부 CRM·문자·알림톡·광고 연동, 범용 폼 빌더, 결제는 범위 밖이다. 배포(Render·Neon), dev·prod 프로필, Authorization Server, 로그인 시도 제한, refresh 절대 수명, 웹훅, 멀티모듈 분리 등 남은 일은 [ROADMAP](ROADMAP.md)에 있고, 다음 릴리스 후보와 우선순위는 [WORKPLAN](WORKPLAN.md)에 있다.
+실제 AI 연동, 외부 CRM·문자·알림톡·광고 연동, 범용 폼 빌더, 결제는 범위 밖이다. 배포(Render·Neon), dev·prod 프로필, Authorization Server, 로그인 시도 제한의 공유 저장소, refresh 절대 수명, 웹훅, 멀티모듈 분리 등 남은 일은 [ROADMAP](ROADMAP.md)에 있고, 다음 릴리스 후보와 우선순위는 [WORKPLAN](WORKPLAN.md)에 있다.
 
 ## 10. v0.2.0 extras
 

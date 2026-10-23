@@ -60,8 +60,15 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'lead.export.reveal': 'CSV 다운로드(원문)',
   'auth.login.success': '로그인 성공',
   'auth.login.failure': '로그인 실패',
+  'auth.login.locked': '로그인 시도 제한',
   'retention.anonymize': '보존 기간 파기',
   'campaign.retention.update': '보존 기간 변경',
+}
+
+/** 로그인 시도 제한 감사 기록의 범위 (ADR 0021). */
+export const LOGIN_LOCK_SCOPE_LABELS: Record<string, string> = {
+  email: '이메일',
+  ip: 'IP',
 }
 
 /** 보존 기간 파기 감사 기록의 실행 방식 (ADR 0020). */

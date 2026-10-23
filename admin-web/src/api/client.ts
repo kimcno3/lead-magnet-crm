@@ -17,13 +17,16 @@ export class ApiError extends Error {
   readonly status: number
   readonly code: string | undefined
   readonly errors: FieldError[]
+  /** 429의 Retry-After(초). 없거나 숫자가 아니면 null. */
+  readonly retryAfterSeconds: number | null
 
-  constructor(status: number, problem: ProblemDetail) {
+  constructor(status: number, problem: ProblemDetail, retryAfterSeconds: number | null = null) {
     super(problem.detail || problem.title || `요청을 처리하지 못했습니다 (HTTP ${status})`)
     this.name = 'ApiError'
     this.status = status
     this.code = problem.code
     this.errors = problem.errors ?? []
+    this.retryAfterSeconds = retryAfterSeconds
   }
 
   /** 필드 이름 → 메시지. 같은 필드에 여러 개면 첫 번째. */
@@ -67,6 +70,13 @@ async function readProblem(res: Response): Promise<ProblemDetail> {
   return {}
 }
 
+/** Retry-After(초 단위 정수만. HTTP 날짜 형식은 백엔드가 쓰지 않는다). */
+function retryAfterOf(res: Response): number | null {
+  const value = res.headers.get('Retry-After')
+  if (value === null || !/^\d+$/.test(value.trim())) return null
+  return Number(value.trim())
+}
+
 async function authPost(path: string, body?: unknown): Promise<Response> {
   return fetch(`${AUTH_BASE}${path}`, {
     method: 'POST',
@@ -78,7 +88,7 @@ async function authPost(path: string, body?: unknown): Promise<Response> {
 
 export async function login(email: string, password: string): Promise<void> {
   const res = await authPost('/login', { email, password })
-  if (!res.ok) throw new ApiError(res.status, await readProblem(res))
+  if (!res.ok) throw new ApiError(res.status, await readProblem(res), retryAfterOf(res))
   accessToken = ((await res.json()) as TokenResponse).accessToken
 }
 
@@ -176,7 +186,7 @@ async function authorizedFetch(path: string, options: RequestOptions, accept: st
     }
   }
 
-  if (!res.ok) throw new ApiError(res.status, await readProblem(res))
+  if (!res.ok) throw new ApiError(res.status, await readProblem(res), retryAfterOf(res))
   return res
 }
 

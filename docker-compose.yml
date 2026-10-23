@@ -36,6 +36,8 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8081}
       RETENTION_ENABLED: ${RETENTION_ENABLED:-true}
+      # admin 포트에서 X-Forwarded-For를 믿을 직전 피어. 기본은 아래 default 네트워크 대역(admin-web nginx가 여기 있다, ADR 0021)
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.57.0/24}
     ports:
       - "${ADMIN_PORT:-8080}:8080"
       - "${PUBLIC_PORT:-8081}:8081"
@@ -59,6 +61,14 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+# 대역을 고정해 TRUSTED_PROXIES 기본값이 admin-web 컨테이너만 가리키게 한다(ADR 0021). 이 대역이 다른 네트워크와 겹치면
+# 두 값을 함께 바꾼다. 대역을 바꾼 뒤에는 docker compose down으로 기존 네트워크를 지우고 다시 올린다.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.16.57.0/24
 
 volumes:
   postgres-data:

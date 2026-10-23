@@ -320,6 +320,7 @@ export const AUDIT_ACTIONS = [
   'lead.export.reveal',
   'auth.login.success',
   'auth.login.failure',
+  'auth.login.locked',
   'retention.anonymize',
   'campaign.retention.update',
 ] as const

@@ -61,6 +61,46 @@ describe('로그인 화면', () => {
     expect(screen.getByLabelText('비밀번호')).toHaveValue('')
   })
 
+  it.each([
+    ['900', '약 15분'],
+    ['61', '약 2분'],
+    ['30', '약 1분'],
+  ])('429면 Retry-After %s초를 분으로 올려 잠시 후 다시 시도하라고 안내한다', async (retryAfter, minutes) => {
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/auth/refresh') return json({ code: 'invalid_refresh_token' }, 401)
+      if (url.pathname === '/api/admin/auth/login') {
+        return new Response(
+          JSON.stringify({ status: 429, code: 'too_many_login_attempts', detail: '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요' }),
+          { status: 429, headers: { 'Content-Type': 'application/problem+json', 'Retry-After': retryAfter } },
+        )
+      }
+      return undefined
+    })
+    renderLogin()
+
+    fireEvent.change(await screen.findByLabelText('이메일'), { target: { value: 'ops@example.com' } })
+    fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'wrong-password' } })
+    fireEvent.click(screen.getByRole('button', { name: '로그인' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(`잠시 후 다시 시도해 주세요(${minutes})`)
+    expect(screen.getByLabelText('비밀번호')).toHaveValue('')
+  })
+
+  it('429에 Retry-After가 없으면 분 없이 안내한다', async () => {
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/auth/refresh') return json({ code: 'invalid_refresh_token' }, 401)
+      if (url.pathname === '/api/admin/auth/login') return json({ status: 429, code: 'too_many_login_attempts' }, 429)
+      return undefined
+    })
+    renderLogin()
+
+    fireEvent.change(await screen.findByLabelText('이메일'), { target: { value: 'ops@example.com' } })
+    fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'wrong-password' } })
+    fireEvent.click(screen.getByRole('button', { name: '로그인' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^잠시 후 다시 시도해 주세요$/)
+  })
+
   it('이미 세션이 복원되면 바로 원래 경로로 보낸다', async () => {
     mockBackend(() => undefined)
     renderLogin()

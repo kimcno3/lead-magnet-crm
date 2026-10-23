@@ -11,6 +11,7 @@ public enum AuditAction {
     LEAD_EXPORT_REVEAL("lead.export.reveal"),
     AUTH_LOGIN_SUCCESS("auth.login.success"),
     AUTH_LOGIN_FAILURE("auth.login.failure"),
+    AUTH_LOGIN_LOCKED("auth.login.locked"),
     RETENTION_ANONYMIZE("retention.anonymize"),
     CAMPAIGN_RETENTION_UPDATE("campaign.retention.update");
 

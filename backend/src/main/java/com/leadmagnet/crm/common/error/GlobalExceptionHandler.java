@@ -28,7 +28,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 /**
  * 모든 에러를 RFC 9457 ProblemDetail로 낸다.
  * <ul>
- *   <li>DomainException: 예외가 가진 ErrorCode</li>
+ *   <li>DomainException: 예외가 가진 ErrorCode. {@link TooManyRequestsException}이면 Retry-After(초) 헤더를 붙인다</li>
  *   <li>검증 실패(본문·파라미터): 422 {@code validation_failed}와 {@code errors: [{field, message, code}]}.
  *       Bean Validation의 code는 제약 이름의 lower_snake(예: {@code @NotBlank} → {@code not_blank})</li>
  *   <li>읽을 수 없는 본문: 400 {@code malformed_request}</li>
@@ -49,7 +49,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (!e.getErrors().isEmpty()) {
             problem.setProperty("errors", e.getErrors().stream().map(GlobalExceptionHandler::domainFieldError).toList());
         }
-        return ResponseEntity.status(code.status()).body(problem);
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(code.status());
+        if (e instanceof TooManyRequestsException tooMany) {
+            response.header(HttpHeaders.RETRY_AFTER, Long.toString(tooMany.retryAfterSeconds()));
+        }
+        return response.body(problem);
     }
 
     @ExceptionHandler(Exception.class)

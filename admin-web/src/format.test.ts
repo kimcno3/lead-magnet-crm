@@ -135,6 +135,12 @@ describe('summarizeAuditDetail', () => {
     expect(summarizeAuditDetail({ oldRetentionDays: 365, newRetentionDays: 30 })).toBe('보존 365일 → 30일')
   })
 
+  it('로그인 시도 제한 시작은 가린 이메일과 범위·창 길이를 보여준다', () => {
+    expect(summarizeAuditDetail({ email: 'o***@example.com', scopes: ['email', 'ip'], windowMinutes: 15 })).toBe(
+      '이메일 o***@example.com · 기준 이메일·IP · 15분 창',
+    )
+  })
+
   it('비어 있으면 대시, 모르는 키는 그대로', () => {
     expect(summarizeAuditDetail({})).toBe('-')
     expect(summarizeAuditDetail({ extra: 'x' })).toBe('extra: x')

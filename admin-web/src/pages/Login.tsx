@@ -3,7 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/context'
 import { Button } from '../components/Button'
-import { errorText } from '../errors'
+import { errorText, throttledText } from '../errors'
 import { Field } from '../components/Field'
 
 const BAD_CREDENTIALS = '이메일 또는 비밀번호가 올바르지 않습니다'
@@ -40,6 +40,7 @@ export function LoginPage() {
     } catch (err) {
       setPassword('')
       if (err instanceof ApiError && err.status === 401) setError(BAD_CREDENTIALS)
+      else if (err instanceof ApiError && err.status === 429) setError(throttledText(err.retryAfterSeconds))
       else if (err instanceof ApiError && err.status === 422) {
         setFieldErrors(err.fieldErrors)
         setError(err.message)
