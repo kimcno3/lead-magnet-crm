@@ -1,9 +1,12 @@
 package com.leadmagnet.crm.campaign.application;
 
+import com.leadmagnet.crm.audit.application.AuditService;
+import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.campaign.domain.Campaign;
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
+import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.form.domain.Form;
 import com.leadmagnet.crm.form.domain.FormRepository;
 import java.time.Clock;
@@ -22,11 +25,13 @@ public class CampaignService {
 
     private final CampaignRepository campaigns;
     private final FormRepository forms;
+    private final AuditService audit;
     private final Clock clock;
 
-    public CampaignService(CampaignRepository campaigns, FormRepository forms, Clock clock) {
+    public CampaignService(CampaignRepository campaigns, FormRepository forms, AuditService audit, Clock clock) {
         this.campaigns = campaigns;
         this.forms = forms;
+        this.audit = audit;
         this.clock = clock;
     }
 
@@ -51,15 +56,23 @@ public class CampaignService {
         return new CampaignDetail(campaign, forms.findAllByCampaignIdOrderByIdAsc(id));
     }
 
-    /** null인 필드는 바꾸지 않는다. status는 "archived"만 받는다. */
+    /**
+     * null인 필드는 바꾸지 않는다. status는 "archived"만 받는다. 보존 기간이 실제로 바뀌면 같은 트랜잭션에서
+     * campaign.retention.update(이전·새 값)를 남긴다(기록이 실패하면 변경도 롤백, ADR 0020).
+     */
     public CampaignDetail update(long id, String name, String description, Instant startsAt, Instant endsAt,
-            Integer retentionDays, String status) {
+            Integer retentionDays, String status, AuditActor actor) {
         Campaign campaign = find(id);
         if (status != null && !ARCHIVED.equals(status)) {
             throw DomainException.validation("status", "status는 \"archived\"만 지정할 수 있습니다");
         }
         Instant now = clock.instant();
+        int oldRetentionDays = campaign.getRetentionDays();
         campaign.update(name, description, startsAt, endsAt, retentionDays, now);
+        if (campaign.getRetentionDays() != oldRetentionDays) {
+            audit.recordRequired(actor,
+                AuditEvent.campaignRetentionUpdate(id, oldRetentionDays, campaign.getRetentionDays()));
+        }
         if (status != null) {
             campaign.archive(now);
         }

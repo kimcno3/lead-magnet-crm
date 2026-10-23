@@ -642,8 +642,8 @@ paths:
       tags:
       - 캠페인
       summary: 캠페인 수정·보관
-      description: 없는 필드는 그대로 둔다. status는 "archived"만 받는다. retentionDays는 1~3650 (ADR
-        0020).
+      description: "없는 필드는 그대로 둔다. status는 \"archived\"만 받는다. retentionDays는 1~3650이\
+        고, 바뀌면 감사 로그(campaign.retention.update, 이전·새 값)에 남는다 (ADR 0020)."
       operationId: updateCampaign
       parameters:
       - name: id
@@ -1161,7 +1161,8 @@ paths:
       description: "매일 03:00(Asia/Seoul) 스케줄러와 같은 작업을 지금 실행한다. 캠페인의 retentionDays\
         \ × 24시간이 지난 신청의 이름·연락처(암호문·해시)를 지우고 payload는 키만 남긴다. 행과 지표에 쓰는 값은 남는다. 실행\
         은 감사 로그(retention.anonymize, 건수)에 남는다. 다른 인스턴스가 배치를 처리 중이면 그 실행에 맡기고 이번 실행\
-        이 처리한 건수만 준다. dryRun=true면 아무것도 바꾸지 않고 대상 건수만 준다(기록 없음)."
+        이 처리한 건수와 interrupted=true를 준다. 배치가 실패하면 그때까지의 건수를 completed=false로 기록한 뒤\
+        \ 500이다(앞 배치의 파기는 되돌리지 않는다). dryRun=true면 아무것도 바꾸지 않고 대상 건수만 준다(기록 없음)."
       operationId: runRetention
       parameters:
       - name: dryRun
@@ -1177,6 +1178,12 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/RetentionRunResponse"
+        "500":
+          description: 배치 실패 (internal_error). 그때까지의 건수는 감사 로그에 completed=false로 남는다
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
         "401":
           description: unauthorized
           content:
@@ -1815,6 +1822,8 @@ components:
           type: integer
           format: int64
         dryRun:
+          type: boolean
+        interrupted:
           type: boolean
     CreateLinkRequest:
       type: object

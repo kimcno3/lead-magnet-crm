@@ -208,8 +208,11 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
   )
 }
 
-/** 보존 기간이 지나 파기된 줄. 연락처·추가 항목이 없고 원문·동의 문구 보기를 두지 않는다 (ADR 0020). */
-function AnonymizedRow({ lead }: { lead: Lead }) {
+/**
+ * 보존 기간이 지나 파기된 줄. 연락처·추가 항목이 없고 원문 보기도 없다. 동의 문구는 증빙이라 파기 뒤에도 남아 있어
+ * 동의 문구 보기만 둔다(개인정보가 아니다, ADR 0020).
+ */
+function AnonymizedRow({ lead, onConsent }: { lead: Lead; onConsent: () => void }) {
   return (
     <tr>
       <td className="num nowrap">{formatDateTime(lead.createdAt)}</td>
@@ -223,7 +226,9 @@ function AnonymizedRow({ lead }: { lead: Lead }) {
       <td className="nowrap">{CHANNEL_LABELS[lead.channel] ?? lead.channel}</td>
       <td>{lead.formTitle}</td>
       <td className="muted">-</td>
-      <td />
+      <td className="nowrap">
+        <ConsentButton lead={lead} onClick={onConsent} />
+      </td>
     </tr>
   )
 }
@@ -241,7 +246,8 @@ function LeadRow({
   onHide: () => void
   onConsent: () => void
 }) {
-  if (lead.anonymizedAt) return <AnonymizedRow lead={lead} />
+  if (lead.anonymizedAt) return <AnonymizedRow lead={lead} onConsent={onConsent} />
+  const when = formatDateTime(lead.createdAt)
   const extra = summarizePayload(lead.payload)
   const shown = reveal?.status === 'shown' ? reveal.contact : null
   const contact = shown ?? lead
@@ -266,17 +272,21 @@ function LeadRow({
       </td>
       <td className="nowrap">
         {lead.contactUnavailable ? null : shown ? (
-          <Button size="sm" variant="ghost" onClick={onHide}>
+          <Button size="sm" variant="ghost" onClick={onHide} aria-label={`${when} 신청의 원문 가리기`}>
             가리기
           </Button>
         ) : (
-          <Button size="sm" variant="ghost" busy={reveal?.status === 'loading'} onClick={onReveal}>
+          <Button
+            size="sm"
+            variant="ghost"
+            busy={reveal?.status === 'loading'}
+            onClick={onReveal}
+            aria-label={`${when} 신청의 원문 보기`}
+          >
             원문 보기
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={onConsent}>
-          동의 문구 보기
-        </Button>
+        <ConsentButton lead={lead} onClick={onConsent} />
         {reveal?.status === 'error' && (
           <p className="small" role="alert">
             {errorText(reveal.error)}
@@ -284,5 +294,14 @@ function LeadRow({
         )}
       </td>
     </tr>
+  )
+}
+
+/** 줄마다 같은 글자가 반복되므로 스크린리더에는 신청일을 붙여 어느 줄인지 알린다. */
+function ConsentButton({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+  return (
+    <Button size="sm" variant="ghost" onClick={onClick} aria-label={`${formatDateTime(lead.createdAt)} 신청의 동의 문구 보기`}>
+      동의 문구 보기
+    </Button>
   )
 }

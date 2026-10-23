@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Dialog } from '../components/Dialog'
 import { RetentionDaysField } from '../components/RetentionDaysField'
 import { errorText } from '../errors'
+import { RETENTION_DAYS } from '../labels'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { PageHeader } from '../components/PageHeader'
 import { Tabs, type TabItem } from '../components/Tabs'
@@ -109,15 +110,26 @@ export function CampaignDetailPage() {
   )
 }
 
-/** 보존 기간만 바꾸는 대화상자 (ADR 0020). 줄이면 다음 파기 실행(매일 03:00)부터 새 기간으로 파기한다. */
+/**
+ * 보존 기간만 바꾸는 대화상자 (ADR 0020). 줄이면 다음 파기 실행(매일 03:00)에서 바로 파기될 수 있어 확인을 한 번 더 받는다.
+ * 범위를 벗어난 값은 확인 없이 보내 서버 오류를 칸에 보인다. 변경은 감사 로그(보존 기간 변경)에 남는다.
+ */
 function RetentionDialog({ campaign, onClose, onSaved }: { campaign: Campaign; onClose: () => void; onSaved: () => void }) {
   const [days, setDays] = useState(String(campaign.retentionDays))
   const [error, setError] = useState<string | undefined>()
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirmShorten, setConfirmShorten] = useState(false)
+  const next = Number(days)
+  const shortens =
+    Number.isInteger(next) && next >= RETENTION_DAYS.min && next <= RETENTION_DAYS.max && next < campaign.retentionDays
 
   async function submit(e: FormEvent) {
     e.preventDefault()
+    if (shortens) {
+      setConfirmShorten(true)
+      return
+    }
     setBusy(true)
     setError(undefined)
     setFormError(null)
@@ -156,6 +168,17 @@ function RetentionDialog({ campaign, onClose, onSaved }: { campaign: Campaign; o
           </p>
         )}
       </form>
+      <ConfirmDialog
+        open={confirmShorten}
+        title="보존 기간 단축"
+        message={`보존 기간을 ${campaign.retentionDays}일 → ${next}일로 줄입니다. 신청 후 ${next}일이 지난 신청은 다음 파기 실행(매일 03:00)에서 이름·연락처가 파기되며 되돌릴 수 없습니다.`}
+        confirmLabel="줄이기"
+        onConfirm={async () => {
+          await updateCampaign(campaign.id, { retentionDays: next })
+          onSaved()
+        }}
+        onClose={() => setConfirmShorten(false)}
+      />
     </Dialog>
   )
 }

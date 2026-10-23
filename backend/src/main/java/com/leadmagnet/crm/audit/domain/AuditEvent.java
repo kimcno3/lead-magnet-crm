@@ -55,13 +55,28 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
 
     /**
      * 보존 기간 파기 한 번(ADR 0020). 실행 단위로 한 줄만 남긴다. trigger는 scheduled 또는 manual, count는 이번 실행이
-     * 익명화한 신청 수다(0일 수 있다). 신청 id는 남기지 않는다(익명화 시각은 행의 anonymized_at에 있다).
+     * 익명화해 커밋한 신청 수다(0일 수 있다). completed는 오류 없이 끝났는지, interrupted는 다른 실행이 잠금을 쥐고 있어
+     * 이번 실행이 멈췄는지, error는 실패했을 때 예외 클래스 이름(메시지는 넣지 않는다). 신청 id는 남기지 않는다.
      */
-    public static AuditEvent retentionAnonymize(String trigger, long count) {
+    public static AuditEvent retentionAnonymize(String trigger, long count, boolean completed, boolean interrupted,
+            String error) {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("trigger", trigger);
         detail.put("count", count);
+        detail.put("completed", completed);
+        detail.put("interrupted", interrupted);
+        if (error != null) {
+            detail.put("error", error);
+        }
         return new AuditEvent(AuditAction.RETENTION_ANONYMIZE, TARGET_LEAD, null, null, detail);
+    }
+
+    /** 캠페인 보존 기간 변경(ADR 0020). 줄이면 다음 파기 실행에서 바로 파기되므로 누가 언제 바꿨는지 남긴다. */
+    public static AuditEvent campaignRetentionUpdate(long campaignId, int oldRetentionDays, int newRetentionDays) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("oldRetentionDays", oldRetentionDays);
+        detail.put("newRetentionDays", newRetentionDays);
+        return new AuditEvent(AuditAction.CAMPAIGN_RETENTION_UPDATE, TARGET_CAMPAIGN, campaignId, campaignId, detail);
     }
 
     private static Map<String, Object> filterDetail(Long formId, String channel) {

@@ -20,7 +20,8 @@
 - `campaigns.retention_days INTEGER NOT NULL DEFAULT 365`, CHECK 1~3650.
 - `leads.anonymized_at TIMESTAMPTZ`(NULL = 보존 중), `leads.consent_text TEXT`, `leads.consent_sha256 CHAR(64)`. 문구와 sha256은 함께 있거나 함께 없다(CHECK).
 - `ck_leads_contact`를 `anonymized_at IS NOT NULL OR phone_enc IS NOT NULL OR email_enc IS NOT NULL`로 바꾼다. 익명화되지 않은 행은 지금처럼 연락처가 필수다.
-- 파기 대상 찾기용 부분 인덱스 `ix_leads_retention_pending (campaign_id, created_at) WHERE anonymized_at IS NULL`.
+- 파기 대상 찾기용 부분 인덱스 `ix_leads_retention_pending (id) WHERE anonymized_at IS NULL`. 파기 쿼리가 아직 익명화하지 않은 행을 id keyset(`id > 직전 id ORDER BY id LIMIT n`)으로 읽고 보존 기간은 캠페인 조인으로 비교하므로 같은 모양으로 둔다.
+- **잠금(큰 테이블 주의)**: 컬럼 추가(기본값 없음 또는 상수 기본값)는 메타데이터만 바꾸지만, 백필 `UPDATE`는 `leads` 전체 행을 다시 쓰고, CHECK 추가는 테이블을 훑는 동안 `ACCESS EXCLUSIVE`, `CREATE INDEX`는 끝날 때까지 쓰기를 막는다. 지금 규모(수만 행 이하)에서는 짧다. 수백만 행이 되면 CHECK는 `NOT VALID` 뒤 `VALIDATE CONSTRAINT`, 인덱스는 `CREATE INDEX CONCURRENTLY`(트랜잭션 밖, 별도 마이그레이션), 백필은 id 구간 배치로 나눈다.
 - 평문 `name`·`phone`·`email` 컬럼은 V5에서 이미 지웠으므로(ADR 0015) 지울 대상은 암호문·해시다.
 
 **익명화(`Lead.anonymize`)**
@@ -32,11 +33,16 @@
 - **중복 판정**: 해시가 NULL이 되므로 부분 유니크 인덱스(ADR 0007)가 더는 그 행을 보지 않는다. 같은 사람이 같은 폼에 다시 신청하면 새 신청으로 받는다. 의도한 동작이다. 파기 후에도 "이 사람이 예전에 신청했다"를 알 수 있으면 그것 자체가 개인정보를 보존하는 것이기 때문이다. 이 경우 지표의 신청 수는 2가 된다(서로 다른 시점의 두 신청).
 
 **실행(`lead/application/LeadRetentionService`)**
-- 매일 03:00 Asia/Seoul `@Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")`(`lead/config/RetentionScheduler`). `app.retention.enabled`(환경 변수 `RETENTION_ENABLED`, 기본 true)로 끈다. 테스트는 끈다.
-- 수동 실행 `POST /api/admin/retention/run` → `{anonymized, dryRun}`. `?dryRun=true`면 지금 실행하면 익명화될 건수만 주고 아무것도 바꾸지 않는다. 운영자는 한 역할뿐이라(ADR 0003) 로그인한 운영자면 실행할 수 있다.
+- 매일 03:00 Asia/Seoul `@Scheduled(cron = "0 0 3 * * *", zone = "Asia/Seoul")`(`lead/config/RetentionScheduler`). `app.retention.enabled`(환경 변수 `RETENTION_ENABLED`, 기본 true)로 끈다. 테스트는 끈다. `@EnableScheduling`은 `common/SchedulingConfig`에 두어, 이 값은 파기 작업만 끄고 스케줄링 자체는 끄지 않는다.
+- 수동 실행 `POST /api/admin/retention/run` → `{anonymized, dryRun, interrupted}`. `?dryRun=true`면 지금 실행하면 익명화될 건수만 주고 아무것도 바꾸지 않는다. 운영자는 한 역할뿐이라(ADR 0003) 로그인한 운영자면 실행할 수 있다.
 - 실행 시각 `now`(마이크로초로 자름) 하나를 정하고, 대상(`anonymized_at IS NULL AND created_at < now - retention_days × 24시간`)을 id 순으로 `app.retention.batch-size`(기본 500)건씩 keyset(`id > 직전 id`)으로 읽는다. 배치마다 자기 트랜잭션에서 엔티티를 읽어 `anonymize`하고 커밋한다. 큰 테이블에서도 한 트랜잭션이 길어지지 않는다.
-- **여러 인스턴스**: 배치 트랜잭션은 먼저 `pg_try_advisory_xact_lock(키)`를 잡는다. 못 잡으면 다른 실행이 배치를 처리 중이므로 이 실행은 멈춘다(남은 행은 잠금을 쥔 실행이 끝까지 처리한다). 잠금 안에서 `anonymized_at IS NULL`을 다시 고르므로 같은 행을 두 번 처리하지 않는다(테스트: 잠금을 쥔 동안 실행하면 0건, 두 실행을 동시에 돌리면 처리 건수 합 = 대상 수). 트랜잭션 범위 잠금이라 인스턴스가 죽어도 잠금이 남지 않는다. 그래서 수동 실행이 스케줄 실행과 겹치면 수동 실행은 이번에 처리한 건수(0일 수 있다)만 돌려준다.
-- **감사**: 실행마다 `retention.anonymize` 한 줄(`target_type = lead`, `detail = {trigger: scheduled|manual, count}`, 스케줄 실행은 운영자 없음)을 남긴다. 신청 id는 남기지 않는다(행의 `anonymized_at`이 행별 기록이다). 익명화는 되돌릴 수 없고 배치는 이미 커밋됐으므로 기록은 마지막에 따로 쓴다. 기록이 실패하면 수동 실행은 500, 스케줄 실행은 `보존 기간 파기 실패: 원인=…`을 ERROR로 남긴다(예외 메시지는 남기지 않는다). 드라이런은 바꾸는 것이 없어 기록하지 않는다. 실행 중 프로세스가 죽으면 이미 커밋된 배치의 기록 줄이 없을 수 있다(행의 `anonymized_at`은 남는다).
+- **여러 인스턴스**: 배치 트랜잭션은 먼저 `pg_try_advisory_xact_lock(키)`를 잡는다. 못 잡으면 다른 실행이 배치를 처리 중이므로 이 실행은 멈추고 응답과 감사 기록에 `interrupted: true`를 남긴다(남은 행은 잠금을 쥔 실행이 끝까지 처리한다). 잠금 안에서 `anonymized_at IS NULL`을 다시 고르므로 같은 행을 두 번 처리하지 않는다(테스트: 잠금을 쥔 동안 실행하면 0건, 두 실행을 동시에 돌리면 처리 건수 합 = 대상 수). 트랜잭션 범위 잠금이라 인스턴스가 죽어도 잠금이 남지 않는다. 그래서 수동 실행이 스케줄 실행과 겹치면 수동 실행은 이번에 처리한 건수(0일 수 있다)와 `interrupted: true`를 돌려준다.
+- **감사**: 실행마다 `retention.anonymize` 한 줄(`target_type = lead`, `detail = {trigger: scheduled|manual, count, completed, interrupted[, error]}`, 스케줄 실행은 운영자 없음)을 자기 트랜잭션으로 남긴다. 신청 id는 남기지 않는다(행의 `anonymized_at`이 행별 기록이다). 익명화는 되돌릴 수 없고 배치는 배치마다 커밋되므로:
+  - 정상 종료: `completed: true`와 이번 실행의 건수.
+  - **배치가 중간에 실패**: 그때까지 커밋한 건수로 `completed: false, error: 예외 클래스 이름`(메시지는 넣지 않는다)을 **먼저** 기록하고 원래 예외를 올린다(기록마저 실패하면 원래 예외에 suppressed로 붙는다). 수동 실행은 500, 스케줄 실행은 `보존 기간 파기 실패: 원인=예외 클래스`를 ERROR 한 줄로 남기고 다음 날 다시 돈다(멱등). 테스트가 두 번째 배치를 실패시켜 첫 배치 파기 + 감사 한 줄(부분 건수, completed=false)을 확인한다.
+  - 남는 빈틈은 프로세스가 죽는 경우(기록 전에 JVM이 끝남)뿐이다. 이때도 행마다 `anonymized_at`이 남아 무엇이 언제 파기됐는지 알 수 있다.
+  - 드라이런은 바꾸는 것이 없어 기록하지 않는다.
+- **보존 기간 변경 감사**: 캠페인 PATCH로 `retention_days`가 실제로 바뀌면 같은 트랜잭션에서 `campaign.retention.update`(`target = campaign`, `detail = {oldRetentionDays, newRetentionDays}`)를 `recordRequired`로 남긴다(기록이 실패하면 변경도 롤백). 줄이면 다음 실행에서 바로 파기되는 위험한 변경이라 누가 언제 바꿨는지 남긴다. 생성 시의 초기값은 변경이 아니어서 남기지 않는다. 이로써 campaign → audit 의존이 생긴다(audit은 여전히 다른 도메인을 모른다).
 - 로그에는 실행 방식과 건수만 남는다.
 
 **동의 문구 증빙**
@@ -48,7 +54,7 @@
 - 명단 API: `anonymizedAt`이 있고 `name`·`phone`·`email`이 null, `contactUnavailable`은 false, `payload`는 키만.
 - 원문 API: 410 `lead_anonymized`(ProblemDetail). 감사 기록은 남기지 않는다(보여 준 것이 없다).
 - CSV: 마지막 열 "파기"를 더한다. 파기된 행은 연락처·추가 항목 칸이 비고 "파기" 칸이 `파기됨`이다(원문 다운로드도 같다).
-- 관리자 화면: 명단의 파기된 줄은 이름 칸에 "파기됨", 연락처·추가 항목은 `-`이고 **원문 보기**·**동의 문구 보기**가 없다(화면을 단순하게 두기 위해서이며, 증빙은 API로 계속 볼 수 있다). 그 밖의 줄에는 **동의 문구 보기** 대화상자가 있다. 캠페인 생성 대화상자와 캠페인 상세의 **보존 기간 변경** 대화상자에서 보존 기간(일)을 정한다. 감사 로그 행동 필터에 "보존 기간 파기"가 있다.
+- 관리자 화면: 명단의 파기된 줄은 이름 칸에 "파기됨", 연락처·추가 항목은 `-`이고 **원문 보기**가 없다. 동의 증빙을 남기는 이유가 파기 뒤의 확인이므로 **동의 문구 보기**는 모든 줄에 있다(파기된 줄에도 개인정보는 보이지 않는다). 줄마다 반복되는 버튼은 `aria-label="{신청일} 신청의 원문 보기"`처럼 어느 줄인지 알린다. 캠페인 생성 대화상자와 캠페인 상세의 **보존 기간 변경** 대화상자에서 보존 기간(일)을 정하고, 값을 줄이면 확인 대화상자(**보존 기간 단축**)를 한 번 더 거친다. 감사 로그 행동 필터에 "보존 기간 파기", "보존 기간 변경"이 있다.
 
 ## 고려한 대안
 
@@ -67,6 +73,6 @@
 ## 결과
 
 - 쉬워지는 것: 보존 기간이 지난 연락처가 저절로 사라지고, 지표는 그대로다. 동의 문구는 신청 행에 남아 폼이 바뀌어도 증빙할 수 있다. 여러 인스턴스로 늘려도 파기가 겹치지 않는다.
-- 어려워지는 것: 파기는 되돌릴 수 없다(백업에는 남는다. 백업 보존 기간은 운영 정책으로 맞춘다, ROADMAP). 보존 기간을 줄이면 다음 실행에서 바로 파기된다(화면이 알린다). 파기 뒤 같은 사람의 재신청은 중복으로 막지 않는다.
+- 어려워지는 것: 파기는 되돌릴 수 없다(백업에는 남는다. 백업 보존 기간은 운영 정책으로 맞춘다, ROADMAP). 보존 기간을 줄이면 다음 실행에서 바로 파기된다(화면이 확인을 받고 감사 로그에 남는다). 애플리케이션 로그(가린 전화번호 끝자리·가린 이메일 조각이 남는다)는 이 파기 대상이 아니다. 로그 보존 기간은 로그 수집 쪽에서 정한다. 파기 뒤 같은 사람의 재신청은 중복으로 막지 않는다.
 - 감사 로그 자체의 보존 기간과 파기는 이번 범위가 아니다(ADR 0016 후속 작업에 남긴다). 감사 로그에는 신청자 원문이 없다.
 - 다시 볼 조건: 캠페인보다 짧은 단위(폼별) 보존 기간이 필요해질 때, 백업 파기 정책을 정할 때, 동의 철회(개별 즉시 파기) 요구가 생길 때. 개별 파기는 같은 `Lead.anonymize`를 재사용하면 된다.

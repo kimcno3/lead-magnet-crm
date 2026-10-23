@@ -65,4 +65,4 @@ ADR 0015로 명단은 가린 값만 보이고 원문은 `GET /api/admin/leads/{i
 ## 변경 기록
 
 - 2026-10-24 (ADR 0019): 이슈 #18은 공개 신청 제출에만 rate limit을 걸었다. 거절은 감사 로그에 쓰지 않고 애플리케이션 로그에 1분 단위 건수 한 줄만 남긴다(위 "결과" 절의 원칙). 로그인 시도 제한은 이번에 넣지 않았고, 넣을 때 위 절의 `auth.login.throttled` 방식을 따른다.
-- 2026-10-24 (ADR 0020): `retention.anonymize`(보존 기간 파기, 실행마다 한 줄, detail `trigger`·`count`, 스케줄 실행은 운영자 없음)를 더했다. 원문 API의 410 `lead_anonymized`와 동의 문구 조회(`/api/admin/leads/{id}/consent`, 개인정보 아님)는 기록하지 않는다. CSV에 마지막 열 "파기"가 생겼다. 감사 로그 자체의 보존 기간은 여전히 후속 작업이다.
+- 2026-10-24 (ADR 0020): `retention.anonymize`(보존 기간 파기, 실행마다 한 줄, detail `trigger`·`count`·`completed`·`interrupted`·실패 시 `error`, 스케줄 실행은 운영자 없음)와 `campaign.retention.update`(캠페인 보존 기간 변경, detail `oldRetentionDays`·`newRetentionDays`, 같은 트랜잭션 `recordRequired`)를 더했다. campaign → audit 의존이 생겼다. 원문 API의 410 `lead_anonymized`와 동의 문구 조회(`/api/admin/leads/{id}/consent`, 개인정보 아님)는 기록하지 않는다. CSV에 마지막 열 "파기"가 생겼다. 감사 로그 자체의 보존 기간은 여전히 후속 작업이다.

@@ -13,7 +13,9 @@ export function ConsentDialog({ leadId, onClose }: { leadId: number; onClose: ()
   return (
     <Dialog open title="동의 문구" onClose={onClose}>
       <ErrorMessage error={error} onRetry={reload} />
-      {loading && !data && <p className="muted">불러오는 중…</p>}
+      <p className="muted" role="status" aria-live="polite">
+        {loading && !data ? '불러오는 중…' : ''}
+      </p>
       {data && (
         <dl className="detail-grid">
           <dt>동의 시각</dt>

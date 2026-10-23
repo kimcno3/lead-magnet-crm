@@ -61,6 +61,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'auth.login.success': '로그인 성공',
   'auth.login.failure': '로그인 실패',
   'retention.anonymize': '보존 기간 파기',
+  'campaign.retention.update': '보존 기간 변경',
 }
 
 /** 보존 기간 파기 감사 기록의 실행 방식 (ADR 0020). */

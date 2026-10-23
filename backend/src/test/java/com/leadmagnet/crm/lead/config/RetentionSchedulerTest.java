@@ -8,15 +8,25 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.leadmagnet.crm.common.SchedulingConfig;
 import com.leadmagnet.crm.lead.application.LeadRetentionService;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.config.CronTask;
+import org.springframework.scheduling.config.ScheduledTask;
+import org.springframework.scheduling.config.ScheduledTaskHolder;
 
+@ExtendWith(OutputCaptureExtension.class)
 class RetentionSchedulerTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-        .withUserConfiguration(RetentionSchedulingConfig.class)
+        .withUserConfiguration(SchedulingConfig.class, RetentionSchedulingConfig.class)
         .withBean(LeadRetentionService.class, () -> mock(LeadRetentionService.class));
 
     @Test
@@ -28,23 +38,38 @@ class RetentionSchedulerTest {
     }
 
     @Test
-    void 설정이_없으면_켜지고_false면_스케줄러를_만들지_않는다() {
-        runner.run(context -> assertThat(context).hasSingleBean(RetentionScheduler.class));
-        runner.withPropertyValues("app.retention.enabled=true")
-            .run(context -> assertThat(context).hasSingleBean(RetentionScheduler.class));
-        runner.withPropertyValues("app.retention.enabled=false")
-            .run(context -> assertThat(context).doesNotHaveBean(RetentionScheduler.class));
+    void 켜면_cron_작업이_등록되고_false면_파기_작업만_빠지며_스케줄링은_켜져_있다() {
+        runner.run(context -> {
+            assertThat(context).hasSingleBean(RetentionScheduler.class);
+            assertThat(cronExpressions(context)).containsExactly("0 0 3 * * *");
+        });
+        runner.withPropertyValues("app.retention.enabled=false").run(context -> {
+            assertThat(context).doesNotHaveBean(RetentionScheduler.class);
+            assertThat(context).hasSingleBean(ScheduledTaskHolder.class);
+            assertThat(cronExpressions(context)).isEmpty();
+        });
+    }
+
+    private static List<String> cronExpressions(ApplicationContext context) {
+        return context.getBeansOfType(ScheduledTaskHolder.class).values().stream()
+            .flatMap(holder -> holder.getScheduledTasks().stream())
+            .map(ScheduledTask::getTask)
+            .filter(CronTask.class::isInstance)
+            .map(task -> ((CronTask) task).getExpression())
+            .toList();
     }
 
     @Test
-    void scheduled로_실행하고_실패해도_예외를_밖으로_던지지_않는다() {
+    void scheduled로_실행하고_실패해도_예외를_밖으로_던지지_않고_예외_종류만_ERROR로_남긴다(CapturedOutput output) {
         LeadRetentionService service = mock(LeadRetentionService.class);
         when(service.run(eq(LeadRetentionService.TRIGGER_SCHEDULED), any()))
-            .thenThrow(new IllegalStateException("db down"));
+            .thenThrow(new IllegalStateException("db down 01012345678"));
 
         new RetentionScheduler(service).runDaily();
 
         verify(service).run(eq(LeadRetentionService.TRIGGER_SCHEDULED), any());
+        assertThat(output.getAll()).contains("ERROR").contains("보존 기간 파기 실패: 원인=java.lang.IllegalStateException")
+            .doesNotContain("db down").doesNotContain("01012345678").doesNotContain("\tat ");
     }
 
     @Test

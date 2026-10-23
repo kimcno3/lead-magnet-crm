@@ -185,5 +185,6 @@ describe('감사 로그', () => {
     renderPage('/audit-logs', <AuditLogListPage />)
     const select = await screen.findByLabelText('행동')
     expect(within(select).getByRole('option', { name: '보존 기간 파기' })).toHaveAttribute('value', 'retention.anonymize')
+    expect(within(select).getByRole('option', { name: '보존 기간 변경' })).toHaveAttribute('value', 'campaign.retention.update')
   })
 })

@@ -3,10 +3,12 @@ package com.leadmagnet.crm.campaign.api;
 import com.leadmagnet.crm.campaign.application.CampaignService;
 import com.leadmagnet.crm.campaign.application.CampaignService.CampaignDetail;
 import com.leadmagnet.crm.campaign.domain.Campaign;
+import com.leadmagnet.crm.common.web.AuditActors;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -64,7 +66,7 @@ public class CampaignController {
         return toResponse(campaignService.get(id));
     }
 
-    @Operation(operationId = "updateCampaign", summary = "캠페인 수정·보관", description = "없는 필드는 그대로 둔다. status는 \"archived\"만 받는다. retentionDays는 1~3650 (ADR 0020).",
+    @Operation(operationId = "updateCampaign", summary = "캠페인 수정·보관", description = "없는 필드는 그대로 둔다. status는 \"archived\"만 받는다. retentionDays는 1~3650이고, 바뀌면 감사 로그(campaign.retention.update, 이전·새 값)에 남는다 (ADR 0020).",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "수정됨")
     @ApiResponse(responseCode = "401", description = "unauthorized")
@@ -72,9 +74,10 @@ public class CampaignController {
     @ApiResponse(responseCode = "409", description = "campaign_already_archived")
     @ApiResponse(responseCode = "422", description = "validation_failed")
     @PatchMapping("/{id}")
-    public CampaignResponse update(@PathVariable long id, @RequestBody UpdateCampaignRequest request) {
+    public CampaignResponse update(@PathVariable long id, @RequestBody UpdateCampaignRequest request,
+            @AuthenticationPrincipal Jwt jwt, HttpServletRequest httpRequest) {
         return toResponse(campaignService.update(id, request.name(), request.description(), request.startsAt(),
-            request.endsAt(), request.retentionDays(), request.status()));
+            request.endsAt(), request.retentionDays(), request.status(), AuditActors.of(jwt, httpRequest)));
     }
 
     private static CampaignResponse toResponse(CampaignDetail detail) {

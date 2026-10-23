@@ -147,7 +147,7 @@ class LeadRetentionApiTest {
 
     int runManually() {
         return authed().post("/api/admin/retention/run").then().statusCode(200)
-            .body("dryRun", equalTo(false)).extract().path("anonymized");
+            .body("dryRun", equalTo(false)).body("interrupted", equalTo(false)).extract().path("anonymized");
     }
 
     @Test
@@ -283,6 +283,9 @@ class LeadRetentionApiTest {
             .containsEntry("trigger", "manual").containsEntry("count", 3);
         assertThat(rows.get(0).get("target_id")).isNull();
         assertThat(rows.get(1)).containsEntry("count", 0);
+        assertThat(jdbc.queryForList("SELECT detail::text FROM audit_logs WHERE action = 'retention.anonymize'",
+            String.class)).allSatisfy(d -> assertThat(d).contains("\"completed\": true").contains("\"interrupted\": false")
+                .doesNotContain("error"));
         authed().get("/api/admin/audit-logs?action=retention.anonymize").then().statusCode(200)
             .body("totalElements", equalTo(2));
     }
@@ -291,7 +294,8 @@ class LeadRetentionApiTest {
     void 스케줄_실행은_운영자_없이_scheduled로_기록한다() {
         createdAt(submit("form-a", "010-1111-0001"), now().minus(Duration.ofDays(31)));
 
-        assertThat(retention.run(LeadRetentionService.TRIGGER_SCHEDULED, new AuditActor(null, null, null))).isEqualTo(1);
+        assertThat(retention.run(LeadRetentionService.TRIGGER_SCHEDULED, new AuditActor(null, null, null)).anonymized())
+            .isEqualTo(1);
 
         Map<String, Object> row = jdbc.queryForMap(
             "SELECT operator_id, detail->>'trigger' AS trigger FROM audit_logs WHERE action = 'retention.anonymize'");
@@ -335,8 +339,13 @@ class LeadRetentionApiTest {
             }));
             assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
 
-            assertThat(runManually()).isZero();
+            // 이번 실행은 아무것도 처리하지 않고 멈췄다고 응답과 감사 기록에 남긴다.
+            authed().post("/api/admin/retention/run").then().statusCode(200)
+                .body("anonymized", equalTo(0)).body("interrupted", equalTo(true));
             assertThat(anonymized(id)).isFalse();
+            assertThat(jdbc.queryForMap("SELECT (detail->>'count')::int AS count, (detail->>'interrupted')::boolean AS i, "
+                + "(detail->>'completed')::boolean AS c FROM audit_logs WHERE action = 'retention.anonymize'"))
+                .containsEntry("count", 0).containsEntry("i", true).containsEntry("c", true);
 
             release.countDown();
             holder.get(10, TimeUnit.SECONDS);
@@ -361,7 +370,8 @@ class LeadRetentionApiTest {
             for (int i = 0; i < 2; i++) {
                 runs.add(pool.submit(() -> {
                     await(start);
-                    return retention.run(LeadRetentionService.TRIGGER_SCHEDULED, new AuditActor(null, null, null));
+                    return retention.run(LeadRetentionService.TRIGGER_SCHEDULED, new AuditActor(null, null, null))
+                        .anonymized();
                 }));
             }
             start.countDown();

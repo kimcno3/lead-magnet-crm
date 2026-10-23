@@ -198,6 +198,27 @@ class CampaignFormApiTest {
     }
 
     @Test
+    void 보존_기간을_바꾸면_이전_값과_새_값을_감사_로그에_남기고_바뀌지_않으면_남기지_않는다() {
+        int id = createCampaign("c");
+
+        authed().body(Map.of("retentionDays", 30)).patch("/api/admin/campaigns/{id}", id).then().statusCode(200);
+        authed().body(Map.of("retentionDays", 30)).patch("/api/admin/campaigns/{id}", id).then().statusCode(200);
+        authed().body(Map.of("name", "새 이름")).patch("/api/admin/campaigns/{id}", id).then().statusCode(200);
+        authed().body(Map.of("retentionDays", 0)).patch("/api/admin/campaigns/{id}", id).then().statusCode(422);
+
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT operator_id, target_type, target_id, campaign_id, "
+            + "(detail->>'oldRetentionDays')::int AS old_days, (detail->>'newRetentionDays')::int AS new_days "
+            + "FROM audit_logs WHERE action = 'campaign.retention.update'");
+        assertThat(rows).singleElement().satisfies(r -> {
+            assertThat(r.get("operator_id")).isNotNull();
+            assertThat(r).containsEntry("target_type", "campaign").containsEntry("target_id", (long) id)
+                .containsEntry("campaign_id", (long) id).containsEntry("old_days", 365).containsEntry("new_days", 30);
+        });
+        authed().get("/api/admin/audit-logs?action=campaign.retention.update").then().statusCode(200)
+            .body("totalElements", equalTo(1));
+    }
+
+    @Test
     void 캠페인을_보관하면_archived가_되고_다시_보관하면_409이다() {
         int id = createCampaign("c");
 

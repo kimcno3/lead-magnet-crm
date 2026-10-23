@@ -26,8 +26,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  *       처리 중이라는 뜻이므로 이 실행은 거기서 멈춘다(남은 행은 잠금을 쥔 실행이 끝까지 처리한다). 잠금 안에서 다시
  *       {@code anonymized_at IS NULL}로 고르므로 같은 행을 두 번 처리하지 않는다.</li>
  *   <li>멱등: 이미 익명화된 행은 대상이 아니다. 다시 돌리면 0건이다.</li>
- *   <li>감사: 실행마다 {@code retention.anonymize} 한 줄(건수)을 마지막에 따로 남긴다. 익명화는 되돌릴 수 없어 배치는 이미
- *       커밋됐으므로, 기록이 실패하면 예외를 올린다(수동 실행은 500, 스케줄러는 ERROR 로그).</li>
+ *   <li>감사: 실행마다 {@code retention.anonymize} 한 줄(건수, completed, interrupted)을 따로 남긴다. 배치가 중간에
+ *       실패해도 그때까지 커밋한 건수로 completed=false 기록을 먼저 남기고 예외를 올린다(수동 실행은 500, 스케줄러는
+ *       ERROR 로그). 남는 빈틈은 프로세스가 죽는 경우뿐이고, 그때도 행마다 anonymized_at이 남는다.</li>
  * </ul>
  * 로그에는 건수만 남긴다(신청 id·연락처 없음).
  */
@@ -58,32 +59,47 @@ public class LeadRetentionService {
     }
 
     /**
-     * 지금 기준으로 파기 대상을 모두 익명화하고 이번 실행이 익명화한 건수를 돌려준다. 트랜잭션 밖에서 부른다.
+     * 지금 기준으로 파기 대상을 모두 익명화한다. 트랜잭션 밖에서 부른다.
+     * 배치가 실패하면 그때까지 커밋한 건수로 감사 기록(completed=false, 예외 종류)을 먼저 남기고 예외를 그대로 올린다.
      *
      * @param trigger {@link #TRIGGER_SCHEDULED} 또는 {@link #TRIGGER_MANUAL}
      */
-    public long run(String trigger, AuditActor actor) {
+    public RetentionRun run(String trigger, AuditActor actor) {
         Instant now = now();
         long total = 0;
-        long afterId = 0;
-        while (true) {
-            long after = afterId;
-            Batch batch = transaction.execute(status -> anonymizeBatch(now, after));
-            if (batch == null || batch.locked()) {
-                log.info("다른 실행이 파기 배치를 처리 중이라 이 실행을 멈춤: trigger={}, 이번 실행 건수={}", trigger, total);
-                break;
+        boolean interrupted = false;
+        try {
+            long afterId = 0;
+            while (true) {
+                long after = afterId;
+                Batch batch = transaction.execute(status -> anonymizeBatch(now, after));
+                if (batch == null || batch.locked()) {
+                    interrupted = true;
+                    log.info("다른 실행이 파기 배치를 처리 중이라 이 실행을 멈춤: trigger={}, 이번 실행 건수={}", trigger, total);
+                    break;
+                }
+                total += batch.count();
+                if (batch.scanned() < batchSize) {
+                    break;
+                }
+                afterId = batch.lastId();
             }
-            total += batch.count();
-            if (batch.scanned() < batchSize) {
-                break;
+        } catch (RuntimeException e) {
+            // 앞 배치는 이미 커밋됐다. 그 건수를 기록한 뒤 원래 예외를 올린다(기록 실패는 원래 예외에 붙인다).
+            try {
+                record(actor, AuditEvent.retentionAnonymize(trigger, total, false, false, e.getClass().getName()));
+            } catch (RuntimeException auditFailure) {
+                e.addSuppressed(auditFailure);
             }
-            afterId = batch.lastId();
+            throw e;
         }
-        long count = total;
-        transaction.executeWithoutResult(status -> audit.recordRequired(actor,
-            AuditEvent.retentionAnonymize(trigger, count)));
-        log.info("보존 기간 파기 완료: trigger={}, 익명화={}", trigger, count);
-        return count;
+        record(actor, AuditEvent.retentionAnonymize(trigger, total, true, interrupted, null));
+        log.info("보존 기간 파기 완료: trigger={}, 익명화={}, 중단={}", trigger, total, interrupted);
+        return new RetentionRun(total, interrupted);
+    }
+
+    private void record(AuditActor actor, AuditEvent event) {
+        transaction.executeWithoutResult(status -> audit.recordRequired(actor, event));
     }
 
     /** 지금 실행하면 익명화될 건수. 아무것도 바꾸지 않고 기록도 남기지 않는다. */
@@ -113,6 +129,13 @@ public class LeadRetentionService {
     /** DB(timestamptz)는 마이크로초까지라 경계 비교가 어긋나지 않게 맞춘다. */
     private Instant now() {
         return clock.instant().truncatedTo(ChronoUnit.MICROS);
+    }
+
+    /**
+     * 실행 결과. interrupted면 다른 실행(다른 인스턴스 등)이 배치를 처리 중이어서 이번 실행이 도중에 멈췄다는 뜻이고,
+     * 남은 대상은 그 실행이 처리한다.
+     */
+    public record RetentionRun(long anonymized, boolean interrupted) {
     }
 
     private record Batch(boolean locked, int scanned, int count, long lastId) {

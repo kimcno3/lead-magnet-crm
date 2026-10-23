@@ -39,9 +39,34 @@ describe('캠페인 보존 기간', () => {
     fireEvent.change(within(dialog).getByLabelText('보존 기간(일)'), { target: { value: '90' } })
     fireEvent.click(within(dialog).getByRole('button', { name: '저장' }))
 
+    // 줄이면 확인을 한 번 더 받는다. 확인 전에는 보내지 않는다.
+    const confirm = await screen.findByRole('dialog', { name: '보존 기간 단축' })
+    expect(confirm).toHaveTextContent('365일 → 90일')
+    expect(patches).toEqual([])
+    fireEvent.click(within(confirm).getByRole('button', { name: '줄이기' }))
+
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '보존 기간 변경' })).not.toBeInTheDocument())
     expect(patches).toEqual([{ retentionDays: 90 }])
     expect(await screen.findByText('보존 90일')).toBeInTheDocument()
+  })
+
+  it('늘리면 확인 없이 바로 저장하고, 단축 확인에서 취소하면 보내지 않는다', async () => {
+    const patches = backend((body) => json({ ...campaign, retentionDays: body.retentionDays }))
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms')
+    fireEvent.click(await screen.findByRole('button', { name: '보존 기간 변경' }))
+    let dialog = screen.getByRole('dialog', { name: '보존 기간 변경' })
+    fireEvent.change(within(dialog).getByLabelText('보존 기간(일)'), { target: { value: '30' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '저장' }))
+    const confirm = await screen.findByRole('dialog', { name: '보존 기간 단축' })
+    fireEvent.click(within(confirm).getByRole('button', { name: '취소' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '보존 기간 단축' })).not.toBeInTheDocument())
+    expect(patches).toEqual([])
+
+    dialog = screen.getByRole('dialog', { name: '보존 기간 변경' })
+    fireEvent.change(within(dialog).getByLabelText('보존 기간(일)'), { target: { value: '400' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '저장' }))
+    await waitFor(() => expect(patches).toEqual([{ retentionDays: 400 }]))
+    expect(screen.queryByRole('dialog', { name: '보존 기간 단축' })).not.toBeInTheDocument()
   })
 
   it('범위를 벗어나면 서버 오류를 그 칸에 보여주고 대화상자를 닫지 않는다', async () => {
