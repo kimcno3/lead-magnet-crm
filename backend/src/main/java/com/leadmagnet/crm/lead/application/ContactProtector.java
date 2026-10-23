@@ -31,15 +31,12 @@ public class ContactProtector {
             hasher.hashPhone(phone), hasher.hashEmail(email));
     }
 
-    /**
-     * 원문 연락처. 암호문에서 읽는다. expand 단계에서 아직 백필되지 않은 행(기동 직후 백필이 끝나기 전)만
-     * 평문 컬럼으로 대신한다. contract 단계(V5)에서 이 대체를 지운다.
-     */
+    /** 원문 연락처. 암호문에서만 읽는다. 값이 없는 필드는 null이다. */
     public LeadContact reveal(Lead lead) {
         ProtectedContact stored = lead.getProtectedContact();
         return new LeadContact(
-            stored.nameEnc() == null ? lead.getName() : cipher.decrypt(stored.nameEnc(), NAME),
-            stored.phoneEnc() == null ? lead.getPhone() : cipher.decrypt(stored.phoneEnc(), PHONE),
-            stored.emailEnc() == null ? lead.getEmail() : cipher.decrypt(stored.emailEnc(), EMAIL));
+            cipher.decrypt(stored.nameEnc(), NAME),
+            cipher.decrypt(stored.phoneEnc(), PHONE),
+            cipher.decrypt(stored.emailEnc(), EMAIL));
     }
 }

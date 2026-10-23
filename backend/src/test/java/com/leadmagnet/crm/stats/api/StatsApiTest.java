@@ -116,9 +116,9 @@ class StatsApiTest {
     }
 
     void lead(int form, int campaignId, String channel, UUID visitor, String kstTime) {
-        jdbc.update("INSERT INTO leads (form_id, campaign_id, link_id, channel, visitor_id, phone, consent_at, "
-            + "created_at) VALUES (?, ?, ?, ?, ?, ?, now(), ?)", form, campaignId, linkId(form, channel), channel,
-            visitor, "0100000%04d".formatted(++phoneSeq), Timestamp.from(kst(kstTime).toInstant()));
+        jdbc.update("INSERT INTO leads (form_id, campaign_id, link_id, channel, visitor_id, phone_enc, phone_hash, "
+            + "consent_at, created_at) VALUES (?, ?, ?, ?, ?, '\\x01'::bytea, ?, now(), ?)", form, campaignId, linkId(form, channel), channel,
+            visitor, "%064d".formatted(++phoneSeq), Timestamp.from(kst(kstTime).toInstant()));
     }
 
     void seedBase() {

@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
  * <p>실행 시점: 모든 싱글턴 빈이 만들어진 직후({@link SmartInitializingSingleton}), 웹 서버 커넥터가 요청을 받기 시작하기
  * (컨텍스트 refresh 마지막 단계) 전이다. 그래서 틀린 키로 신청이 저장되는 순간이 없다. Flyway 마이그레이션은 Spring Boot의
  * Flyway 초기화 빈(JPA EntityManagerFactory가 의존)에서 이미 끝났으므로 {@code pii_key_check} 테이블이 있다.
- * 키가 다르면 예외로 컨텍스트 refresh가 실패해 기동이 멈춘다. 백필(PiiBackfillRunner)은 기동 후 러너로 돈다.
+ * 키가 다르면 예외로 컨텍스트 refresh가 실패해 기동이 멈춘다.
  */
 @Component
 public class PiiKeyCheck implements SmartInitializingSingleton {

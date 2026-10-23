@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 공개 폼 신청 접수. 폼이 열려 있는지(draft·없음 404, closed 410) 확인하고 fieldConfig로 검증한 뒤 저장한다.
  * 중복(같은 폼의 같은 전화번호·이메일)은 DB 부분 유니크 인덱스가 최종으로 막고(ON CONFLICT DO NOTHING) 409로 바꾼다 (ADR 0007).
- * 연락처는 평문과 함께 암호문·HMAC 해시로도 저장한다(ADR 0015 expand 단계).
+ * 연락처는 암호문과 HMAC 해시로만 저장한다(ADR 0015). 중복 판정은 해시 유니크 인덱스가 한다.
  */
 @Service
 public class LeadSubmissionService {
