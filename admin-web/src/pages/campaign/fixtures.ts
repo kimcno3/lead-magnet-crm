@@ -1,0 +1,63 @@
+import type { Campaign, ChannelStats, CampaignStats, LeadPage } from '../../api/types'
+
+export const campaign: Campaign = {
+  id: 7,
+  name: '가을 세미나',
+  description: null,
+  status: 'active',
+  startsAt: '2026-09-30T15:00:00Z',
+  endsAt: '2026-10-31T14:59:59Z',
+  createdAt: '2026-09-01T00:00:00Z',
+  updatedAt: '2026-09-01T00:00:00Z',
+  forms: [
+    { id: 11, slug: 'fall-seminar', title: '세미나 신청', status: 'published', publishedAt: '2026-10-01T00:00:00Z', closedAt: null },
+    { id: 12, slug: 'fall-ebook', title: '전자책 받기', status: 'draft', publishedAt: null, closedAt: null },
+  ],
+}
+
+export const stats: CampaignStats = {
+  campaignId: 7,
+  from: null,
+  to: null,
+  visits: 1520,
+  visitors: 3,
+  leads: 2,
+  convertedVisitors: 2,
+  conversionRate: 0.6667,
+}
+
+const zero = { visits: 0, visitors: 0, leads: 0, convertedVisitors: 0, conversionRate: 0 }
+export const channels: ChannelStats = {
+  campaignId: 7,
+  from: null,
+  to: null,
+  channels: [
+    { channel: 'instagram', visits: 900, visitors: 2, leads: 2, convertedVisitors: 2, conversionRate: 1 },
+    { channel: 'x', ...zero },
+    { channel: 'youtube', visits: 20, visitors: 1, leads: 0, convertedVisitors: 0, conversionRate: 0 },
+    { channel: 'threads', ...zero },
+    { channel: 'direct', visits: 600, visitors: 0, leads: 0, convertedVisitors: 0, conversionRate: 0 },
+  ],
+}
+
+export function leadPage(page: number, totalElements = 45): LeadPage {
+  return {
+    page,
+    size: 20,
+    totalElements,
+    totalPages: Math.ceil(totalElements / 20),
+    items: [
+      {
+        id: 100 + page,
+        formId: 11,
+        formTitle: '세미나 신청',
+        channel: 'instagram',
+        name: `신청자${page}`,
+        phone: '01012345678',
+        email: 'lead@example.com',
+        payload: { company: '하늘상사' },
+        createdAt: '2026-10-22T15:05:00Z',
+      },
+    ],
+  }
+}
