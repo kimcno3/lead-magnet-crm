@@ -8,7 +8,7 @@
 | [0002](0002-html-isolation.md) | HTML 격리 | 승인 |
 | [0003](0003-auth.md) | 인증 | 승인 |
 | [0004](0004-html-form-contract.md) | HTML 폼 계약 | 승인 |
-| 0005 | 지표 정의 | 예정 |
+| [0005](0005-metrics-definition.md) | 지표 정의 | 승인 |
 | [0006](0006-channel-attribution.md) | 채널 귀속 | 승인 |
 | [0007](0007-duplicate-submission.md) | 중복 신청 정책 | 승인 |
 | [0008](0008-lead-data-storage.md) | 신청 데이터 저장 구조 | 승인 |
