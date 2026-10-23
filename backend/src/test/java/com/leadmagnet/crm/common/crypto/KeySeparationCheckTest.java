@@ -30,6 +30,25 @@ class KeySeparationCheckTest {
     }
 
     @Test
+    void 검사할_키_설정이_빠지면_조용히_통과하지_않고_기동이_실패한다() {
+        new ApplicationContextRunner()
+            .withUserConfiguration(OnlyAuth.class, KeySeparationCheck.class)
+            .withPropertyValues("app.auth.admin-origin=http://localhost:5173",
+                "app.auth.jwt-secret=jwt-secret-that-is-long-enough-and-unique-0123")
+            .run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure()).rootCause()
+                    .hasMessageContaining("키 분리 검사 대상이 빠졌습니다")
+                    .hasMessageContaining("FORM_TOKEN_KEY").hasMessageContaining("LEAD_ENC_KEY");
+            });
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableConfigurationProperties(AuthProperties.class)
+    static class OnlyAuth {
+    }
+
+    @Test
     void JWT_SECRET이_다른_키들과_다르면_기동한다() {
         runner("jwt-secret-that-is-long-enough-and-unique-0123", IntegrationTest.TEST_ENC_KEY,
             IntegrationTest.TEST_HMAC_KEY, IntegrationTest.TEST_FORM_TOKEN_KEY)

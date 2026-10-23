@@ -36,6 +36,7 @@ const igLink: DistributionLink = {
   utmSource: 'instagram',
   utmMedium: 'social',
   utmCampaign: 'fall-seminar',
+  utmContent: null,
   createdAt: '2026-10-01T00:00:00Z',
 }
 

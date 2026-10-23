@@ -2,6 +2,8 @@ package com.leadmagnet.crm.common.crypto;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,7 +15,15 @@ import org.springframework.stereotype.Component;
 @Component
 class KeySeparationCheck {
 
+    /** 검사 대상에서 빠지면(빈 목록 주입 등) 검사가 조용히 통과하지 않도록 반드시 있어야 하는 키 이름. */
+    static final Set<String> REQUIRED = Set.of("JWT_SECRET", "LEAD_ENC_KEY·LEAD_HMAC_KEY", "FORM_TOKEN_KEY");
+
     KeySeparationCheck(List<SecretKeyMaterial> keys) {
+        Set<String> missing = new TreeSet<>(REQUIRED);
+        keys.forEach(key -> missing.remove(key.name()));
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("키 분리 검사 대상이 빠졌습니다: " + missing);
+        }
         for (SecretKeyMaterial exclusive : keys) {
             if (!exclusive.mustDifferFromOthers()) {
                 continue;

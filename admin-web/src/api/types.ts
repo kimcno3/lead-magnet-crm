@@ -128,6 +128,8 @@ export interface DistributionLink {
   utmSource: string
   utmMedium: string
   utmCampaign: string
+  /** 크리에이터 링크면 creator-{id}, 자체 링크면 null */
+  utmContent: string | null
   createdAt: string
 }
 

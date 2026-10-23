@@ -2,7 +2,7 @@ package com.leadmagnet.crm.audit.domain;
 
 /**
  * 감사 기록의 주체와 요청 출처 (ADR 0016). operatorId는 로그인 실패처럼 운영자를 특정하지 않으면 null이다.
- * ip는 {@code request.getRemoteAddr()} 값이다(신뢰 프록시 뒤면 {@link ClientIpFilter}가 정한 클라이언트 주소, ADR 0021). 컬럼 길이에 맞춰 자르고 빈 값은 null로 둔다.
+ * ip는 {@code request.getRemoteAddr()} 값이다(신뢰 프록시 뒤면 {@code common.web.ClientIpFilter}가 정한 클라이언트 주소, ADR 0021). 컬럼 길이에 맞춰 자르고 빈 값은 null로 둔다.
  */
 public record AuditActor(Long operatorId, String ip, String userAgent) {
 
