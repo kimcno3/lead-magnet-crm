@@ -236,6 +236,19 @@ class SubmissionValidatorTest {
     }
 
     @Test
+    void value가_없는_checkbox와_radio는_브라우저가_보내는_on을_받는다() {
+        List<FormField> config = List.of(
+            new FormField("phone", "tel", true, "전화", List.of()),
+            new FormField("agree", "checkbox", true, "약관", List.of("on")),
+            new FormField("yes", "radio", false, "예", List.of("on")));
+
+        Submission s = SubmissionValidator.validate(config, fields("phone", "01012345678", "agree", "on", "yes", "on"), true);
+
+        assertThat(s.payload()).containsEntry("agree", List.of("on")).containsEntry("yes", "on");
+        assertError(errorsOf(config, fields("phone", "01012345678", "agree", "yes"), true), "agree", "invalid_option");
+    }
+
+    @Test
     void checkbox가_선택지보다_많은_값을_보내면_invalid_value다() {
         assertError(errorsOf(CONFIG, valid("interests", List.of("x", "y", "z", "x")), true), "interests", "invalid_value");
     }

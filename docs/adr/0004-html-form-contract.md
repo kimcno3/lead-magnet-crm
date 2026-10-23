@@ -47,3 +47,10 @@
 - 필드 라벨 추출은 휴리스틱이다. radio·checkbox 묶음의 라벨은 첫 요소 기준이라 운영자가 이후 폼 설정(`field_config`)에서 고칠 수 있어야 한다.
 - 중첩 form이나 잘못된 HTML은 jsoup(HTML5 파서)이 브라우저처럼 보정한 결과를 기준으로 판단한다.
 - 스크립트를 허용하므로 격리가 깨지면 곧바로 위험해진다. 격리 불변식(CLAUDE.md 보안 불변식)의 변경은 별도 ADR과 승인이 필요하다.
+
+## 변경
+
+### 2026-10-23: value 없는 선택지와 연락처 필드 타입
+
+- `value` 속성이 없는 `radio`·`checkbox`는 `options`에 `"on"`을 넣는다. HTML 표준에서 브라우저는 이런 입력을 선택하면 `"on"`을 보낸다. 이 규칙이 없으면 `<input type="checkbox" name="agree" required>` 같은 흔한 AI 폼은 options가 비어 모든 신청이 422 `invalid_option`이 된다. 같은 그룹에 value 없는 입력이 여럿이어도 `"on"`은 한 번만 넣는다.
+- 연락처 필드 조건(`template_contact_field_missing`)은 `phone`·`email` 이름의 필드가 선택지 타입(`select`·`radio`·`checkbox`)이 아닐 때만 만족한다. 신청 검증은 선택지 타입 필드를 연락처 컬럼이 아닌 payload로 보내므로, 선택지 `phone`·`email`만 있는 폼은 신청을 하나도 받을 수 없기 때문이다.

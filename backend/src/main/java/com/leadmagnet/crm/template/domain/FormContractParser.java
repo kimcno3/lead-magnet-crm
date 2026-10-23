@@ -18,6 +18,9 @@ public final class FormContractParser {
 
     public static final int MAX_FIELDS = 50;
     private static final Pattern NAME_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]{0,49}$");
+    /** value 속성이 없는 radio·checkbox를 선택하면 브라우저가 보내는 값. */
+    static final String DEFAULT_CHOICE_VALUE = "on";
+    private static final Set<String> OPTION_TYPES = Set.of("select", "radio", "checkbox");
     private static final Set<String> NON_FIELD_INPUT_TYPES = Set.of("submit", "button", "reset", "image");
     private static final Set<String> FORBIDDEN_INPUT_TYPES = Set.of("file", "password");
     private static final Set<String> KNOWN_TYPES =
@@ -60,13 +63,18 @@ public final class FormContractParser {
         if (groups.size() > MAX_FIELDS) {
             throw new DomainException(ErrorCode.TEMPLATE_FIELD_INVALID, "필드는 최대 " + MAX_FIELDS + "개까지 쓸 수 있습니다");
         }
-        if (!groups.containsKey("phone") && !groups.containsKey("email")) {
+        // 선택지 타입의 phone·email은 연락처 값이 아니어서(SubmissionValidator가 payload로 보낸다) 연락처로 치지 않는다.
+        if (!isContactField(groups.get("phone")) && !isContactField(groups.get("email"))) {
             throw new DomainException(ErrorCode.TEMPLATE_CONTACT_FIELD_MISSING);
         }
 
         List<FormField> fields = new ArrayList<>();
         groups.forEach((name, group) -> fields.add(group.toField(name, document)));
         return List.copyOf(fields);
+    }
+
+    private static boolean isContactField(Group group) {
+        return group != null && !OPTION_TYPES.contains(group.type);
     }
 
     private static String controlType(Element control) {
@@ -127,8 +135,13 @@ public final class FormContractParser {
                 case "select" -> control.select("option").forEach(option ->
                     options.add(option.hasAttr("value") ? option.attr("value") : option.text().trim()));
                 case "input" -> {
-                    if ((type.equals("radio") || type.equals("checkbox")) && control.hasAttr("value")) {
-                        options.add(control.attr("value"));
+                    if (type.equals("radio") || type.equals("checkbox")) {
+                        if (control.hasAttr("value")) {
+                            options.add(control.attr("value"));
+                        } else if (!options.contains(DEFAULT_CHOICE_VALUE)) {
+                            // value가 없으면 브라우저는 "on"을 보낸다(HTML 표준 기본값).
+                            options.add(DEFAULT_CHOICE_VALUE);
+                        }
                     }
                 }
                 default -> { }

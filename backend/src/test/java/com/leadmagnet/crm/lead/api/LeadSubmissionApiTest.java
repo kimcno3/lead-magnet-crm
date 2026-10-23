@@ -405,6 +405,21 @@ class LeadSubmissionApiTest {
     }
 
     @Test
+    void value가_없는_필수_checkbox는_브라우저_기본값_on으로_신청할_수_있다() {
+        AdminFixtures.createPublishedForm(token, "agree-only", """
+            <!doctype html><html><body><form>
+            <label>전화 <input type="tel" name="phone" required></label>
+            <label><input type="checkbox" name="agree" required> 약관 동의</label>
+            <button>신청</button></form></body></html>
+            """);
+
+        submit("agree-only", fields("phone", PHONE, "agree", "on")).then().statusCode(201);
+
+        assertThat(jdbc.queryForList("SELECT jsonb_array_elements_text(payload->'agree') FROM leads", String.class))
+            .containsExactly("on");
+    }
+
+    @Test
     void checkbox_값_하나는_배열로_저장한다() {
         submit("spring-2026", fields("name", "홍", "phone", PHONE, "interests", "y")).then().statusCode(201);
 
