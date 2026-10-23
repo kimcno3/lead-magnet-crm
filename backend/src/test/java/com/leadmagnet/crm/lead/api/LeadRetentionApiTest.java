@@ -437,7 +437,7 @@ class LeadRetentionApiTest {
         List<String> lines = csv.lines().toList();
         assertThat(lines.get(0)).endsWith(",추가 항목,파기");
         assertThat(lines.get(1)).isEqualTo("2025-01-01 09:00:00,,,,direct,,봄 특강 신청,,파기됨");
-        assertThat(lines.get(2)).contains("01011110002").endsWith(",");
+        assertThat(lines.get(2)).contains("010-1111-0002").endsWith(",");
     }
 
     @Test

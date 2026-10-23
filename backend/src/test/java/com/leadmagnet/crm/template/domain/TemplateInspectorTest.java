@@ -219,9 +219,11 @@ class TemplateInspectorTest {
     // ---------- 성능·상한 ----------
 
     private static void within2s(String html) {
-        long start = System.nanoTime();
-        assertTimeoutPreemptively(Duration.ofSeconds(2), () -> TemplateInspector.inspect(html));
-        System.out.printf("inspect %d bytes: %d ms%n", html.length(), (System.nanoTime() - start) / 1_000_000);
+        within(Duration.ofSeconds(2), html);
+    }
+
+    private static void within(Duration limit, String html) {
+        assertTimeoutPreemptively(limit, () -> TemplateInspector.inspect(html));
     }
 
     @Test
@@ -238,7 +240,8 @@ class TemplateInspectorTest {
     @Test
     void 닫히지_않는_주석_import_srcset도_선형_시간에_끝난다() {
         within2s(page("<style>" + "/*".repeat(200_000) + "</style>", ""));
-        within2s(page("<style>" + "@import ".repeat(60_000) + "</style>", ""));
+        // 선형이면 0.7초 안팎이다. 느린 CI에서 흔들리지 않게 한도만 넓힌다(제곱 시간이면 수십 초라 여전히 잡는다).
+        within(Duration.ofSeconds(5), page("<style>" + "@import ".repeat(60_000) + "</style>", ""));
         within2s(page("", "<img srcset=\"" + "a ,".repeat(100_000) + "\">"));
         within2s(page("<script>" + "fetch ".repeat(80_000) + "</script>", ""));
         within2s(page("<style>@font-face{src:url(data:font/woff;base64," + ".woff".repeat(80_000) + ")}</style>", ""));

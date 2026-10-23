@@ -7,6 +7,7 @@ import com.leadmagnet.crm.common.web.AuditActor;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
 import com.leadmagnet.crm.common.Csv;
+import com.leadmagnet.crm.common.PhoneFormat;
 import com.leadmagnet.crm.common.crypto.PiiCryptoException;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.DomainException.FieldError;
@@ -168,7 +169,9 @@ public class LeadExportService {
     private LeadContact contactCells(Lead lead, boolean reveal) {
         try {
             LeadContact contact = protector.reveal(lead);
-            return reveal ? contact : contact.masked();
+            // 원문 전화번호는 하이픈을 넣는다: 숫자만이면 스프레드시트가 앞의 0을 지운다(ADR 0016)
+            return reveal ? new LeadContact(contact.name(), PhoneFormat.hyphenate(contact.phone()), contact.email())
+                : contact.masked();
         } catch (PiiCryptoException e) {
             log.warn("신청 연락처를 복호화하지 못해 CSV에 복호화 불가로 적음: leadId={}", lead.getId());
             return new LeadContact(UNAVAILABLE, UNAVAILABLE, UNAVAILABLE);

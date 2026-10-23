@@ -112,6 +112,16 @@ class SchemaMigrationTest {
     }
 
     @Test
+    void V11_마이그레이션이_link_id_인덱스를_만든다() {
+        assertThat(jdbc.queryForObject("SELECT success FROM flyway_schema_history WHERE version = '11'", Boolean.class))
+            .isTrue();
+        assertThat(jdbc.queryForList("SELECT indexname FROM pg_indexes WHERE tablename = 'visits'", String.class))
+            .contains("ix_visits_link_id");
+        assertThat(jdbc.queryForList("SELECT indexname FROM pg_indexes WHERE tablename = 'leads'", String.class))
+            .contains("ix_leads_link_id");
+    }
+
+    @Test
     void V5_이후에도_연락처_암호문이_하나도_없는_신청은_거부한다() {
         assertRejected("INSERT INTO leads (form_id, campaign_id, channel, name_enc, consent_at) "
             + "SELECT id, campaign_id, 'direct', '\\x01'::bytea, now() FROM forms WHERE id = " + formId);

@@ -151,7 +151,7 @@ class LeadExportApiTest {
         String csv = text(authed().get("/api/admin/campaigns/{id}/leads.csv?reveal=true", campaign).then()
             .statusCode(200).header("Cache-Control", containsString("no-store")).extract().response());
 
-        assertThat(lines(csv).get(1)).contains(",홍길동,01012345678,hong@example.com,direct,");
+        assertThat(lines(csv).get(1)).contains(",홍길동,010-1234-5678,hong@example.com,direct,");
         Map<String, Object> log = lastLog();
         assertThat(log.get("action")).isEqualTo("lead.export.reveal");
         assertThat((String) log.get("detail")).contains("\"count\": 1", "\"reveal\": true")
