@@ -217,6 +217,8 @@ export interface LeadContact {
   name: string | null
   phone: string | null
   email: string | null
+  /** phone·email 이외 이름의 전화·이메일 입력 원문(필드 이름 → 값). 명단 payload에서는 가려져 있다 (ADR 0015). */
+  extraContacts?: Record<string, string>
 }
 
 export interface LeadPage {

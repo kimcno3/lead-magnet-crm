@@ -67,4 +67,5 @@
 
 ## 변경 기록
 
+- 2026-10-24 (이슈 #52): payload에 남는 연락처처럼 보이는 추가 항목을 다룬다. `phone`·`email` 이외 이름의 입력은 컬럼이 아니라 암호화되지 않는 `payload`에 저장되므로 (1) 업로드 검사가 `extra_contact_field` 경고를 내고(ADR 0017) (2) 명단 응답과 마스킹 CSV는 폼 `fieldConfig`의 타입(`tel`·`email`)과 같은 이름 토큰 규칙(`ContactLikeField`)으로 그 값을 전화번호·이메일 마스킹 규칙으로 가린다. 원문은 원문 CSV와 원문 열람 API에만 나온다. 결정: **원문 열람 응답에 `extraContacts`(필드 이름 → 원문, 없으면 `{}`)를 넣는다.** 가려 둔 값을 운영자가 볼 방법이 없으면 보조 연락처로 연락할 수 없고, 열람 경로가 이미 감사(`lead.contact.view`)·`no-store`로 보호되므로 경로를 늘리지 않고 같은 호출에 싣는다. 감사 기록은 그대로이고 detail에 원문을 넣지 않는다. 한계: payload 값은 여전히 DB에 평문이다(payload 항목 암호화는 후속). 파기(익명화)는 payload 값을 이미 비우므로 변하지 않는다.
 - 2026-10-24 (ADR 0020, V10): 보존 기간 파기를 넣었다. 익명화는 `*_enc`와 `*_hash`를 NULL로 하고 payload는 키만 남긴다. `ck_leads_contact`는 `anonymized_at IS NOT NULL OR phone_enc IS NOT NULL OR email_enc IS NOT NULL`로 바뀌었다. 파기된 신청의 원문 API는 410 `lead_anonymized`, 명단은 연락처 없이 `anonymizedAt`을 준다.

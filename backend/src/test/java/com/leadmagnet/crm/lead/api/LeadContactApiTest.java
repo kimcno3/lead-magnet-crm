@@ -36,7 +36,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 class LeadContactApiTest {
 
     static final String HTML = """
-        <form><input name="name"><input name="phone" type="tel"><input name="email" type="email"></form>
+        <form><input name="name"><input name="phone" type="tel"><input name="email" type="email">
+        <input name="alt_phone" type="tel"><input name="backup_email" type="email"><input name="memo"></form>
         """;
 
     @LocalServerPort
@@ -88,7 +89,8 @@ class LeadContactApiTest {
         authed().get("/api/admin/leads/{id}/contact", id).then().statusCode(200)
             .header("Cache-Control", containsString("no-store"))
             .body("name", equalTo("홍길동")).body("phone", equalTo("01012345678"))
-            .body("email", equalTo("hong@example.com")).body("size()", equalTo(3));
+            .body("email", equalTo("hong@example.com")).body("extraContacts", equalTo(Map.of()))
+            .body("size()", equalTo(4));
     }
 
     @Test
@@ -97,6 +99,21 @@ class LeadContactApiTest {
 
         authed().get("/api/admin/leads/{id}/contact", id).then().statusCode(200)
             .body("name", equalTo(null)).body("email", equalTo(null)).body("phone", equalTo("01012345678"));
+    }
+
+    @Test
+    void payload의_연락처_모양_항목은_extraContacts에_원문으로_주고_감사_로그는_그대로다() {
+        long id = submit(Map.of("phone", "010-1234-5678", "alt_phone", "010-9999-8888",
+            "backup_email", "Secret@Example.com", "memo", "오전"));
+
+        authed().get("/api/admin/leads/{id}/contact", id).then().statusCode(200)
+            .body("extraContacts.alt_phone", equalTo("01099998888"))
+            .body("extraContacts.backup_email", equalTo("secret@example.com"))
+            .body("extraContacts.size()", equalTo(2));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action = 'lead.contact.view'",
+            Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT detail::text FROM audit_logs WHERE action = 'lead.contact.view'",
+            String.class)).doesNotContain("01099998888", "secret@example.com");
     }
 
     @Test

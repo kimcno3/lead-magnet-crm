@@ -322,4 +322,42 @@ class TemplateInspectorTest {
         assertThat(codes(page("<script type=\"module\">fetch('/x')</script>", ""))).contains("fetch_in_script");
         assertThat(codes(page("<script type=\"text/javascript\">fetch('/x')</script>", ""))).contains("fetch_in_script");
     }
+
+    private static String labeled(String type, String name) {
+        return "<label for=\"x\">값</label><input id=\"x\" type=\"" + type + "\" name=\"" + name + "\">";
+    }
+
+    @Test
+    void phone_email_밖의_tel_email_타입_입력은_extra_contact_field_경고다() {
+        InspectionWarning w = only(page("", labeled("tel", "alt_contact")), "extra_contact_field");
+        assertThat(w.severity()).isEqualTo(Severity.WARNING);
+        assertThat(w.location()).isEqualTo("alt_contact");
+        assertThat(w.message()).contains("마스킹").contains("payload");
+        assertThat(codes(page("", labeled("email", "backup")))).contains("extra_contact_field");
+    }
+
+    @Test
+    void 연락처를_뜻하는_이름의_텍스트_계열_입력은_경고다() {
+        for (String name : List.of("mobile", "home_tel", "hp", "cell-number", "work_mail", "contactEmail")) {
+            assertThat(codes(page("", labeled("text", name)))).as(name).contains("extra_contact_field");
+        }
+        assertThat(codes(page("", labeled("number", "phone2")))).contains("extra_contact_field");
+    }
+
+    @Test
+    void 예약_이름_phone_email과_무관한_입력은_경고가_없다() {
+        String email = "<label for=\"e\">이메일</label><input id=\"e\" type=\"email\" name=\"email\">";
+        assertThat(codes(page("", email))).doesNotContain("extra_contact_field");
+        assertThat(codes(page("", labeled("text", "hotel")))).doesNotContain("extra_contact_field");
+        assertThat(codes(page("", labeled("text", "company")))).doesNotContain("extra_contact_field");
+        assertThat(codes(page("", labeled("checkbox", "email_opt_in")))).doesNotContain("extra_contact_field");
+        assertThat(codes(page("", "<label for=\"x\">m</label><select id=\"x\" name=\"mobile_pref\"><option>a</option></select>")))
+            .doesNotContain("extra_contact_field");
+    }
+
+    @Test
+    void 같은_이름의_추가_연락처는_한_번만_경고한다() {
+        String twice = labeled("tel", "alt") + labeled("tel", "alt");
+        assertThat(codes(page("", twice)).stream().filter("extra_contact_field"::equals).count()).isEqualTo(1);
+    }
 }

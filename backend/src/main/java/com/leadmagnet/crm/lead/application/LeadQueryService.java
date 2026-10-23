@@ -10,6 +10,7 @@ import com.leadmagnet.crm.form.domain.FormRepository;
 import com.leadmagnet.crm.lead.domain.Lead;
 import com.leadmagnet.crm.lead.domain.LeadRepository;
 import com.leadmagnet.crm.link.domain.AttributionChannel;
+import com.leadmagnet.crm.template.domain.FormField;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 캠페인별 신청 명단 조회. 최신순(created_at desc, id desc), 폼·채널 필터, 페이징.
- * 이름·전화번호·이메일은 복호화한 뒤 가린 값만 돌려준다. 원문은 {@link LeadContactService} (ADR 0015).
+ * 이름·전화번호·이메일은 복호화한 뒤 가린 값만 돌려준다. payload의 연락처처럼 보이는 항목도 같은 규칙으로 가린다({@link ExtraContacts}). 원문은 {@link LeadContactService} (ADR 0015).
  */
 @Service
 @Transactional(readOnly = true)
@@ -73,9 +74,11 @@ public class LeadQueryService {
 
         LeadFilter filter = new LeadFilter(campaignId, formId, channelFilter);
         Page<Lead> result = leads.findAll(filter.toSpecification(), PageRequest.of(page, size, NEWEST_FIRST));
-        Map<Long, String> titles = forms.findAllById(result.stream().map(Lead::getFormId).distinct().toList()).stream()
-            .collect(Collectors.toMap(Form::getId, Form::getTitle, (a, b) -> a));
-        return new LeadPage(result.stream().map(l -> toView(l, titles.get(l.getFormId()))).toList(),
+        List<Form> pageForms = forms.findAllById(result.stream().map(Lead::getFormId).distinct().toList());
+        Map<Long, String> titles = pageForms.stream().collect(Collectors.toMap(Form::getId, Form::getTitle, (a, b) -> a));
+        Map<Long, List<FormField>> fields = pageForms.stream()
+            .collect(Collectors.toMap(Form::getId, Form::getFieldConfig, (a, b) -> a));
+        return new LeadPage(result.stream().map(l -> toView(l, titles.get(l.getFormId()), fields.get(l.getFormId()))).toList(),
             page, size, result.getTotalElements(), result.getTotalPages());
     }
 
@@ -83,7 +86,7 @@ public class LeadQueryService {
      * 한 행의 암호문이 손상돼도(변조, 다른 키) 명단 전체가 500이 되지 않게 그 행만 연락처를 비우고
      * contactUnavailable로 표시한다. 로그에는 신청 id만 남긴다. 원문 조회({@link LeadContactService})는 그대로 실패한다.
      */
-    private LeadView toView(Lead l, String formTitle) {
+    private LeadView toView(Lead l, String formTitle, List<FormField> fieldConfig) {
         if (l.isAnonymized()) {
             // 파기된 신청은 연락처가 없다(복호화할 것이 없다). payload는 키만 남은 값이다(ADR 0020).
             return new LeadView(l.getId(), l.getFormId(), formTitle, l.getChannel().value(), null, null, null, false,
@@ -99,7 +102,7 @@ public class LeadQueryService {
             unavailable = true;
         }
         return new LeadView(l.getId(), l.getFormId(), formTitle, l.getChannel().value(), masked.name(), masked.phone(),
-            masked.email(), unavailable, l.getPayload(), l.getCreatedAt(), null);
+            masked.email(), unavailable, ExtraContacts.mask(l.getPayload(), fieldConfig), l.getCreatedAt(), null);
     }
 
     /**

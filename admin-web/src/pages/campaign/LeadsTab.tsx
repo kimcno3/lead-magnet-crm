@@ -248,8 +248,9 @@ function LeadRow({
 }) {
   if (lead.anonymizedAt) return <AnonymizedRow lead={lead} onConsent={onConsent} />
   const when = formatDateTime(lead.createdAt)
-  const extra = summarizePayload(lead.payload)
   const shown = reveal?.status === 'shown' ? reveal.contact : null
+  // 원문 보기를 누른 줄은 payload에서 가려진 연락처 모양 항목도 원문으로 바꿔 보여 준다.
+  const extra = summarizePayload(shown?.extraContacts ? { ...lead.payload, ...shown.extraContacts } : lead.payload)
   const contact = shown ?? lead
   return (
     <tr>
