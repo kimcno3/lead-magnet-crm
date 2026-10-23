@@ -1,8 +1,8 @@
 # 로드맵
 
-이번 제출 범위(v0.1.0 core, v0.2.0 extras) 밖에 두는 작업이다. 우선순위나 범위가 바뀌면 이 문서를 고친다.
+v0.4.0까지의 범위(v0.1.0 core, v0.2.0 extras, v0.3.0 hardening, v0.4.0 operations) 밖에 두는 작업이다. 우선순위나 범위가 바뀌면 이 문서를 고친다.
 
-## 배포
+## 배포 (v0.5.0 후보)
 
 - Render 무료 서비스 4개(backend dev·prod, admin-web dev·prod)와 Neon 브랜치(dev·prod)로 환경을 운영한다.
   - develop 병합 시 dev, main 병합 시 prod에 배포한다.
