@@ -1,6 +1,5 @@
 package com.leadmagnet.crm.lead.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.common.error.ProblemDetails;
 import jakarta.servlet.FilterChain;
@@ -15,13 +14,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ProblemDetail;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -38,11 +34,9 @@ public class SubmissionGuardFilter extends OncePerRequestFilter {
     private static final Pattern PATH = Pattern.compile("^/api/public/forms/[^/]+/submissions$");
 
     private final long maxBytes;
-    private final ObjectMapper objectMapper;
 
-    public SubmissionGuardFilter(long maxBytes, ObjectMapper objectMapper) {
+    public SubmissionGuardFilter(long maxBytes) {
         this.maxBytes = maxBytes;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -55,31 +49,19 @@ public class SubmissionGuardFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         if ("null".equals(request.getHeader("Origin"))) {
-            reject(request, response, ErrorCode.FORBIDDEN_ORIGIN);
+            ProblemDetails.write(request, response, ErrorCode.FORBIDDEN_ORIGIN);
             return;
         }
         if (request.getContentLengthLong() > maxBytes) {
-            reject(request, response, ErrorCode.PAYLOAD_TOO_LARGE);
+            ProblemDetails.write(request, response, ErrorCode.PAYLOAD_TOO_LARGE);
             return;
         }
         byte[] body = request.getInputStream().readNBytes((int) maxBytes + 1);
         if (body.length > maxBytes) {
-            reject(request, response, ErrorCode.PAYLOAD_TOO_LARGE);
+            ProblemDetails.write(request, response, ErrorCode.PAYLOAD_TOO_LARGE);
             return;
         }
         chain.doFilter(new BufferedBodyRequest(request, body), response);
-    }
-
-    private void reject(HttpServletRequest request, HttpServletResponse response, ErrorCode code) throws IOException {
-        ProblemDetail problem = ProblemDetails.of(code);
-        try {
-            problem.setInstance(URI.create(request.getRequestURI()));
-        } catch (IllegalArgumentException ignored) {
-            // URI로 옮길 수 없는 경로는 instance를 비워 둔다.
-        }
-        response.setStatus(code.status().value());
-        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        objectMapper.writeValue(response.getOutputStream(), problem);
     }
 
     /** 이미 읽은 본문을 다시 읽게 해 주는 요청 래퍼. */

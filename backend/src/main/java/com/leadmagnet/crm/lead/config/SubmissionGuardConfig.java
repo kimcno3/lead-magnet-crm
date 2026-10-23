@@ -1,6 +1,5 @@
 package com.leadmagnet.crm.lead.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.security.SecurityProperties;
@@ -14,9 +13,9 @@ public class SubmissionGuardConfig {
 
     @Bean
     FilterRegistrationBean<SubmissionGuardFilter> submissionGuardFilter(
-            @Value("${app.public.max-submission-bytes:65536}") long maxBytes, ObjectMapper objectMapper) {
+            @Value("${app.public.max-submission-bytes:65536}") long maxBytes) {
         FilterRegistrationBean<SubmissionGuardFilter> registration =
-            new FilterRegistrationBean<>(new SubmissionGuardFilter(maxBytes, objectMapper));
+            new FilterRegistrationBean<>(new SubmissionGuardFilter(maxBytes));
         registration.setOrder(SecurityProperties.DEFAULT_FILTER_ORDER - 5);
         registration.setDispatcherTypes(DispatcherType.REQUEST);
         return registration;
