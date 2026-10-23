@@ -59,9 +59,9 @@ class PiiBackfillRunnerTest {
 
         List<Map<String, Object>> rows = jdbc.queryForList("SELECT * FROM leads ORDER BY id");
         assertThat(rows).allSatisfy(row -> {
-            assertThat(cipher.decrypt((byte[]) row.get("name_enc"))).isEqualTo(row.get("name"));
-            assertThat(cipher.decrypt((byte[]) row.get("phone_enc"))).isEqualTo(row.get("phone"));
-            assertThat(cipher.decrypt((byte[]) row.get("email_enc"))).isEqualTo(row.get("email"));
+            assertThat(cipher.decrypt((byte[]) row.get("name_enc"), "name")).isEqualTo(row.get("name"));
+            assertThat(cipher.decrypt((byte[]) row.get("phone_enc"), "phone")).isEqualTo(row.get("phone"));
+            assertThat(cipher.decrypt((byte[]) row.get("email_enc"), "email")).isEqualTo(row.get("email"));
             assertThat(row.get("phone_hash")).isEqualTo(hasher.hashPhone((String) row.get("phone")));
             assertThat(row.get("email_hash")).isEqualTo(hasher.hashEmail((String) row.get("email")));
         });
@@ -80,7 +80,7 @@ class PiiBackfillRunnerTest {
 
     @Test
     void 이미_암호문이_있는_새_행은_건드리지_않는다() {
-        byte[] sealed = cipher.encrypt("01012345678");
+        byte[] sealed = cipher.encrypt("01012345678", "phone");
         jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, phone, phone_enc, phone_hash, consent_at) "
             + "VALUES (?, ?, 'direct', '01012345678', ?, ?, now())", formId, campaignId, sealed,
             hasher.hashPhone("01012345678"));
@@ -93,10 +93,10 @@ class PiiBackfillRunnerTest {
     void 일부_컬럼만_비어_있어도_빈_컬럼을_채운다() {
         jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, name, phone, phone_enc, phone_hash, consent_at) "
             + "VALUES (?, ?, 'direct', '홍길동', '01012345678', ?, ?, now())", formId, campaignId,
-            cipher.encrypt("01012345678"), hasher.hashPhone("01012345678"));
+            cipher.encrypt("01012345678", "phone"), hasher.hashPhone("01012345678"));
 
         assertThat(runner.backfill(100)).isEqualTo(1);
-        assertThat(cipher.decrypt(jdbc.queryForObject("SELECT name_enc FROM leads", byte[].class))).isEqualTo("홍길동");
+        assertThat(cipher.decrypt(jdbc.queryForObject("SELECT name_enc FROM leads", byte[].class), "name")).isEqualTo("홍길동");
     }
 
     @Test

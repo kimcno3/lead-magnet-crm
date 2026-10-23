@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -16,6 +17,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 로그에는 건수만 남긴다. 키가 DB 밖(환경 변수)에 있어 Flyway SQL로는 할 수 없다.
  */
 @Component
+@Order(1) // PiiKeyCheck(키가 기존 데이터와 같은지 확인) 다음에 돈다.
 public class PiiBackfillRunner implements ApplicationRunner {
 
     static final int BATCH_SIZE = 500;

@@ -135,10 +135,14 @@ test('명단 탭', async () => {
       await expect(a.locator('td').nth(2)).toHaveText('010-1234-5678')
       await expect(a.locator('td').nth(3)).toHaveText('hyunwoo@example.com')
       await expect(b.locator('td').nth(2)).toHaveText('010-****-5432')
-      const revealed = await a.locator('td').allTextContents()
       await a.getByRole('button', { name: '가리기' }).click()
       await expect(a.locator('td').nth(1)).toHaveText('이*우')
-      record({ revealed: revealed.slice(1, 4), hidden: await a.locator('td').nth(1).textContent() })
+      // 결과 파일(results.json)에는 원문을 남기지 않는다. 원문이 보였는지 여부와 가린 값만 기록한다.
+      record({
+        revealedMatchedExpected: true,
+        otherRowStayedMasked: (await b.locator('td').nth(2).textContent()) === '010-****-5432',
+        afterHide: await a.locator('td').nth(1).textContent(),
+      })
     },
   )
 })

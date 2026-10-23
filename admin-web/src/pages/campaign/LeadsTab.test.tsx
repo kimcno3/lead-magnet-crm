@@ -22,7 +22,7 @@ function backend(total = 45) {
 }
 
 /** 두 줄짜리 첫 페이지. 원문 보기가 그 줄에만 적용되는지 본다. */
-function twoRowBackend(contactResponse: () => Response = () => json(leadContact(0))) {
+function twoRowBackend(contactResponse: () => Response | Promise<Response> = () => json(leadContact(0))) {
   return mockBackend((url) => {
     if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
     if (url.pathname === '/api/admin/campaigns/7/leads') {
@@ -150,6 +150,62 @@ describe('원문 보기', () => {
     expect(await within(row).findByRole('alert')).toHaveTextContent('리소스를 찾을 수 없습니다')
     expect(within(row).getByText('010-****-5678')).toBeInTheDocument()
     expect(within(row).getByRole('button', { name: '원문 보기' })).toBeEnabled()
+  })
+})
+
+describe('원문 보기 경합과 복호화 실패', () => {
+  it('원문 응답이 화면을 옮긴 뒤 오면 같은 페이지로 돌아와도 원문을 보이지 않는다', async () => {
+    let release: (r: Response) => void = () => {}
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+      if (url.pathname === '/api/admin/campaigns/7/leads') return json(leadPage(Number(url.searchParams.get('page') ?? 0)))
+      if (url.pathname === '/api/admin/leads/100/contact') return new Promise<Response>((resolve) => (release = resolve))
+      return undefined
+    })
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    fireEvent.click(within(await rowOf('신*0')).getByRole('button', { name: '원문 보기' }))
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 페이지' }))
+    await screen.findByText('신*1')
+    fireEvent.click(screen.getByRole('button', { name: '이전 페이지' }))
+    const row = await rowOf('신*0')
+    release(json(leadContact(0)))
+
+    await waitFor(() => expect(within(row).getByRole('button', { name: '원문 보기' })).toBeEnabled())
+    expect(screen.queryByText('신청자0')).not.toBeInTheDocument()
+    expect(within(row).getByText('010-****-5678')).toBeInTheDocument()
+  })
+
+  it('필터를 바꿨다 되돌린 뒤 늦게 온 응답은 보이지 않는다', async () => {
+    let release: (r: Response) => void = () => {}
+    twoRowBackend(() => new Promise<Response>((resolve) => (release = resolve)))
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    const row = await rowOf('신*0')
+    fireEvent.click(within(row).getByRole('button', { name: '원문 보기' }))
+    fireEvent.change(screen.getByLabelText('채널'), { target: { value: 'direct' } })
+    fireEvent.change(screen.getByLabelText('채널'), { target: { value: '' } })
+    const again = await rowOf('신*0')
+    release(json(leadContact(0)))
+
+    await waitFor(() => expect(within(again).getByRole('button', { name: '원문 보기' })).toBeEnabled())
+    expect(screen.queryByText('신청자0')).not.toBeInTheDocument()
+  })
+
+  it('복호화할 수 없는 줄은 복호화 불가로 표시하고 원문 보기를 두지 않는다', async () => {
+    mockBackend((url) => {
+      if (url.pathname === '/api/admin/campaigns/7') return json(campaign)
+      if (url.pathname === '/api/admin/campaigns/7/leads') {
+        const page = leadPage(0, 2)
+        const broken = { ...page.items[0], id: 300, name: null, phone: null, email: null, contactUnavailable: true }
+        return json({ ...page, items: [page.items[0], broken] })
+      }
+      return undefined
+    })
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=leads')
+    const row = await rowOf('복호화 불가')
+
+    expect(within(row).queryByRole('button', { name: '원문 보기' })).not.toBeInTheDocument()
+    expect(within(await rowOf('신*0')).getByRole('button', { name: '원문 보기' })).toBeInTheDocument()
   })
 })
 

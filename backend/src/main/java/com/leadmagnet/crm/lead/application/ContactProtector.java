@@ -12,6 +12,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class ContactProtector {
 
+    // AES-GCM AAD로 쓰는 컬럼 이름. 다른 컬럼의 암호문을 옮겨 넣으면 복호화가 실패한다.
+    static final String NAME = "name";
+    static final String PHONE = "phone";
+    static final String EMAIL = "email";
+
     private final PiiCipher cipher;
     private final PiiHasher hasher;
 
@@ -22,7 +27,7 @@ public class ContactProtector {
 
     /** 값이 없는 필드는 암호문·해시도 null이다. */
     public ProtectedContact protect(String name, String phone, String email) {
-        return new ProtectedContact(cipher.encrypt(name), cipher.encrypt(phone), cipher.encrypt(email),
+        return new ProtectedContact(cipher.encrypt(name, NAME), cipher.encrypt(phone, PHONE), cipher.encrypt(email, EMAIL),
             hasher.hashPhone(phone), hasher.hashEmail(email));
     }
 
@@ -33,8 +38,8 @@ public class ContactProtector {
     public LeadContact reveal(Lead lead) {
         ProtectedContact stored = lead.getProtectedContact();
         return new LeadContact(
-            stored.nameEnc() == null ? lead.getName() : cipher.decrypt(stored.nameEnc()),
-            stored.phoneEnc() == null ? lead.getPhone() : cipher.decrypt(stored.phoneEnc()),
-            stored.emailEnc() == null ? lead.getEmail() : cipher.decrypt(stored.emailEnc()));
+            stored.nameEnc() == null ? lead.getName() : cipher.decrypt(stored.nameEnc(), NAME),
+            stored.phoneEnc() == null ? lead.getPhone() : cipher.decrypt(stored.phoneEnc(), PHONE),
+            stored.emailEnc() == null ? lead.getEmail() : cipher.decrypt(stored.emailEnc(), EMAIL));
     }
 }

@@ -12,7 +12,9 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  * 개인정보 컬럼 암호화 (ADR 0015). AES-256-GCM, 값마다 무작위 96비트 IV, 128비트 태그.
- * 저장 형식은 {@code version(1B) | iv(12B) | ciphertext+tag}. 버전 바이트는 이후 키 교체 때 어떤 키로 풀지 가리키는 자리다.
+ * 저장 형식은 {@code version(1B) | iv(12B) | ciphertext+tag}. 버전 바이트는 형식(현재 1: 컬럼 이름을 AAD로 묶음)과
+ * 이후 키 교체 때 어떤 키로 풀지 가리키는 자리다. AAD로 컬럼 이름("name", "phone", "email")을 묶으므로
+ * 한 컬럼의 암호문을 다른 컬럼에 옮겨 넣으면 복호화가 실패한다.
  * 상태 없는 순수 클래스라 스레드에 안전하다(Cipher는 호출마다 새로 만든다).
  */
 public final class PiiCipher {
@@ -33,8 +35,8 @@ public final class PiiCipher {
         this.key = new SecretKeySpec(key.clone(), "AES");
     }
 
-    /** null은 null로 둔다. */
-    public byte[] encrypt(String plaintext) {
+    /** null은 null로 둔다. column은 AAD로 묶을 컬럼 이름이다. */
+    public byte[] encrypt(String plaintext, String column) {
         if (plaintext == null) {
             return null;
         }
@@ -43,6 +45,7 @@ public final class PiiCipher {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
+            cipher.updateAAD(aad(column));
             byte[] sealed = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
             return ByteBuffer.allocate(1 + IV_BYTES + sealed.length).put(VERSION).put(iv).put(sealed).array();
         } catch (GeneralSecurityException e) {
@@ -50,8 +53,8 @@ public final class PiiCipher {
         }
     }
 
-    /** null은 null로 둔다. 변조됐거나 다른 키로 만든 값이면 {@link PiiCryptoException}. */
-    public String decrypt(byte[] stored) {
+    /** null은 null로 둔다. 변조됐거나, 다른 키나 다른 컬럼으로 만든 값이면 {@link PiiCryptoException}. */
+    public String decrypt(byte[] stored, String column) {
         if (stored == null) {
             return null;
         }
@@ -64,12 +67,20 @@ public final class PiiCipher {
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, stored, 1, IV_BYTES));
+            cipher.updateAAD(aad(column));
             byte[] plain = cipher.doFinal(stored, 1 + IV_BYTES, stored.length - 1 - IV_BYTES);
             return new String(plain, StandardCharsets.UTF_8);
         } catch (AEADBadTagException e) {
-            throw new PiiCryptoException("암호문이 변조되었거나 키가 다릅니다");
+            throw new PiiCryptoException("암호문이 변조되었거나 키·컬럼이 다릅니다");
         } catch (GeneralSecurityException e) {
             throw new PiiCryptoException("개인정보를 복호화하지 못했습니다", e);
         }
+    }
+
+    private static byte[] aad(String column) {
+        if (column == null || column.isEmpty()) {
+            throw new IllegalArgumentException("AAD로 쓸 컬럼 이름이 필요합니다");
+        }
+        return (VERSION + ":" + column).getBytes(StandardCharsets.UTF_8);
     }
 }

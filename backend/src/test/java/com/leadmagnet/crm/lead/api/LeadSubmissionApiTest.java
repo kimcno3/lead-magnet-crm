@@ -154,9 +154,9 @@ class LeadSubmissionApiTest {
         submit("spring-2026", fields("name", "홍길동", "phone", PHONE, "email", " Kim@Example.com")).then().statusCode(201);
 
         assertThat(leads()).singleElement().satisfies(row -> {
-            assertThat(cipher.decrypt((byte[]) row.get("name_enc"))).isEqualTo("홍길동");
-            assertThat(cipher.decrypt((byte[]) row.get("phone_enc"))).isEqualTo(PHONE_DIGITS);
-            assertThat(cipher.decrypt((byte[]) row.get("email_enc"))).isEqualTo("kim@example.com");
+            assertThat(cipher.decrypt((byte[]) row.get("name_enc"), "name")).isEqualTo("홍길동");
+            assertThat(cipher.decrypt((byte[]) row.get("phone_enc"), "phone")).isEqualTo(PHONE_DIGITS);
+            assertThat(cipher.decrypt((byte[]) row.get("email_enc"), "email")).isEqualTo("kim@example.com");
             assertThat(row).containsEntry("phone_hash", hasher.hashPhone(PHONE_DIGITS))
                 .containsEntry("email_hash", hasher.hashEmail("kim@example.com"));
         });

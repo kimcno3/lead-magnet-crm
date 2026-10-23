@@ -954,15 +954,15 @@ paths:
         "401":
           description: unauthorized
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/LeadContactResponse"
+                $ref: "#/components/schemas/ProblemDetail"
         "404":
           description: 없는 신청 (not_found)
           content:
-            '*/*':
+            application/problem+json:
               schema:
-                $ref: "#/components/schemas/LeadContactResponse"
+                $ref: "#/components/schemas/ProblemDetail"
       security:
       - bearer: []
   /api/admin/stats/campaigns:
@@ -1698,6 +1698,33 @@ components:
           format: int64
         conversionRate:
           type: number
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type:
+          - string
+          - "null"
+        status:
+          type: integer
+          format: int32
+        detail:
+          type:
+          - string
+          - "null"
+        instance:
+          type:
+          - string
+          - "null"
+          format: uri
+        properties:
+          type:
+          - object
+          - "null"
+          additionalProperties: {}
     LeadContactResponse:
       type: object
       properties:
@@ -1889,6 +1916,8 @@ components:
           type: string
         email:
           type: string
+        contactUnavailable:
+          type: boolean
         payload:
           type: object
           additionalProperties: {}

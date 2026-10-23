@@ -8,8 +8,8 @@
 |---|---|---|
 | `docker compose up`에서 backend가 바로 종료되고 로그에 `JWT_SECRET` | `.env`의 `JWT_SECRET`이 비었거나 32바이트 미만(자리표시 값 `change-me` 포함) | README의 `sed ... openssl rand -base64 48` 명령으로 `.env`를 다시 만든다 |
 | backend가 바로 종료되고 로그에 `LEAD_ENC_KEY` 또는 `LEAD_HMAC_KEY` | 값이 없거나 base64 32바이트가 아님(자리표시 값 `change-me` 포함), 또는 두 키가 같음 | 각각 `openssl rand -base64 32`로 만들어 `.env`에 넣는다(README의 `sed` 명령이 함께 만든다). **이미 신청이 쌓인 DB라면 원래 키를 되살려야 한다** |
-| 명단·원문 보기가 500 `internal_error`, 로그에 `PiiCryptoException`·"암호문이 변조되었거나 키가 다릅니다" | `LEAD_ENC_KEY`가 데이터를 저장할 때와 다름(키를 새로 만들었거나 `.env`를 다시 생성) 또는 DB의 암호문이 손상됨 | 저장할 때 쓴 키로 되돌린다. 키를 잃었다면 기존 신청자 정보는 복구할 수 없다(키 교체 절차는 아직 없음, ADR 0015). 로컬 개발이라면 `docker compose down -v`로 DB를 지운다 |
-| 키를 바꾼 뒤 이미 신청한 연락처가 중복으로 걸리지 않는다 | `LEAD_HMAC_KEY`가 바뀌면 같은 연락처의 해시가 달라진다(expand 단계에서는 평문 인덱스가 아직 막는다) | HMAC 키는 바꾸지 않는다. 바꿔야 하면 재해시 절차가 필요하다(ADR 0015 후속 작업) |
+| backend가 바로 종료되고 로그에 `LEAD_ENC_KEY가 기존 데이터를 암호화한 키와 다릅니다` 또는 `LEAD_HMAC_KEY가 기존 데이터의 중복 판정 해시를 만든 키와 다릅니다` | 키 일치 확인(`pii_key_check`)에서 현재 키가 처음 데이터를 쓴 키와 다름. `.env`를 다시 만들었거나(README의 `sed` 명령은 키를 새로 만든다) 키를 바꿈 | 원래 키로 되돌린다. 키를 잃었다면 기존 신청자 정보는 복구할 수 없다. 로컬 개발이라면 `docker compose down -v`로 DB를 지우고 다시 띄운다(데이터 모두 삭제). 키를 바꿔야 하면 ROADMAP의 "PII 키 교체 절차"가 필요하다(아직 없음, ADR 0015) |
+| 명단의 한 줄이 "복호화 불가", 그 신청의 원문 조회가 500 `internal_error`, 로그에 `leadId=` | 그 행의 암호문이 손상됨(직접 수정, 다른 컬럼 값 복사, 변조) | 해당 신청 id의 행을 확인한다. 로그에는 id만 남고 원문은 남지 않는다. 명단의 다른 줄은 정상으로 보인다 |
 | backend 로그에 `ADMIN_SEED_EMAIL과 ADMIN_SEED_PASSWORD는 함께 설정해야 합니다` | 둘 중 하나만 설정 | 둘 다 채우거나 둘 다 비운다 |
 | backend 로그에 `ADMIN_SEED_PASSWORD는 12자 이상` | 시드 비밀번호가 짧음 | 12자 이상, UTF-8 72바이트 이하로 바꾼다 |
 | `.env`의 비밀번호를 바꿨는데 로그인이 안 된다 | 시드는 계정이 **없을 때만** 만든다. 이미 있는 계정은 바꾸지 않는다(ADR 0009) | `docker compose down -v`로 DB를 지우고 다시 띄운다(데이터 모두 삭제) |

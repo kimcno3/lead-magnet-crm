@@ -13,3 +13,12 @@ ALTER TABLE leads
 -- 평문 인덱스(V2)와 이 해시 인덱스 모두에서 충돌을 거른다.
 CREATE UNIQUE INDEX ux_leads_form_phone_hash ON leads (form_id, phone_hash) WHERE phone_hash IS NOT NULL;
 CREATE UNIQUE INDEX ux_leads_form_email_hash ON leads (form_id, email_hash) WHERE email_hash IS NOT NULL;
+
+-- 키 확인 행 (ADR 0015). 처음 기동할 때 정해진 표식 값을 그때의 키로 암호화·HMAC해 한 행만 둔다.
+-- 다음 기동부터 PiiKeyCheck가 현재 키로 이 행을 확인하고, 키가 바뀌었으면 기동을 멈춘다(섞인 키로 데이터를 쓰지 않게).
+CREATE TABLE pii_key_check (
+    id         SMALLINT    PRIMARY KEY CHECK (id = 1),
+    enc_check  BYTEA       NOT NULL,
+    hmac_check CHAR(64)    NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

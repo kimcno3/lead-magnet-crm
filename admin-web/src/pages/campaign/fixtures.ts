@@ -56,6 +56,7 @@ export function leadPage(page: number, totalElements = 45): LeadPage {
         name: `신*${page}`,
         phone: '010-****-5678',
         email: 'l***@example.com',
+        contactUnavailable: false,
         payload: { company: '하늘상사' },
         createdAt: '2026-10-22T15:05:00Z',
       },

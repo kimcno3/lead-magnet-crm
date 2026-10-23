@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { getLeadContact, LEAD_PAGE_SIZE, listLeads } from '../../api/leads'
 import { CHANNELS, type Campaign, type Channel, type Lead, type LeadContact } from '../../api/types'
@@ -13,7 +13,7 @@ import { useAsync } from '../../hooks'
 import { CHANNEL_LABELS } from '../../labels'
 
 /** 원문 보기 상태. 그 줄에만, 같은 명단 조회(캠페인·페이지·필터) 동안에만 유지한다. */
-type Reveal = { status: 'loading' } | { status: 'shown'; contact: LeadContact } | { status: 'error'; error: unknown }
+type Reveal = { status: 'loading'; token: number } | { status: 'shown'; contact: LeadContact } | { status: 'error'; error: unknown }
 
 function toChannel(value: string | null): Channel | null {
   return value && (CHANNELS as readonly string[]).includes(value) ? (value as Channel) : null
@@ -36,10 +36,15 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
   if (reveals.key !== queryKey) setReveals({ key: queryKey, byId: {} })
   const revealed = reveals.key === queryKey ? reveals.byId : {}
 
-  function setReveal(id: number, reveal: Reveal | null) {
-    // 응답이 늦게 와도 다른 조회 조건의 화면에는 원문을 남기지 않는다.
+  // 원문 요청마다 새 토큰을 준다. 응답은 그 토큰으로 아직 기다리는 중일 때만 반영한다. 그래서 화면을 옮겼다가
+  // 같은 조회 조건으로 돌아오거나 가리기를 누른 뒤 늦게 온 응답은 버려진다.
+  const nextToken = useRef(0)
+
+  function setReveal(id: number, reveal: Reveal | null, onlyIfToken?: number) {
     setReveals((prev) => {
       if (prev.key !== queryKey) return prev
+      const current = prev.byId[id]
+      if (onlyIfToken !== undefined && !(current?.status === 'loading' && current.token === onlyIfToken)) return prev
       const byId = { ...prev.byId }
       if (reveal) byId[id] = reveal
       else delete byId[id]
@@ -48,10 +53,11 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
   }
 
   function reveal(id: number) {
-    setReveal(id, { status: 'loading' })
+    const token = ++nextToken.current
+    setReveal(id, { status: 'loading', token })
     getLeadContact(id).then(
-      (contact) => setReveal(id, { status: 'shown', contact }),
-      (error: unknown) => setReveal(id, { status: 'error', error }),
+      (contact) => setReveal(id, { status: 'shown', contact }, token),
+      (error: unknown) => setReveal(id, { status: 'error', error }, token),
     )
   }
 
@@ -195,7 +201,15 @@ function LeadRow({ lead, reveal, onReveal, onHide }: { lead: Lead; reveal: Revea
   return (
     <tr>
       <td className="num nowrap">{formatDateTime(lead.createdAt)}</td>
-      <td>{contact.name || <span className="muted">-</span>}</td>
+      <td>
+        {lead.contactUnavailable ? (
+          <span className="muted" title="연락처를 복호화하지 못했습니다. 키 설정을 확인하세요">
+            복호화 불가
+          </span>
+        ) : (
+          contact.name || <span className="muted">-</span>
+        )}
+      </td>
       <td className="num nowrap">{formatPhone(contact.phone)}</td>
       <td className="break">{contact.email || <span className="muted">-</span>}</td>
       <td className="nowrap">{CHANNEL_LABELS[lead.channel] ?? lead.channel}</td>
@@ -204,7 +218,7 @@ function LeadRow({ lead, reveal, onReveal, onHide }: { lead: Lead; reveal: Revea
         {extra}
       </td>
       <td className="nowrap">
-        {shown ? (
+        {lead.contactUnavailable ? null : shown ? (
           <Button size="sm" variant="ghost" onClick={onHide}>
             가리기
           </Button>

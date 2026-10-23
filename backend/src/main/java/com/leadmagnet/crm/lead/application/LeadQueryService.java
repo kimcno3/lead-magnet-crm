@@ -1,6 +1,7 @@
 package com.leadmagnet.crm.lead.application;
 
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
+import com.leadmagnet.crm.common.crypto.PiiCryptoException;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.DomainException.FieldError;
 import com.leadmagnet.crm.common.error.ErrorCode;
@@ -16,6 +17,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -33,6 +36,8 @@ public class LeadQueryService {
 
     public static final int DEFAULT_SIZE = 20;
     public static final int MAX_SIZE = 100;
+
+    private static final Logger log = LoggerFactory.getLogger(LeadQueryService.class);
 
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
@@ -96,15 +101,30 @@ public class LeadQueryService {
         };
     }
 
+    /**
+     * 한 행의 암호문이 손상돼도(변조, 다른 키) 명단 전체가 500이 되지 않게 그 행만 연락처를 비우고
+     * contactUnavailable로 표시한다. 로그에는 신청 id만 남긴다. 원문 조회({@link LeadContactService})는 그대로 실패한다.
+     */
     private LeadView toView(Lead l, String formTitle) {
-        LeadContact masked = protector.reveal(l).masked();
+        LeadContact masked;
+        boolean unavailable = false;
+        try {
+            masked = protector.reveal(l).masked();
+        } catch (PiiCryptoException e) {
+            log.warn("신청 연락처를 복호화하지 못해 명단에서 비움: leadId={}", l.getId());
+            masked = new LeadContact(null, null, null);
+            unavailable = true;
+        }
         return new LeadView(l.getId(), l.getFormId(), formTitle, l.getChannel().value(), masked.name(), masked.phone(),
-            masked.email(), l.getPayload(), l.getCreatedAt());
+            masked.email(), unavailable, l.getPayload(), l.getCreatedAt());
     }
 
-    /** 명단 한 줄. 엔티티를 api 계층에 넘기지 않으려는 읽기용 값이다. name·phone·email은 가린 값이다. */
+    /**
+     * 명단 한 줄. 엔티티를 api 계층에 넘기지 않으려는 읽기용 값이다. name·phone·email은 가린 값이다.
+     * contactUnavailable이면 연락처를 복호화하지 못해 셋 다 null이다.
+     */
     public record LeadView(Long id, Long formId, String formTitle, String channel, String name, String phone,
-            String email, Map<String, Object> payload, Instant createdAt) {
+            String email, boolean contactUnavailable, Map<String, Object> payload, Instant createdAt) {
     }
 
     public record LeadPage(List<LeadView> items, int page, int size, long totalElements, int totalPages) {

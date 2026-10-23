@@ -2,10 +2,13 @@ package com.leadmagnet.crm.lead.api;
 
 import com.leadmagnet.crm.lead.application.LeadContactService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.CacheControl;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,8 +29,10 @@ public class LeadContactController {
             + "응답은 캐시하지 않는다(Cache-Control: no-store).",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "원문 연락처")
-    @ApiResponse(responseCode = "401", description = "unauthorized")
-    @ApiResponse(responseCode = "404", description = "없는 신청 (not_found)")
+    @ApiResponse(responseCode = "401", description = "unauthorized",
+        content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
+    @ApiResponse(responseCode = "404", description = "없는 신청 (not_found)",
+        content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping("/api/admin/leads/{id}/contact")
     public ResponseEntity<LeadContactResponse> contact(@PathVariable long id) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
