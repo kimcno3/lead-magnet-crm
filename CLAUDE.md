@@ -22,7 +22,7 @@ cd backend
 # admin-web
 cd admin-web
 npm ci
-npm run dev          # :5173, /api/admin·/actuator/health를 localhost:8080으로 프록시 (BACKEND_ADMIN_URL로 변경)
+npm run dev          # :5173, /api/admin·/actuator/health를 localhost:8080으로 프록시 (BACKEND_ADMIN_URL로 변경, 공개 폼 주소는 VITE_PUBLIC_BASE_URL)
 npm run lint         # oxlint --deny-warnings
 npm run typecheck
 npm test             # vitest run (jsdom)
@@ -53,6 +53,12 @@ CI(`.github/workflows/ci.yml`)는 develop·main 대상 PR과 push에서 backend 
   - 통합 테스트는 `@IntegrationTest`(`support/`)를 붙인다. Testcontainers `postgres:17-alpine`을 컨텍스트 캐시로 공유하므로 각 테스트 전에 `DatabaseCleaner.truncateAll`로 비운다. 새 테이블을 만들면 여기에 추가한다. `RestAssured.port`는 admin 포트로 두고 public 포트 요청은 `PublicOrigin.given(publicPort)`로 보낸다. Docker가 떠 있어야 backend 테스트가 돈다.
   - 시나리오 테스트(`scenario` 테스트 패키지): `HappyPath`·`Failure`·`Isolation`이 두 포트를 오가며 로그인→업로드→배포→방문→신청→지표를 실제 HTTP로 잇는다. 기능별 테스트를 복제하지 않고 앞 단계 출력이 다음 입력이 되는지만 본다. 공통 도우미는 `support/ScenarioBase`, 방문자 쿠키를 들고 `/l/{code}` 302를 직접 따라가는 `support/PublicVisitor`. 지표는 테스트 주석에 손계산 표를 두고 정확히 비교한다.
 - `admin-web/`: React + Vite + TypeScript 관리자 SPA. 운영 시에는 nginx(`admin-web/nginx.conf`), 개발 시에는 Vite가 `/api/admin/`과 `/actuator/health`를 backend admin 포트로 프록시한다. 브라우저 입장에서는 admin-web 출처 하나뿐이어서 refresh 쿠키(SameSite=Strict, Path=/api/admin/auth)가 그대로 동작하고, public 출처(:8081)와는 출처가 다르다.
+  - 관리자 UI(ADR 0011): `src/api/client.ts`가 access token을 모듈 메모리에만 두고 401 → refresh 한 번(동시 401은 공유) → 재시도를 맡는다. refresh의 네트워크 오류는 세션 종료(401)와 구분해 토큰을 지우지 않는다. 도메인별 호출은 `src/api/*.ts`, DTO 타입은 `src/api/types.ts`(백엔드 record와 같은 이름). 세션 복원·로그인 상태는 `src/auth/`(`AuthProvider`, `RequireAuth`).
+  - 화면은 `src/pages/`(로그인, 캠페인 목록·상세 + `campaign/` 탭 세 개, 템플릿 목록·상세), 공용 컴포넌트는 `src/components/`, 포맷(Asia/Seoul·ko-KR)은 `src/format.ts`, 화면 문구·코드별 안내는 `src/labels.ts`. 스타일은 `src/styles/`의 CSS 변수 토큰(라이브러리 없음).
+  - 업로드 HTML 미리보기는 `components/SandboxPreview.tsx` 하나로만 렌더링한다. CSP 값은 `admin-web/csp.ts`가 원천이고 nginx.conf와 Vite dev 서버가 같은 값을 쓴다(`csp.test.ts`가 일치 확인, dev만 Fast Refresh nonce 추가).
+  - 캠페인 상세의 탭·기간·명단 필터·페이지·펼친 폼은 URL 쿼리(`tab`, `from`, `to`, `form`, `channel`, `page`, `open`)에 둔다.
+  - 공개 폼 URL 앞부분은 링크 응답 `url`에서 얻고 없으면 빌드 시 `VITE_PUBLIC_BASE_URL`(compose가 `PUBLIC_BASE_URL`을 빌드 인자로 넘김).
+  - 화면 테스트는 `src/test/http.ts`의 `mockBackend`(경로별 가짜 fetch, refresh·me 기본 응답 포함)와 `src/test/render.tsx`의 `renderPage`로 쓴다.
 - `docker-compose.yml`: postgres → backend → admin-web 순서로 헬스체크를 기다린다. 값은 루트 `.env`에서 읽는다.
 - `docs/`: `PLAN.md`(과제 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `ROADMAP.md`(범위 밖), `adr/`.
 - `scripts/bootstrap-github.sh`: 라벨·마일스톤·이슈를 gh api로 만든다. 여러 번 실행해도 안전하다.

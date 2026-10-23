@@ -1,0 +1,111 @@
+import { describe, expect, it } from 'vitest'
+import {
+  formatBytes,
+  formatDate,
+  formatDateTime,
+  formatNumber,
+  formatPercent,
+  formatPeriod,
+  formatPhone,
+  seoulDateToInstant,
+  summarizePayload,
+} from './format'
+
+describe('formatNumber', () => {
+  it('천 단위 구분 기호를 넣는다', () => {
+    expect(formatNumber(1234567)).toBe('1,234,567')
+    expect(formatNumber(0)).toBe('0')
+  })
+})
+
+describe('formatPercent', () => {
+  it('비율을 소수 첫째 자리 퍼센트로 바꾼다', () => {
+    expect(formatPercent(0.6667)).toBe('66.7%')
+    expect(formatPercent(0)).toBe('0.0%')
+    expect(formatPercent(1)).toBe('100.0%')
+  })
+
+  it('문자열 숫자도 받는다', () => {
+    expect(formatPercent('0.1234')).toBe('12.3%')
+  })
+
+  it('값이 없으면 대시를 낸다', () => {
+    expect(formatPercent(null)).toBe('-')
+    expect(formatPercent(undefined)).toBe('-')
+  })
+})
+
+describe('formatPhone', () => {
+  it('휴대전화 11자리를 3-4-4로 끊는다', () => {
+    expect(formatPhone('01012345678')).toBe('010-1234-5678')
+  })
+
+  it('10자리 휴대전화는 3-3-4로 끊는다', () => {
+    expect(formatPhone('0111234567')).toBe('011-123-4567')
+  })
+
+  it('서울 지역번호 02를 처리한다', () => {
+    expect(formatPhone('0212345678')).toBe('02-1234-5678')
+    expect(formatPhone('021234567')).toBe('02-123-4567')
+  })
+
+  it('이미 하이픈이 있으면 숫자만 보고 다시 끊는다', () => {
+    expect(formatPhone('010-1234-5678')).toBe('010-1234-5678')
+  })
+
+  it('알 수 없는 형식은 그대로 둔다', () => {
+    expect(formatPhone('+82 10 1234')).toBe('+82 10 1234')
+  })
+
+  it('값이 없으면 대시', () => {
+    expect(formatPhone(null)).toBe('-')
+  })
+})
+
+describe('날짜', () => {
+  it('Asia/Seoul 기준 날짜로 표시한다(UTC 자정 직전은 서울 다음 날)', () => {
+    expect(formatDate('2026-10-22T15:30:00Z')).toBe('2026-10-23')
+  })
+
+  it('날짜와 시각을 24시간제로 표시한다', () => {
+    expect(formatDateTime('2026-10-22T15:05:00Z')).toBe('2026-10-23 00:05')
+  })
+
+  it('값이 없으면 대시', () => {
+    expect(formatDate(null)).toBe('-')
+    expect(formatDateTime(undefined)).toBe('-')
+  })
+
+  it('기간은 시작~종료로 보이고 한쪽만 있어도 표시한다', () => {
+    expect(formatPeriod('2026-10-01T00:00:00+09:00', '2026-10-31T23:59:59+09:00')).toBe('2026-10-01 ~ 2026-10-31')
+    expect(formatPeriod('2026-10-01T00:00:00+09:00', null)).toBe('2026-10-01 ~')
+    expect(formatPeriod(null, null)).toBe('-')
+  })
+
+  it('date input 값을 서울 시각 Instant로 바꾼다', () => {
+    expect(seoulDateToInstant('2026-10-01', 'start')).toBe('2026-09-30T15:00:00.000Z')
+    expect(seoulDateToInstant('2026-10-31', 'end')).toBe('2026-10-31T14:59:59.000Z')
+    expect(seoulDateToInstant('', 'start')).toBeNull()
+  })
+})
+
+describe('formatBytes', () => {
+  it('바이트를 읽기 쉬운 단위로', () => {
+    expect(formatBytes(512)).toBe('512 B')
+    expect(formatBytes(2048)).toBe('2.0 KB')
+    expect(formatBytes(1536 * 1024)).toBe('1.5 MB')
+  })
+})
+
+describe('summarizePayload', () => {
+  it('추가 항목을 "키: 값"으로 잇고 배열은 쉼표로 합친다', () => {
+    expect(summarizePayload({ company: '하늘상사', interests: ['교육', '세미나'] })).toBe(
+      'company: 하늘상사 / interests: 교육, 세미나',
+    )
+  })
+
+  it('비어 있으면 대시', () => {
+    expect(summarizePayload({})).toBe('-')
+    expect(summarizePayload(null)).toBe('-')
+  })
+})
