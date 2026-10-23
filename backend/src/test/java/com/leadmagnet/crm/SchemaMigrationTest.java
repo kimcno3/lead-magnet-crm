@@ -54,29 +54,12 @@ class SchemaMigrationTest {
             formId, linkId, UUID.randomUUID());
         jdbc.update("INSERT INTO visits (form_id, channel, visitor_id) VALUES (?, 'direct', ?)",
             formId, UUID.randomUUID());
-        jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, phone, payload, consent_at) "
-            + "SELECT id, campaign_id, 'direct', '01012345678', '{\"memo\":\"hi\"}'::jsonb, now() FROM forms WHERE id = ?",
-            formId);
+        jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, phone_enc, phone_hash, payload, consent_at) "
+            + "SELECT id, campaign_id, 'direct', '\\x01'::bytea, repeat('a', 64), '{\"memo\":\"hi\"}'::jsonb, now() "
+            + "FROM forms WHERE id = ?", formId);
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM visits", Long.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT payload->>'memo' FROM leads", String.class)).isEqualTo("hi");
-    }
-
-    @Test
-    void V2_마이그레이션이_같은_폼의_같은_전화번호와_이메일을_막고_NULL은_허용한다() {
-        Boolean applied = jdbc.queryForObject(
-            "SELECT success FROM flyway_schema_history WHERE version = '2'", Boolean.class);
-        assertThat(applied).isTrue();
-        String insert = "INSERT INTO leads (form_id, campaign_id, channel, phone, email, consent_at) "
-            + "SELECT id, campaign_id, 'direct', %s, %s, now() FROM forms WHERE id = " + formId;
-        jdbc.update(insert.formatted("'01011112222'", "'a@example.com'"));
-
-        assertRejected(insert.formatted("'01011112222'", "'b@example.com'"));
-        assertRejected(insert.formatted("'01033334444'", "'a@example.com'"));
-        jdbc.update(insert.formatted("'01033334444'", "NULL"));
-        jdbc.update(insert.formatted("NULL", "'c@example.com'"));
-        jdbc.update(insert.formatted("'01055556666'", "NULL"));
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM leads", Long.class)).isEqualTo(4);
     }
 
     @Test
@@ -104,17 +87,36 @@ class SchemaMigrationTest {
         assertThat(applied).isTrue();
         String hashA = "a".repeat(64);
         String hashB = "b".repeat(64);
-        String insert = "INSERT INTO leads (form_id, campaign_id, channel, phone, email, phone_hash, email_hash, "
-            + "phone_enc, consent_at) SELECT id, campaign_id, 'direct', %s, %s, %s, %s, '\\x01'::bytea, now() "
+        String insert = "INSERT INTO leads (form_id, campaign_id, channel, phone_hash, email_hash, "
+            + "phone_enc, consent_at) SELECT id, campaign_id, 'direct', %s, %s, '\\x01'::bytea, now() "
             + "FROM forms WHERE id = " + formId;
-        jdbc.update(insert.formatted("'01011112222'", "NULL", "'" + hashA + "'", "'" + hashB + "'"));
+        jdbc.update(insert.formatted("'" + hashA + "'", "'" + hashB + "'"));
 
-        // 평문은 다르지만 해시가 같으면 거부한다(평문 인덱스와 별개로 해시 인덱스가 막는다).
-        assertRejected(insert.formatted("'01033334444'", "NULL", "'" + hashA + "'", "NULL"));
-        assertRejected(insert.formatted("'01055556666'", "NULL", "NULL", "'" + hashB + "'"));
-        jdbc.update(insert.formatted("'01077778888'", "NULL", "NULL", "NULL"));
-        jdbc.update(insert.formatted("'01099990000'", "NULL", "NULL", "NULL"));
+        assertRejected(insert.formatted("'" + hashA + "'", "NULL"));
+        assertRejected(insert.formatted("NULL", "'" + hashB + "'"));
+        jdbc.update(insert.formatted("NULL", "NULL"));
+        jdbc.update(insert.formatted("NULL", "NULL"));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM leads", Long.class)).isEqualTo(3);
+    }
+
+    @Test
+    void V5_마이그레이션이_평문_컬럼과_평문_인덱스를_지운다() {
+        Boolean applied = jdbc.queryForObject(
+            "SELECT success FROM flyway_schema_history WHERE version = '5'", Boolean.class);
+        assertThat(applied).isTrue();
+        assertThat(jdbc.queryForList("SELECT column_name FROM information_schema.columns "
+            + "WHERE table_name = 'leads'", String.class)).doesNotContain("name", "phone", "email");
+        assertThat(jdbc.queryForList("SELECT indexname FROM pg_indexes WHERE tablename = 'leads'", String.class))
+            .doesNotContain("ux_leads_form_phone", "ux_leads_form_email")
+            .contains("ux_leads_form_phone_hash", "ux_leads_form_email_hash");
+    }
+
+    @Test
+    void V5_이후에도_연락처_암호문이_하나도_없는_신청은_거부한다() {
+        assertRejected("INSERT INTO leads (form_id, campaign_id, channel, name_enc, consent_at) "
+            + "SELECT id, campaign_id, 'direct', '\\x01'::bytea, now() FROM forms WHERE id = " + formId);
+        jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, email_enc, consent_at) "
+            + "SELECT id, campaign_id, 'direct', '\\x01'::bytea, now() FROM forms WHERE id = " + formId);
     }
 
     @Test
@@ -144,12 +146,6 @@ class SchemaMigrationTest {
             + formId + ", " + linkId + ", 'direct', gen_random_uuid())");
         assertRejected("INSERT INTO visits (form_id, channel, visitor_id) VALUES ("
             + formId + ", 'instagram', gen_random_uuid())");
-    }
-
-    @Test
-    void 연락처가_없는_신청은_거부한다() {
-        assertRejected("INSERT INTO leads (form_id, campaign_id, channel, name, consent_at) "
-            + "SELECT id, campaign_id, 'direct', '홍길동', now() FROM forms WHERE id = " + formId);
     }
 
     @Test

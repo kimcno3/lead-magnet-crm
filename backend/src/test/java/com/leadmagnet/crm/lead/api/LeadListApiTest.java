@@ -168,8 +168,6 @@ class LeadListApiTest {
     @Test
     void 명단은_암호문을_복호화해_가린다() {
         submit("form-a", "홍길동", "010-1234-5678", null);
-        // 평문 컬럼을 바꿔도 명단은 암호문에서 읽는다.
-        jdbc.update("UPDATE leads SET name = '평문값', phone = '01099999999'");
 
         authed().get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
             .body("items[0].name", equalTo("홍*동")).body("items[0].phone", equalTo("010-****-5678"));
@@ -190,16 +188,6 @@ class LeadListApiTest {
             .body("items[0].contactUnavailable", equalTo(false)).body("items[0].name", equalTo("김*희"));
         assertThat(output.getAll()).contains("leadId=" + broken).doesNotContain("홍길동")
             .doesNotContain("01012345678");
-    }
-
-    @Test
-    void 아직_백필되지_않은_행은_평문을_가려서_보여준다() {
-        jdbc.update("INSERT INTO leads (form_id, campaign_id, channel, name, phone, email, consent_at) "
-            + "VALUES (?, ?, 'direct', '김영희', '01077776666', 'young@example.com', now())", formA, campaign);
-
-        authed().get("/api/admin/campaigns/{id}/leads", campaign).then().statusCode(200)
-            .body("items[0].name", equalTo("김*희")).body("items[0].phone", equalTo("010-****-6666"))
-            .body("items[0].email", equalTo("y***@example.com"));
     }
 
     @Test

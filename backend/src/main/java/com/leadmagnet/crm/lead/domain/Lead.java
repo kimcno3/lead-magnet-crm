@@ -19,7 +19,7 @@ import org.hibernate.type.SqlTypes;
 /**
  * 공개 폼으로 접수한 신청 한 건 (ADR 0008). 연락처 핵심 필드는 컬럼, 나머지 입력은 payload다.
  * 접수 뒤에는 바꾸지 않는다. 입력은 {@link SubmissionValidator}가 검증·정규화한 값만 받는다.
- * 연락처는 평문 컬럼과 암호문·해시 컬럼에 함께 둔다(ADR 0015 expand 단계, 평문은 contract 단계에서 지운다).
+ * 연락처는 암호문·해시 컬럼에만 둔다(ADR 0015).
  */
 @Entity
 @Table(name = "leads")
@@ -44,15 +44,6 @@ public class Lead {
 
     @Column(name = "visitor_id", updatable = false)
     private UUID visitorId;
-
-    @Column(updatable = false, length = 100)
-    private String name;
-
-    @Column(updatable = false, length = 20)
-    private String phone;
-
-    @Column(updatable = false, length = 254)
-    private String email;
 
     @Column(name = "name_enc", updatable = false)
     private byte[] nameEnc;
@@ -91,9 +82,6 @@ public class Lead {
         this.linkId = attribution.linkId();
         this.channel = attribution.channel();
         this.visitorId = visitorId;
-        this.name = submission.name();
-        this.phone = submission.phone();
-        this.email = submission.email();
         this.nameEnc = contact.nameEnc();
         this.phoneEnc = contact.phoneEnc();
         this.emailEnc = contact.emailEnc();
@@ -137,19 +125,7 @@ public class Lead {
         return visitorId;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    /** 저장용 연락처(암호문·해시). 백필 전 행은 일부가 null일 수 있다. */
+    /** 저장용 연락처(암호문·해시). 값이 없는 필드는 null이다. */
     public ProtectedContact getProtectedContact() {
         return new ProtectedContact(nameEnc, phoneEnc, emailEnc, phoneHash, emailHash);
     }

@@ -94,15 +94,6 @@ class LeadContactApiTest {
     }
 
     @Test
-    void 평문을_바꿔도_암호문에서_읽는다() {
-        long id = submit(Map.of("name", "홍길동", "phone", "010-1234-5678"));
-        jdbc.update("UPDATE leads SET name = '평문값', phone = '01099999999' WHERE id = ?", id);
-
-        authed().get("/api/admin/leads/{id}/contact", id).then().statusCode(200)
-            .body("name", equalTo("홍길동")).body("phone", equalTo("01012345678"));
-    }
-
-    @Test
     void 없는_신청은_404다() {
         authed().get("/api/admin/leads/{id}/contact", 99999).then().statusCode(404).body("code", equalTo("not_found"));
     }
