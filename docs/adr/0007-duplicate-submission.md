@@ -15,7 +15,7 @@
 - 값이 없는 쪽(NULL)은 비교하지 않는다. 이메일 없이 신청한 두 사람은 중복이 아니다.
 - 보장은 DB가 한다 (`V2__lead_dedup_indexes.sql`): 부분 유니크 인덱스 `ux_leads_form_phone (form_id, phone) WHERE phone IS NOT NULL`, `ux_leads_form_email (form_id, email) WHERE email IS NOT NULL`. 애플리케이션은 `INSERT ... ON CONFLICT DO NOTHING`으로 넣고 0행이면 409로 바꾼다. 먼저 조회하고 넣는 방식은 쓰지 않는다(동시 요청에서 둘 다 통과한다).
 - 409 응답은 어느 값(전화번호/이메일)이 겹쳤는지, 기존 신청이 무엇인지 알려주지 않는다.
-- 예외(유니크 위반)가 아니라 `ON CONFLICT`를 쓰는 이유: PostgreSQL이 위반 오류 로그에 `Key (form_id, phone)=(1, 0101...)`을 싣고 Hibernate가 이를 ERROR로 남겨 개인정보 원문이 로그에 나간다(보안 불변식 위반). `ON CONFLICT`는 오류도, 로그 노이즈도, 사용 불가 트랜잭션도 만들지 않는다.
+- 예외(유니크 위반)가 아니라 `ON CONFLICT`를 쓰는 이유: PostgreSQL이 위반 오류 로그에 `Key (form_id, phone)=(1, 0101...)`을 싣고 Hibernate가 이를 ERROR로 남겨 개인정보 원문이 로그에 나간다(보안 불변식 위반). `ON CONFLICT`는 오류도, 로그 노이즈도, 사용 불가 트랜잭션도 만들지 않는다. 다만 유니크 충돌만 삼킨다: CHECK·FK 위반은 여전히 오류이고 DB 로그에 행 값이 실릴 수 있으므로, 연락처 필수(`SubmissionValidator`)와 link/channel 일관성(`Attribution`)이 그런 값을 애초에 막는다.
 
 ## 고려한 대안
 

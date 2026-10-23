@@ -2,6 +2,7 @@ package com.leadmagnet.crm.lead.domain;
 
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.DomainException.FieldError;
+import com.leadmagnet.crm.template.domain.FormContractParser;
 import com.leadmagnet.crm.template.domain.FormField;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,6 +25,8 @@ public final class SubmissionValidator {
     static final int MAX_VALUE_LENGTH = 1000;
     static final int MAX_NAME_LENGTH = 100;
     static final int MAX_EMAIL_LENGTH = 254;
+    /** 응답이 입력 크기에 비례해 커지지 않도록 알려 주는 unknown_field 오류 수의 상한. */
+    static final int MAX_UNKNOWN_FIELD_ERRORS = 10;
 
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Pattern KOREAN_MOBILE = Pattern.compile("^01[016789]\\d{7,8}$");
@@ -35,10 +38,14 @@ public final class SubmissionValidator {
         Map<String, Object> input = fields == null ? Map.of() : fields;
         Map<String, FormField> byName = config.stream()
             .collect(Collectors.toMap(FormField::name, Function.identity(), (a, b) -> a, LinkedHashMap::new));
+        if (input.size() > FormContractParser.MAX_FIELDS) {
+            throw DomainException.validation(List.of(new FieldError("fields",
+                "입력 항목은 최대 " + FormContractParser.MAX_FIELDS + "개까지 보낼 수 있습니다", "too_many_fields")));
+        }
         List<FieldError> errors = new ArrayList<>();
         boolean contactFieldFailed = false;
 
-        input.keySet().stream().filter(name -> !byName.containsKey(name)).forEach(name ->
+        input.keySet().stream().filter(name -> !byName.containsKey(name)).limit(MAX_UNKNOWN_FIELD_ERRORS).forEach(name ->
             errors.add(new FieldError(name, "폼에 없는 입력 항목입니다", "unknown_field")));
 
         String name = null;
@@ -119,6 +126,10 @@ public final class SubmissionValidator {
             return trimmed.isEmpty() ? null : trimmed;
         }
         if (raw instanceof List<?> items && "checkbox".equals(field.type())) {
+            if (items.size() > field.options().size()) {
+                errors.add(error(field, "선택지보다 많은 값을 보낼 수 없습니다", "invalid_value"));
+                return null;
+            }
             List<String> kept = new ArrayList<>();
             for (Object item : items) {
                 if (!(item instanceof String text)) {
@@ -134,6 +145,10 @@ public final class SubmissionValidator {
                     kept.add(trimmed);
                 }
             }
+            if (kept.size() != kept.stream().distinct().count()) {
+                errors.add(error(field, "같은 값을 두 번 보낼 수 없습니다", "invalid_value"));
+                return null;
+            }
             return kept.isEmpty() ? null : List.copyOf(kept);
         }
         errors.add(error(field, "이 항목은 문자열 하나만 받을 수 있습니다", "invalid_value"));
@@ -142,12 +157,14 @@ public final class SubmissionValidator {
 
     private static Object normalize(FormField field, Object value, List<FieldError> errors) {
         if (isOptionType(field.type())) {
-            List<String> chosen = value instanceof String s ? List.of(s) : castList(value);
+            // checkbox는 값이 하나여도 항상 목록으로 저장한다.
+            Object stored = value instanceof String s && "checkbox".equals(field.type()) ? List.of(s) : value;
+            List<String> chosen = stored instanceof String s ? List.of(s) : castList(stored);
             if (!field.options().containsAll(chosen)) {
                 errors.add(error(field, "선택할 수 없는 값입니다", "invalid_option"));
                 return null;
             }
-            return value;
+            return stored;
         }
         String text = (String) value;
         if (isPhone(field)) {

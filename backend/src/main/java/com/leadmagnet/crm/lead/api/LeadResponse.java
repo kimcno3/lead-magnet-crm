@@ -9,8 +9,7 @@ public record LeadResponse(Long id, Long formId, String formTitle, String channe
         String email, Map<String, Object> payload, Instant createdAt) {
 
     public static LeadResponse from(LeadView view) {
-        var lead = view.lead();
-        return new LeadResponse(lead.getId(), lead.getFormId(), view.formTitle(), lead.getChannel().value(),
-            lead.getName(), lead.getPhone(), lead.getEmail(), lead.getPayload(), lead.getCreatedAt());
+        return new LeadResponse(view.id(), view.formId(), view.formTitle(), view.channel(), view.name(), view.phone(),
+            view.email(), view.payload(), view.createdAt());
     }
 }

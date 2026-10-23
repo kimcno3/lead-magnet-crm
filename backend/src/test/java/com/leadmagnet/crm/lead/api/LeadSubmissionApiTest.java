@@ -363,6 +363,62 @@ class LeadSubmissionApiTest {
     }
 
     @Test
+    void 본문이_한도를_넘으면_413이고_저장하지_않는다() throws Exception {
+        String big = "{\"fields\":{\"name\":\"홍\",\"phone\":\"" + PHONE + "\",\"memo\":\"" + "a".repeat(70 * 1024)
+            + "\"},\"consent\":true}";
+
+        json().body(big).post(PATH, "spring-2026").then().statusCode(413).contentType(containsString("application/problem+json"))
+            .body("code", equalTo("payload_too_large"));
+        // Content-Length 없이 chunked로 보내도 실제 읽은 양으로 막는다.
+        java.net.http.HttpResponse<String> chunked = java.net.http.HttpClient.newHttpClient().send(
+            java.net.http.HttpRequest.newBuilder(java.net.URI.create(
+                    "http://localhost:" + publicPort.get() + "/api/public/forms/spring-2026/submissions"))
+                .header("Content-Type", "application/json")
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofInputStream(
+                    () -> new java.io.ByteArrayInputStream(big.getBytes(java.nio.charset.StandardCharsets.UTF_8))))
+                .build(),
+            java.net.http.HttpResponse.BodyHandlers.ofString());
+        assertThat(chunked.statusCode()).isEqualTo(413);
+
+        assertThat(leads()).isEmpty();
+    }
+
+    @Test
+    void 필드가_51개면_too_many_fields_422_하나다() {
+        Map<String, Object> many = fields("name", "홍", "phone", PHONE);
+        for (int i = 0; i < 49; i++) {
+            many.put("k" + i, "v");
+        }
+
+        submit("spring-2026", many).then().statusCode(422).body("errors", hasSize(1))
+            .body("errors[0].code", equalTo("too_many_fields")).body("errors[0].field", equalTo("fields"));
+        assertThat(leads()).isEmpty();
+    }
+
+    @Test
+    void checkbox가_넘치거나_중복이면_422다() {
+        submit("spring-2026", fields("name", "홍", "phone", PHONE, "interests", List.of("x", "y", "x"))).then()
+            .statusCode(422).body("errors[0].code", equalTo("invalid_value"));
+        submit("spring-2026", fields("name", "홍", "phone", PHONE, "interests", List.of("x", "x"))).then()
+            .statusCode(422).body("errors[0].code", equalTo("invalid_value"));
+        assertThat(leads()).isEmpty();
+    }
+
+    @Test
+    void checkbox_값_하나는_배열로_저장한다() {
+        submit("spring-2026", fields("name", "홍", "phone", PHONE, "interests", "y")).then().statusCode(201);
+
+        assertThat(jdbc.queryForObject("SELECT jsonb_typeof(payload->'interests') FROM leads", String.class))
+            .isEqualTo("array");
+    }
+
+    @Test
+    void Origin이_null이면_깨진_본문이어도_403이다() {
+        json().header("Origin", "null").body("{not json").post(PATH, "spring-2026").then().statusCode(403)
+            .body("code", equalTo("forbidden_origin"));
+    }
+
+    @Test
     void 깨진_JSON은_400이다() {
         json().body("{not json").post(PATH, "spring-2026").then().statusCode(400)
             .body("code", equalTo("malformed_request"));

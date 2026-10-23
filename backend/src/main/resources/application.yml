@@ -34,6 +34,9 @@ app:
     admin-origin: ${ADMIN_ORIGIN:http://localhost:5173}
     # refresh 쿠키와 방문자 쿠키(lm_vid)의 Secure 속성
     cookie-secure: ${COOKIE_SECURE:false}
+  public:
+    # 신청 제출 본문 최대 바이트(64KB). 넘으면 413 (lead/config/SubmissionGuardFilter)
+    max-submission-bytes: 65536
   template:
     # 업로드 HTML 최대 바이트(512KB). multipart 한도(1MB)와의 사이 크기는 애플리케이션이 413으로 막는다 (ADR 0004)
     max-bytes: 524288

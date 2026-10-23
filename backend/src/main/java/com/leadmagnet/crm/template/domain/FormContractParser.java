@@ -16,7 +16,7 @@ import org.jsoup.nodes.Element;
 /** 업로드 HTML이 폼 계약(ADR 0004)을 지키는지 검사하고 필드를 추출하는 순수 클래스. */
 public final class FormContractParser {
 
-    static final int MAX_FIELDS = 50;
+    public static final int MAX_FIELDS = 50;
     private static final Pattern NAME_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]{0,49}$");
     private static final Set<String> NON_FIELD_INPUT_TYPES = Set.of("submit", "button", "reset", "image");
     private static final Set<String> FORBIDDEN_INPUT_TYPES = Set.of("file", "password");

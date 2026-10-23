@@ -1,7 +1,5 @@
 package com.leadmagnet.crm.lead.api;
 
-import com.leadmagnet.crm.common.error.DomainException;
-import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.lead.application.LeadSubmissionService;
 import com.leadmagnet.crm.tracking.api.VisitorIdCookie;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,14 +11,13 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 공개 폼 신청 접수 (ADR 0002, 0007). CSP의 connect-src 'self' 때문에 sandbox된 업로드 HTML이 래퍼를 거치지 않고
- * 이 API를 직접 부를 수 있으므로 서버가 경계다: JSON만 받고, sandbox 프레임의 Origin: null을 거절하며,
- * 동의와 필드 검증은 래퍼와 무관하게 서버에서 한다. 방문자 쿠키는 읽기만 하고 발급하지 않는다.
+ * 이 API를 직접 부를 수 있으므로 서버가 경계다: JSON만 받고, 동의와 필드 검증은 래퍼와 무관하게 서버에서 한다.
+ * Origin: null 거절과 본문 크기 제한은 본문을 읽기 전에 {@code SubmissionGuardFilter}가 한다. 방문자 쿠키는 읽기만 하고 발급하지 않는다.
  */
 @Tag(name = "공개 폼", description = "public 출처(:8081) 전용. 래퍼 스크립트가 호출한다 (ADR 0002)")
 @RestController
@@ -48,10 +45,7 @@ public class PublicSubmissionController {
     @PostMapping(path = "/api/public/forms/{slug}/submissions", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public SubmissionResponse submit(@PathVariable String slug, @RequestBody SubmissionRequest request,
-            @RequestHeader(name = "Origin", required = false) String origin, HttpServletRequest http) {
-        if ("null".equals(origin)) {
-            throw new DomainException(ErrorCode.FORBIDDEN_ORIGIN);
-        }
+            HttpServletRequest http) {
         submissions.submit(slug, request.fields(), request.consented(), request.lm(),
             visitorCookie.read(http).orElse(null));
         return SubmissionResponse.received();

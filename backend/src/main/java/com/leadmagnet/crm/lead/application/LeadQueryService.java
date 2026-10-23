@@ -10,6 +10,7 @@ import com.leadmagnet.crm.lead.domain.Lead;
 import com.leadmagnet.crm.lead.domain.LeadRepository;
 import com.leadmagnet.crm.link.domain.AttributionChannel;
 import jakarta.persistence.criteria.Predicate;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -71,7 +72,7 @@ public class LeadQueryService {
             PageRequest.of(page, size, NEWEST_FIRST));
         Map<Long, String> titles = forms.findAllById(result.stream().map(Lead::getFormId).distinct().toList()).stream()
             .collect(Collectors.toMap(Form::getId, Form::getTitle, (a, b) -> a));
-        return new LeadPage(result.stream().map(l -> new LeadView(l, titles.get(l.getFormId()))).toList(),
+        return new LeadPage(result.stream().map(l -> toView(l, titles.get(l.getFormId()))).toList(),
             page, size, result.getTotalElements(), result.getTotalPages());
     }
 
@@ -89,7 +90,14 @@ public class LeadQueryService {
         };
     }
 
-    public record LeadView(Lead lead, String formTitle) {
+    private static LeadView toView(Lead l, String formTitle) {
+        return new LeadView(l.getId(), l.getFormId(), formTitle, l.getChannel().value(), l.getName(), l.getPhone(),
+            l.getEmail(), l.getPayload(), l.getCreatedAt());
+    }
+
+    /** 명단 한 줄. 엔티티를 api 계층에 넘기지 않으려는 읽기용 값이다. */
+    public record LeadView(Long id, Long formId, String formTitle, String channel, String name, String phone,
+            String email, Map<String, Object> payload, Instant createdAt) {
     }
 
     public record LeadPage(List<LeadView> items, int page, int size, long totalElements, int totalPages) {

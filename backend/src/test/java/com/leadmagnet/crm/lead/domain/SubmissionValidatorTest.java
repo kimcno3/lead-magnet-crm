@@ -216,7 +216,44 @@ class SubmissionValidatorTest {
     void checkbox에_문자열_하나를_보내도_options에_있으면_받는다() {
         Submission s = SubmissionValidator.validate(CONFIG, valid("interests", "y"), true);
 
-        assertThat(s.payload()).containsEntry("interests", "y");
+        assertThat(s.payload()).containsEntry("interests", List.of("y"));
+    }
+
+    @Test
+    void checkbox가_선택지보다_많은_값을_보내면_invalid_value다() {
+        assertError(errorsOf(CONFIG, valid("interests", List.of("x", "y", "z", "x")), true), "interests", "invalid_value");
+    }
+
+    @Test
+    void checkbox에_같은_값이_중복되면_invalid_value다() {
+        assertError(errorsOf(CONFIG, valid("interests", List.of("x", "x")), true), "interests", "invalid_value");
+    }
+
+    @Test
+    void 입력_필드가_50개를_넘으면_too_many_fields_오류_하나만_돌려준다() {
+        Map<String, Object> input = valid();
+        for (int i = 0; i < 49; i++) {
+            input.put("junk" + i, "v");
+        }
+
+        List<FieldError> errors = errorsOf(CONFIG, input, false);
+
+        assertThat(errors).singleElement().satisfies(e -> {
+            assertThat(e.field()).isEqualTo("fields");
+            assertThat(e.code()).isEqualTo("too_many_fields");
+        });
+    }
+
+    @Test
+    void 필드_50개까지는_허용하고_unknown_field_오류는_10개까지만_알린다() {
+        Map<String, Object> input = valid();
+        for (int i = 0; i < 48; i++) {
+            input.put("junk" + i, "v");
+        }
+
+        List<FieldError> errors = errorsOf(CONFIG, input, true);
+
+        assertThat(errors).hasSize(10).allSatisfy(e -> assertThat(e.code()).isEqualTo("unknown_field"));
     }
 
     @Test
