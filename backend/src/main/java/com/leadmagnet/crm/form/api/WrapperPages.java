@@ -17,8 +17,8 @@ public final class WrapperPages {
 
     private static final String STYLE = """
         <style>
-          :root { color-scheme: light; --fg: #1d1d1f; --muted: #5f6368; --line: #dadce0; --accent: #1a56db;
-                  --ok: #146c2e; --error: #b3261e; --bg: #f6f7f9; }
+          :root { color-scheme: light; --fg: #0a0a0a; --muted: #5a5a5a; --line: #e4e4e4; --accent: #0a0a0a;
+                  --bg: #f7f7f7; }
           * { box-sizing: border-box; }
           body { margin: 0; background: var(--bg); color: var(--fg);
                  font: 16px/1.6 system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
@@ -36,8 +36,9 @@ public final class WrapperPages {
           .result:empty { display: none; }
           .result p { margin: 0; font-weight: 600; }
           .result ul { margin: 8px 0 0; padding-left: 20px; }
-          .result.ok { color: var(--ok); }
-          .result.error { color: var(--error); }
+          .result.ok { padding: 12px 14px; border: 1px solid var(--fg); border-radius: 12px; background: #fff; }
+          .result.error { padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--fg);
+                          border-radius: 12px; background: #fff; }
           [hidden] { display: none !important; }
         </style>
         """;
