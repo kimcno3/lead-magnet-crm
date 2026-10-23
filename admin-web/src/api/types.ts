@@ -325,6 +325,12 @@ export const AUDIT_ACTIONS = [
   'auth.login.locked',
   'retention.anonymize',
   'campaign.retention.update',
+  'auth.refresh.reused',
+  'auth.logout',
+  'form.publish',
+  'form.close',
+  'template.version.upload',
+  'creator.archive',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 

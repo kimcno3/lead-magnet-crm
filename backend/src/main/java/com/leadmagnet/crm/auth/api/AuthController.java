@@ -5,6 +5,7 @@ import com.leadmagnet.crm.audit.application.AuditService;
 import com.leadmagnet.crm.audit.domain.AuditEvent;
 import com.leadmagnet.crm.auth.application.AuthService;
 import com.leadmagnet.crm.auth.application.LoginThrottle;
+import com.leadmagnet.crm.auth.application.RefreshTokenReusedException;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.ErrorCode;
 import com.leadmagnet.crm.common.web.AuditActor;
@@ -97,8 +98,16 @@ public class AuthController {
     @ApiResponse(responseCode = "401", description = "invalid_refresh_token 또는 refresh_token_reused")
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refresh(
-            @Parameter(hidden = true) @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken) {
-        return withRefreshCookie(authService.refresh(refreshToken));
+            @Parameter(hidden = true) @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken,
+            HttpServletRequest httpRequest) {
+        try {
+            return withRefreshCookie(authService.refresh(refreshToken));
+        } catch (RefreshTokenReusedException e) {
+            // 패밀리 폐기는 noRollbackFor로 이미 커밋되었다. 기록은 그 뒤 트랜잭션 밖에서 남기고 실패해도 401은 그대로다(ADR 0016).
+            audit.recordBestEffort(AuditActors.anonymous(httpRequest).withOperator(e.getOperatorId()),
+                AuditEvent.refreshReused(e.getOperatorId()));
+            throw e;
+        }
     }
 
     @Operation(operationId = "logout", summary = "로그아웃", description = "refresh 토큰 패밀리를 폐기하고 쿠키를 지운다. 쿠키가 없어도 204다.")
@@ -106,8 +115,10 @@ public class AuthController {
     @ApiResponse(responseCode = "204", description = "로그아웃")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
-            @Parameter(hidden = true) @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken) {
-        authService.logout(refreshToken);
+            @Parameter(hidden = true) @CookieValue(name = RefreshTokenCookies.NAME, required = false) String refreshToken,
+            HttpServletRequest httpRequest) {
+        authService.logout(refreshToken).ifPresent(operatorId -> audit.recordBestEffort(
+            AuditActors.anonymous(httpRequest).withOperator(operatorId), AuditEvent.logout(operatorId)));
         return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookies.clear().toString()).build();
     }
 

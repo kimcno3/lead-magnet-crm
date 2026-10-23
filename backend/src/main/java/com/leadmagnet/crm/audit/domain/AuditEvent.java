@@ -16,6 +16,9 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
     public static final String TARGET_LEAD = "lead";
     public static final String TARGET_CAMPAIGN = "campaign";
     public static final String TARGET_OPERATOR = "operator";
+    public static final String TARGET_FORM = "form";
+    public static final String TARGET_TEMPLATE = "template";
+    public static final String TARGET_CREATOR = "creator";
 
     public AuditEvent {
         detail = detail == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(detail));
@@ -94,6 +97,39 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
         detail.put("oldRetentionDays", oldRetentionDays);
         detail.put("newRetentionDays", newRetentionDays);
         return new AuditEvent(AuditAction.CAMPAIGN_RETENTION_UPDATE, TARGET_CAMPAIGN, campaignId, campaignId, detail);
+    }
+
+    /** refresh token 재사용 감지로 패밀리를 폐기한 일(ADR 0016 변경 기록). 토큰 값은 남기지 않는다. */
+    public static AuditEvent refreshReused(long operatorId) {
+        return new AuditEvent(AuditAction.AUTH_REFRESH_REUSED, TARGET_OPERATOR, operatorId, null, Map.of());
+    }
+
+    /** 로그아웃. refresh 쿠키가 운영자로 확인될 때만 남긴다. */
+    public static AuditEvent logout(long operatorId) {
+        return new AuditEvent(AuditAction.AUTH_LOGOUT, TARGET_OPERATOR, operatorId, null, Map.of());
+    }
+
+    /** 폼 게시·마감. detail은 폼 id와 slug(공개 주소의 일부이며 신청자 개인정보가 아니다). */
+    public static AuditEvent formStatusChange(boolean publish, long formId, long campaignId, String slug) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("formId", formId);
+        detail.put("slug", slug);
+        return new AuditEvent(publish ? AuditAction.FORM_PUBLISH : AuditAction.FORM_CLOSE, TARGET_FORM, formId,
+            campaignId, detail);
+    }
+
+    /** 템플릿 새 버전 업로드. version은 올린 뒤의 버전, affectedDraftForms는 다시 스냅샷한 draft 폼 수. */
+    public static AuditEvent templateVersionUpload(long templateId, int version, int affectedDraftForms) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("templateId", templateId);
+        detail.put("version", version);
+        detail.put("affectedDraftForms", affectedDraftForms);
+        return new AuditEvent(AuditAction.TEMPLATE_VERSION_UPLOAD, TARGET_TEMPLATE, templateId, null, detail);
+    }
+
+    public static AuditEvent creatorArchive(long creatorId) {
+        return new AuditEvent(AuditAction.CREATOR_ARCHIVE, TARGET_CREATOR, creatorId, null,
+            Map.of("creatorId", creatorId));
     }
 
     private static Map<String, Object> filterDetail(Long formId, String channel) {

@@ -146,6 +146,14 @@ describe('summarizeAuditDetail', () => {
     expect(summarizeAuditDetail({ scopes: ['ip'], windowMinutes: 15 })).toBe('기준 IP · 15분 창')
   })
 
+  it('폼 게시·템플릿 새 버전·크리에이터 보관 detail을 읽기 쉽게 보여준다', () => {
+    expect(summarizeAuditDetail({ formId: 11, slug: 'spring-a' })).toBe('폼 #11 · slug spring-a')
+    expect(summarizeAuditDetail({ templateId: 4, version: 2, affectedDraftForms: 3 })).toBe(
+      '템플릿 #4 · v2 · draft 폼 3개 갱신',
+    )
+    expect(summarizeAuditDetail({ creatorId: 9 })).toBe('크리에이터 #9')
+  })
+
   it('비어 있으면 대시, 모르는 키는 그대로', () => {
     expect(summarizeAuditDetail({})).toBe('-')
     expect(summarizeAuditDetail({ extra: 'x' })).toBe('extra: x')

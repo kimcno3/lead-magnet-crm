@@ -1,11 +1,13 @@
 package com.leadmagnet.crm.creator.api;
 
+import com.leadmagnet.crm.common.web.AuditActors;
 import com.leadmagnet.crm.creator.application.CreatorService;
 import com.leadmagnet.crm.creator.domain.Creator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -71,8 +73,9 @@ public class CreatorController {
     @ApiResponse(responseCode = "409", description = "creator_already_archived")
     @ApiResponse(responseCode = "422", description = "validation_failed")
     @PatchMapping("/{id}")
-    public CreatorResponse update(@PathVariable long id, @RequestBody UpdateCreatorRequest request) {
+    public CreatorResponse update(@PathVariable long id, @RequestBody UpdateCreatorRequest request,
+            @AuthenticationPrincipal Jwt jwt, HttpServletRequest httpRequest) {
         return CreatorResponse.from(creatorService.update(id, request.name(), request.handle(), request.memo(),
-            request.status()));
+            request.status(), AuditActors.of(jwt, httpRequest)));
     }
 }

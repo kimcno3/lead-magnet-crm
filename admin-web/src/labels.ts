@@ -63,6 +63,12 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'auth.login.locked': '로그인 시도 제한',
   'retention.anonymize': '보존 기간 파기',
   'campaign.retention.update': '보존 기간 변경',
+  'auth.refresh.reused': '토큰 재사용 감지',
+  'auth.logout': '로그아웃',
+  'form.publish': '폼 게시',
+  'form.close': '폼 마감',
+  'template.version.upload': '템플릿 새 버전',
+  'creator.archive': '크리에이터 보관',
 }
 
 /** 로그인 시도 제한 감사 기록의 범위 (ADR 0021). */

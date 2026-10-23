@@ -486,7 +486,7 @@ class LeadRetentionApiTest {
             .body("consentSha256", equalTo(row.get("consent_sha256")))
             .body("consentAt", notNullValue())
             .body("anonymizedAt", nullValue());
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action NOT LIKE 'auth.%'", Integer.class))
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action NOT LIKE 'auth.%' AND action NOT LIKE 'form.%'", Integer.class))
             .isZero();
     }
 
