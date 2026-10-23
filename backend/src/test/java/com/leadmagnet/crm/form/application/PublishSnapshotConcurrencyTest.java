@@ -151,6 +151,28 @@ class PublishSnapshotConcurrencyTest {
     }
 
     @Test
+    void 새_버전_업로드_두_건이_겹치면_두_번째는_기다렸다가_버전_3이고_이전_필드는_V2다() throws Exception {
+        int form = AdminFixtures.createDraftForm(token, "race-d", V1);
+        long template = templateIdOf(form);
+        String v2 = V2.replace("이름 <input", "성함 <input");
+        String v3 = V2.replace("이름 <input", "이름3 <input");
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+
+        Future<?> second = tx.execute(status -> {
+            versionService.upload(template, "v2.html", v2.getBytes(StandardCharsets.UTF_8));
+            Future<?> waiting = executor.submit(() -> versionService.upload(template, "v3.html", v3.getBytes(StandardCharsets.UTF_8)));
+            assertStillWaiting(waiting);
+            return waiting;
+        });
+        second.get(10, TimeUnit.SECONDS);
+
+        assertThat(jdbc.queryForObject("SELECT version FROM html_templates WHERE id = ?", Integer.class, template)).isEqualTo(3);
+        // V2를 이전 필드로 비교했으면 운영자가 건드리지 않은 label은 V3 값을 따른다(V1로 비교하면 V2 값이 남는다).
+        assertThat(jdbc.queryForObject("SELECT field_config->0->>'label' FROM forms WHERE id = ?", String.class, form))
+            .isEqualTo("이름3");
+    }
+
+    @Test
     void 새_버전_업로드가_진행_중이면_폼_생성은_기다렸다가_새_필드로_만들어진다() throws Exception {
         int draft = AdminFixtures.createDraftForm(token, "race-c", V1);
         long template = templateIdOf(draft);

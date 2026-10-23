@@ -39,7 +39,7 @@ public class TemplateVersionService {
      * 템플릿과 필드를 한 쌍으로 읽는다.
      */
     public NewVersion upload(long templateId, String filename, byte[] bytes) {
-        templates.get(templateId); // 없는 템플릿은 파일이 잘못돼도 먼저 404다(잠그지 않는다)
+        templates.requireExists(templateId); // 없는 템플릿은 파일이 잘못돼도 먼저 404다. 엔티티를 읽지 않는다(잠금 뒤 최신 상태를 읽기 위해)
         TemplateService.Inspected checked = templates.inspect(filename, bytes, null);
         HtmlTemplate template = templates.getForUpdate(templateId);
         List<FormField> previousFields = template.getFields();
