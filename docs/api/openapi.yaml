@@ -1175,7 +1175,7 @@ paths:
       - HTML 템플릿
       summary: 템플릿 업로드
       description: "multipart file(.html/.htm, UTF-8, 512KB 이하)과 선택 name. 폼 계약을 검사\
-        해 필드를 추출한다."
+        해 필드를 추출하고, 응답 inspection에 경고(외부 리소스 등)를 담는다. 경고는 업로드를 막지 않는다."
       operationId: uploadTemplate
       parameters:
       - name: name
@@ -1223,12 +1223,65 @@ paths:
                 $ref: "#/components/schemas/TemplateResponse"
       security:
       - bearer: []
+  /api/admin/templates/inspect:
+    post:
+      tags:
+      - HTML 템플릿
+      summary: 템플릿 검사만 하기
+      description: "업로드와 같은 파일 검사를 하고 추출될 필드와 경고(inspection)만 돌려준다. 아무것도 저장하지 않는다\
+        . 경고는 업로드를 막지 않고, 계약 오류는 업로드와 같은 오류 코드로 답한다."
+      operationId: inspectTemplate
+      parameters:
+      - name: name
+        in: query
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+      responses:
+        "200":
+          description: 검사 리포트(저장 안 됨)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateInspectionResponse"
+        "401":
+          description: unauthorized
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateInspectionResponse"
+        "413":
+          description: template_too_large 또는 payload_too_large
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateInspectionResponse"
+        "422":
+          description: 업로드와 같은 계약 오류(template_*)
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateInspectionResponse"
+      security:
+      - bearer: []
   /api/admin/templates/{id}:
     get:
       tags:
       - HTML 템플릿
       summary: 템플릿 상세
-      description: 원문 content와 추출한 fields 포함
+      description: "원문 content, 추출한 fields, 검사 경고 inspection 포함. 검사 결과가 없는 기존 템플릿은\
+        \ 읽을 때 계산한다."
       operationId: getTemplate
       parameters:
       - name: id
@@ -1483,6 +1536,20 @@ components:
           type: array
           items:
             type: string
+    InspectionWarning:
+      type: object
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+          enum:
+          - warning
+          - info
+        message:
+          type: string
+        location:
+          type: string
     TemplateResponse:
       type: object
       properties:
@@ -1500,9 +1567,29 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FormField"
+        inspection:
+          type: array
+          items:
+            $ref: "#/components/schemas/InspectionWarning"
         createdAt:
           type: string
           format: date-time
+    TemplateInspectionResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+          format: int32
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormField"
+        inspection:
+          type: array
+          items:
+            $ref: "#/components/schemas/InspectionWarning"
     CreateLinkRequest:
       type: object
       properties:
@@ -1797,6 +1884,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FormField"
+        inspection:
+          type: array
+          items:
+            $ref: "#/components/schemas/InspectionWarning"
         content:
           type: string
         createdAt:

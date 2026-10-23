@@ -39,6 +39,25 @@
 | `template_field_invalid` | 필드 이름 규칙 위반, 51개 이상, radio/checkbox가 아닌데 같은 이름 중복 | 이름은 영문자 시작, 영문·숫자·`_`, 50자 이하. 필드 50개 이하 |
 | `template_contact_field_missing` | `phone` 또는 `email` 이름의 입력이 없음(또는 select·radio·checkbox로 되어 있음) | `name="phone"`(텍스트·tel) 또는 `name="email"` 입력을 추가 |
 
+### 3.1 검사 경고 (업로드는 되지만 확인이 필요한 것)
+
+업로드 다이얼로그의 **검사만 하기**와 템플릿 상세의 검사 결과에 나온다. 경고와 참고는 업로드를 막지 않는다([ADR 0017](adr/0017-template-inspection.md)). 처음부터 경고 없이 만들려면 [AI 폼 프롬프트](AI_FORM_PROMPT.md)를 쓴다.
+
+| code | 종류 | 뜻 | 해결 |
+|---|---|---|---|
+| `external_script` | 경고 | `<script src="https://...">`는 공개 폼의 CSP(`script-src 'self' 'unsafe-inline'`)에 막혀 실행되지 않는다 | 필요한 코드를 `<script>` 안에 직접 넣는다. 라이브러리가 꼭 필요하면 소스를 붙여 넣는다 |
+| `external_stylesheet` | 경고 | 외부 CSS(`<link rel=stylesheet>`, `@import`, Tailwind·Bootstrap CDN)가 막혀 스타일 없이 보인다 | CSS를 `<style>` 안에 직접 쓴다 |
+| `external_image` | 경고 | 외부 이미지·아이콘(`<img src>`, `srcset`, `poster`, CSS `url()`, `<link rel=icon>`)이 표시되지 않는다 | 이미지를 `data:` URI로 넣거나(합계 200KB 이하) 빼고 CSS 그라데이션·이모지로 대신한다 |
+| `external_font` | 경고 | 웹폰트(Google Fonts, `@font-face`의 외부 url)가 막혀 시스템 폰트로 보인다 | `font-family: system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`를 쓴다 |
+| `large_inline_image` | 경고 | `data:` URI 합계가 200KB를 넘는다. 템플릿 용량 한도(512KB)에 가까워지고 폼이 느리게 열린다 | 이미지를 줄이거나(압축, 작은 해상도) 뺀다 |
+| `missing_label` | 경고 | 라벨이 없는 입력이다. 화면 읽기 도구가 읽지 못하고 필드 라벨이 `name`이나 placeholder로 대체된다 | `<label for="id">`를 연결하거나 입력을 `<label>`로 감싼다 |
+| `contact_not_required` | 경고 | `phone`·`email` 중 `required`인 것이 없다. 방문자가 연락처 없이 제출하면 신청이 거절된다 | 연락처 입력 하나 이상에 `required`를 붙인다 |
+| `form_action_external` | 참고 | form `action`이 외부 주소다. 공개 폼은 래퍼가 제출을 받으므로 `action`은 쓰지 않는다 | 지워도 된다. 그대로 두어도 동작은 같다 |
+| `fetch_in_script` | 참고 | 스크립트에 `fetch`·`XMLHttpRequest`·`sendBeacon`·`WebSocket`·`EventSource`가 있다. 공개 폼은 `connect-src 'self'`라 외부로 나가지 못하고 신청 제출은 래퍼가 대신 보낸다 | 그 호출에 기대는 동작(외부 API로 우편번호 조회 등)은 빼거나 입력으로 바꾼다. 단순 검사 토큰 스캔이라 주석·문자열 속 단어도 잡힌다 |
+| `consent_in_html` | 참고 | 동의 체크박스로 보이는 입력이다. 개인정보 수집 동의는 폼을 만들 때 입력하는 동의 문구로 래퍼가 따로 받는다 | 개인정보 동의용이면 지운다. 마케팅 수신 같은 선택 항목이면 그대로 둬도 된다(일반 선택 값으로 저장된다) |
+
+참고: 검사 결과는 업로드 시점의 값이다. 이 기능 이전에 올린 템플릿은 상세를 열 때마다 계산한다.
+
 ## 4. 캠페인·폼·링크
 
 | code | 뜻 | 해결 |

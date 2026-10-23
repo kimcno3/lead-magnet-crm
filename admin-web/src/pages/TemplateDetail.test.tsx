@@ -16,6 +16,10 @@ const template: TemplateDetail = {
   sha256: 'abc',
   createdAt: '2026-10-20T01:00:00Z',
   content: CONTENT,
+  inspection: [
+    { code: 'external_stylesheet', severity: 'warning', message: '외부 CSS는 차단됩니다', location: '<link href="https://cdn.example.com/a.css">' },
+    { code: 'fetch_in_script', severity: 'info', message: '네트워크 호출이 제한됩니다', location: 'fetch(' },
+  ],
   fields: [
     { name: 'phone', type: 'tel', required: true, label: '연락처', options: null },
     { name: 'topic', type: 'radio', required: false, label: '관심 주제', options: ['교육', '세미나'] },
@@ -60,5 +64,23 @@ describe('템플릿 상세', () => {
     expect(within(rows[1]).getByText('phone')).toBeInTheDocument()
     expect(within(rows[1]).getByText('필수')).toBeInTheDocument()
     expect(within(rows[2]).getByText('교육, 세미나')).toBeInTheDocument()
+  })
+
+  it('검사 결과를 경고와 참고로 나누어 텍스트 라벨과 함께 보여준다', async () => {
+    await renderDetail()
+    const warnings = screen.getByRole('region', { name: '경고' })
+    expect(within(warnings).getByText('외부 CSS는 차단됩니다')).toBeInTheDocument()
+    expect(within(warnings).getByText(/cdn\.example\.com/)).toBeInTheDocument()
+    expect(within(warnings).getByText('external_stylesheet')).toBeInTheDocument()
+    const info = screen.getByRole('region', { name: '참고' })
+    expect(within(info).getByText('네트워크 호출이 제한됩니다')).toBeInTheDocument()
+    expect(within(warnings).queryByText('네트워크 호출이 제한됩니다')).toBeNull()
+  })
+
+  it('검사 결과가 비어 있으면 문제 없음이라고 알린다', async () => {
+    mockBackend((url) => (url.pathname === '/api/admin/templates/3' ? json({ ...template, inspection: [] }) : undefined))
+    renderPage('/templates/:id', <TemplateDetailPage />, '/templates/3')
+    expect(await screen.findByText('검사에서 발견한 문제가 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '경고' })).toBeNull()
   })
 })

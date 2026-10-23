@@ -46,6 +46,7 @@ npm run build
 | 문서 | 내용 |
 |---|---|
 | [docs/GUIDE.md](docs/GUIDE.md) | 사용 가이드: 화면별 사용법, AI로 신청 폼 HTML 만들 때의 조건, 유스케이스 |
+| [docs/AI_FORM_PROMPT.md](docs/AI_FORM_PROMPT.md) | AI에게 신청 폼 HTML을 만들게 할 때 붙여 넣는 프롬프트, 규칙별 검사 코드 대응표, 통과하는 예시 |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | 문제 해결: 실행·로그인·업로드·신청·지표 증상별 원인과 해결, 오류 코드표 |
 | [docs/WORKPLAN.md](docs/WORKPLAN.md) | 작업 계획과 진행 현황, 다음 작업 |
 | [docs/OVERVIEW.md](docs/OVERVIEW.md) | 설계 개요: 아키텍처, 보안 설계, 테스트 전략 |
