@@ -136,8 +136,11 @@ class DemoDataSeederTest {
                 .body("name", notNullValue())
                 .body("phone", matchesPattern("^0105555\\d{4}$"));
         }
-        RestAssured.given().auth().oauth2(token).get("/api/admin/leads/{id}/contact", ids.get(0))
+        // 이메일은 폼에 따라 선택 항목이라 첫 신청에 없을 수 있다(실행 날짜에 따라 달라짐). 이메일이 있는 신청으로 확인한다.
+        long withEmail = jdbc.queryForObject("SELECT min(id) FROM leads WHERE email_enc IS NOT NULL", Long.class);
+        RestAssured.given().auth().oauth2(token).get("/api/admin/leads/{id}/contact", withEmail)
             .then().body("email", endsWith("@example.com"));
+        assertThat(count("SELECT count(*) FROM leads WHERE email_enc IS NOT NULL")).isPositive();
         assertThat(count("""
             SELECT count(*) FROM leads l
              WHERE l.visitor_id IS NULL
