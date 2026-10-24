@@ -2,12 +2,15 @@ package com.leadmagnet.crm.stats.application;
 
 import com.leadmagnet.crm.common.Csv;
 import com.leadmagnet.crm.common.DateRange;
+import com.leadmagnet.crm.common.error.DomainException;
+import com.leadmagnet.crm.common.error.DomainException.FieldError;
 import com.leadmagnet.crm.lead.application.LeadQueryService;
 import com.leadmagnet.crm.link.domain.AttributionChannel;
 import com.leadmagnet.crm.stats.application.StatsService.ChannelMetrics;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +28,8 @@ public class DashboardService {
 
     static final int DEFAULT_DAYS = 30;
     static final int RECENT_LEADS = 10;
+    /** 일별 행이 날짜마다 하나라 기간을 1년(윤년 366일)까지로 막는다. */
+    public static final int MAX_DAYS = 366;
     static final List<String> CSV_HEADER = List.of("캠페인", "폼", "상태", "방문", "방문자", "신청", "전환 방문자", "전환율");
 
     private final StatsQuery query;
@@ -103,12 +108,19 @@ public class DashboardService {
             r.formId(), r.title(), r.status(), r.metrics())).toList();
     }
 
-    /** 형식·범위를 먼저 검증(422)한 뒤 빈 쪽을 채우고, 채운 기간을 다시 검증한다(from만 미래로 주면 422). */
+    /**
+     * 형식·범위를 먼저 검증(422)한 뒤 빈 쪽을 채우고, 채운 기간을 다시 검증한다(from만 미래로 주면 422).
+     * 채운 기간이 {@value #MAX_DAYS}일을 넘으면 422 validation_failed(errors[].code range_too_long).
+     */
     Period resolve(String from, String to) {
         DateRange.parse(from, to);
         LocalDate toDate = to == null ? LocalDate.ofInstant(clock.instant(), DateRange.ZONE) : LocalDate.parse(to);
         LocalDate fromDate = from == null ? toDate.minusDays(DEFAULT_DAYS - 1) : LocalDate.parse(from);
         DateRange.parse(fromDate.toString(), toDate.toString());
+        if (ChronoUnit.DAYS.between(fromDate, toDate) + 1 > MAX_DAYS) {
+            throw DomainException.validation(List.of(new FieldError("from",
+                "대시보드 기간은 " + MAX_DAYS + "일을 넘을 수 없습니다", "range_too_long")));
+        }
         return new Period(fromDate, toDate);
     }
 

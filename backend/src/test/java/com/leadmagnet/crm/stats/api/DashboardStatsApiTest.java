@@ -369,6 +369,27 @@ class DashboardStatsApiTest {
     }
 
     @Test
+    void 기간은_366일까지이고_367일이면_422다() {
+        // 2024는 윤년: 2024-01-01 ~ 2024-12-31 = 366일
+        authed().get("/api/admin/stats/dashboard?from=2024-01-01&to=2024-12-31").then().statusCode(200)
+            .body("daily.size()", equalTo(366));
+        authed().get("/api/admin/stats/dashboard.csv?from=2024-01-01&to=2024-12-31").then().statusCode(200);
+
+        authed().get("/api/admin/stats/dashboard?from=2024-01-01&to=2025-01-01").then().statusCode(422)
+            .body("code", equalTo("validation_failed"))
+            .body("errors[0].field", equalTo("from")).body("errors[0].code", equalTo("range_too_long"));
+        authed().get("/api/admin/stats/dashboard.csv?from=2024-01-01&to=2025-01-01").then().statusCode(422)
+            .body("code", equalTo("validation_failed")).body("errors[0].code", equalTo("range_too_long"));
+        // from만 주면 to는 오늘이므로, 오래전 from도 367일을 넘으면 거절한다
+        clock.freezeAt(Instant.parse("2026-03-12T15:30:00Z"));
+        token = AdminLogin.accessToken("owner@example.com", "correct-horse-battery");
+        authed().get("/api/admin/stats/dashboard?from=2025-03-12").then().statusCode(422)
+            .body("errors[0].code", equalTo("range_too_long"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action = 'stats.export'", Long.class))
+            .isEqualTo(1);
+    }
+
+    @Test
     void 토큰이_없으면_401이다() {
         RestAssured.given().get("/api/admin/stats/dashboard").then().statusCode(401)
             .body("code", equalTo("unauthorized"));

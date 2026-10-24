@@ -32,7 +32,8 @@ public class DashboardController {
     static final MediaType TEXT_CSV = new MediaType("text", "csv", StandardCharsets.UTF_8);
 
     private static final String PERIOD = "from, to는 yyyy-MM-dd(Asia/Seoul)이고 양 끝을 포함한다. 둘 다 없으면 서울 오늘까지 30일, "
-        + "to만 없으면 오늘까지, from만 없으면 to까지 30일이다. 봇 방문은 빼고(ADR 0019) 전환은 ADR 0005를 따른다.";
+        + "to만 없으면 오늘까지, from만 없으면 to까지 30일이다. 채운 기간은 366일까지이고 넘으면 422 validation_failed"
+        + "(errors[].code range_too_long). 봇 방문은 빼고(ADR 0019) 전환은 ADR 0005를 따른다.";
 
     private final DashboardService dashboard;
     private final AuditService audit;
@@ -51,7 +52,7 @@ public class DashboardController {
     @ApiResponse(responseCode = "200", description = "대시보드 지표")
     @ApiResponse(responseCode = "401", description = "unauthorized",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
-    @ApiResponse(responseCode = "422", description = "날짜 형식·범위 오류 (validation_failed)",
+    @ApiResponse(responseCode = "422", description = "날짜 형식·범위 오류, 366일 초과 (validation_failed)",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping("/api/admin/stats/dashboard")
     public DashboardResponse dashboard(@RequestParam(required = false) String from,
@@ -68,7 +69,7 @@ public class DashboardController {
         content = @Content(mediaType = "text/csv", schema = @Schema(type = "string", format = "binary")))
     @ApiResponse(responseCode = "401", description = "unauthorized",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
-    @ApiResponse(responseCode = "422", description = "날짜 형식·범위 오류 (validation_failed)",
+    @ApiResponse(responseCode = "422", description = "날짜 형식·범위 오류, 366일 초과 (validation_failed)",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping("/api/admin/stats/dashboard.csv")
     public ResponseEntity<byte[]> exportForms(@RequestParam(required = false) String from,
