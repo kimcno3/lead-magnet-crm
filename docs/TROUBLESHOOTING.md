@@ -17,6 +17,7 @@
 | backend 로그에 `ADMIN_SEED_EMAIL과 ADMIN_SEED_PASSWORD는 함께 설정해야 합니다` | 둘 중 하나만 설정 | 둘 다 채우거나 둘 다 비운다 |
 | backend 로그에 `ADMIN_SEED_PASSWORD는 12자 이상` | 시드 비밀번호가 짧음 | 12자 이상, UTF-8 72바이트 이하로 바꾼다 |
 | `.env`의 비밀번호를 바꿨는데 로그인이 안 된다 | 시드는 계정이 **없을 때만** 만든다. 이미 있는 계정은 바꾸지 않는다(ADR 0009) | `docker compose down -v`로 DB를 지우고 다시 띄운다(데이터 모두 삭제) |
+| 예시 데이터가 없다, 또는 일부만 있다(backend 로그에 `예시 데이터 건너뜀` 또는 `예시 데이터 생성 실패`) | 예시 데이터(ADR 0023)는 `DEMO_DATA=true`이고 운영자 계정이 있고 캠페인이 하나도 없을 때만 한 번 넣는다. 이미 있던 `.env`(기본 `false`)나 이전 데이터가 남은 DB면 건너뛴다. 중간에 실패하면 만든 캠페인 때문에 다음 기동에서도 건너뛴다 | `.env`에 `DEMO_DATA=true`, `ADMIN_SEED_EMAIL`·`ADMIN_SEED_PASSWORD`가 있는지 확인하고 `scripts/local-up.sh --fresh`로 빈 DB에서 다시 띄운다(데이터 모두 삭제). 빈 DB를 원하면 `DEMO_DATA=false`로 두고 `--fresh` |
 | `port is already allocated` | 5173, 8080, 8081, 5432 중 사용 중인 포트가 있음 | `.env`의 `ADMIN_WEB_PORT`, `ADMIN_PORT`, `PUBLIC_PORT`, `POSTGRES_PORT`를 바꾼다. 포트를 바꾸면 `ADMIN_ORIGIN`, `PUBLIC_BASE_URL`도 맞춘다 |
 | 관리자 화면이 "서버에 연결하지 못했습니다" | backend가 아직 기동 중이거나 멈춤 | `docker compose ps`에서 backend가 `healthy`인지 확인, `docker compose logs backend` |
 | `docker compose up`에서 `unknown flag: --wait` 또는 `unknown flag: --wait-timeout` | `--wait`를 지원하지 않는 오래된 docker compose다. CI의 e2e 워크플로가 이 플래그를 쓴다 | 로컬에서는 `docker compose up --build -d`로 올린다. `depends_on`의 health 조건이 기동 순서는 맞춰 주므로, 올라온 뒤 헬스 엔드포인트(`curl http://localhost:8080/actuator/health`)가 `UP`을 돌려줄 때까지 기다린다 |
