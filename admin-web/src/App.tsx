@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider } from './auth/AuthProvider'
 import { RequireAuth } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
+import { LanguageProvider } from './i18n/LanguageProvider'
 import { AuditLogListPage } from './pages/AuditLogList'
 import { CampaignDetailPage } from './pages/CampaignDetail'
 import { CampaignListPage } from './pages/CampaignList'
@@ -39,10 +40,12 @@ export function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </LanguageProvider>
   )
 }
