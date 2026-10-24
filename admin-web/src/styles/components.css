@@ -1372,3 +1372,234 @@
 .pre-wrap {
   white-space: pre-wrap;
 }
+
+/* 대시보드 (#100) */
+.quick-periods {
+  display: flex;
+  gap: 6px;
+  align-self: flex-end;
+}
+
+.quick-periods .btn[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.kpis.kpis-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+@media (max-width: 767px) {
+  .kpis.kpis-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.trend {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 12px 8px 4px;
+}
+
+.trend-legend {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--text-muted);
+  font-size: var(--fs-small);
+}
+
+.trend-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trend-key {
+  display: inline-block;
+  width: 12px;
+}
+
+.trend-key-bar {
+  height: 10px;
+  background: var(--border-strong);
+}
+
+.trend-key-line {
+  height: 2px;
+  background: var(--text);
+}
+
+.trend-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.trend-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.trend-axis {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-bar {
+  fill: var(--border-strong);
+}
+
+.trend-line {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.trend-dot {
+  fill: var(--surface);
+  stroke: var(--text);
+  stroke-width: 1.5;
+}
+
+.trend-hit {
+  fill: transparent;
+}
+
+.trend-hit:hover {
+  fill: var(--accent-soft);
+  fill-opacity: 0.5;
+}
+
+.trend-placeholder {
+  display: block;
+  height: 220px;
+}
+
+/* 폼 시트: 세로로도 스크롤해 머리글이 붙어 있고 합계 행은 아래에 붙는다 */
+.sheet-wrap {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.sheet {
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet thead th {
+  z-index: 1;
+  padding: 0;
+}
+
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sheet thead th.num .sort-button {
+  justify-content: flex-end;
+}
+
+.sort-button:hover {
+  color: var(--text);
+}
+
+.sort-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.sort-mark {
+  display: inline-block;
+  min-width: 1ch;
+  font-size: 9px;
+}
+
+.sheet tfoot th,
+.sheet tfoot td {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface-sunken);
+  border-top: 1px solid var(--border-strong);
+  font-weight: 600;
+  text-align: left;
+}
+
+.sheet tfoot td.num {
+  text-align: right;
+}
+
+.dash-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 1023px) {
+  .dash-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.recent-list li {
+  display: grid;
+  grid-template-columns: minmax(6ch, auto) 1fr auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: var(--fs-table);
+}
+
+.recent-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.recent-meta {
+  color: var(--text-muted);
+  word-break: keep-all;
+}
+
+.recent-time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .recent-list li {
+    grid-template-columns: 1fr auto;
+  }
+
+  .recent-meta {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}

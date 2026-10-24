@@ -48,6 +48,9 @@ export function Layout() {
           <nav aria-label={t('nav.main')}>
             <ul className="nav">
               <li>
+                <NavLink to="/dashboard">{t('nav.dashboard')}</NavLink>
+              </li>
+              <li>
                 <NavLink to="/campaigns">{t('nav.campaigns')}</NavLink>
               </li>
               <li>

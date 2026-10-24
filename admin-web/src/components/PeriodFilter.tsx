@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
 import { useI18n } from '../i18n/context'
 import { Button } from './Button'
@@ -6,8 +7,14 @@ import { Field } from './Field'
 /**
  * 기간 필터. 값은 URL 쿼리 from·to(yyyy-MM-dd, 서울 날짜)에 둔다.
  * resetParams: 기간이 바뀌면 함께 지울 쿼리(예: 페이지가 있는 목록의 page).
+ * emptyLabel: 기간을 비웠을 때의 뜻(기본 "전체 기간"). 서버가 기본 기간을 채우는 화면은 그 기간을 적는다.
+ * children: 날짜 입력 옆에 둘 추가 컨트롤(예: 빠른 기간 버튼).
  */
-export function PeriodFilter({ resetParams = [] }: { resetParams?: readonly string[] } = {}) {
+export function PeriodFilter({
+  resetParams = [],
+  emptyLabel,
+  children,
+}: { resetParams?: readonly string[]; emptyLabel?: string; children?: ReactNode } = {}) {
   const { t } = useI18n()
   const [params, setParams] = useSearchParams()
   const from = params.get('from') ?? ''
@@ -38,10 +45,11 @@ export function PeriodFilter({ resetParams = [] }: { resetParams?: readonly stri
       </Field>
       {(from || to) && (
         <Button size="sm" variant="ghost" onClick={() => setPeriod({ from: '', to: '' })}>
-          {t('components.allPeriod')}
+          {emptyLabel ?? t('components.allPeriod')}
         </Button>
       )}
-      <p className="toolbar-note muted small">{from || to ? t('components.periodNote') : t('components.allPeriod')}</p>
+      {children}
+      <p className="toolbar-note muted small">{from || to ? t('components.periodNote') : (emptyLabel ?? t('components.allPeriod'))}</p>
     </div>
   )
 }

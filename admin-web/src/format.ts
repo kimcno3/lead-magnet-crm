@@ -75,6 +75,20 @@ export function formatPeriod(start: Maybe<string>, end: Maybe<string>): string {
   return `${start ? formatDate(start) : ''} ~${end ? ` ${formatDate(end)}` : ''}`.trim()
 }
 
+const seoulDateFormat = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' })
+
+/** 지금의 서울 날짜(yyyy-MM-dd). */
+export function seoulToday(now: Date = new Date()): string {
+  return seoulDateFormat.format(now)
+}
+
+/** yyyy-MM-dd 날짜에 days일을 더한다(음수면 뺀다). 시간대와 무관한 달력 계산이다. */
+export function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 /** date input 값(yyyy-MM-dd)을 서울 시각 기준 Instant(ISO)로. 시작은 00:00:00, 종료는 23:59:59. */
 export function seoulDateToInstant(date: string, edge: 'start' | 'end'): string | null {
   if (!date) return null
@@ -181,6 +195,11 @@ export function summarizeAuditDetail(detail: Record<string, unknown>): string {
         break
       case 'creatorId':
         parts.push(t('auditDetail.creator', { id: String(value) }))
+        break
+      case 'from':
+        parts.push(t('auditDetail.period', { from: String(value), to: String(detail.to ?? '') }))
+        break
+      case 'to':
         break
       case 'windowMinutes':
         parts.push(t('auditDetail.window', { minutes: String(value) }))

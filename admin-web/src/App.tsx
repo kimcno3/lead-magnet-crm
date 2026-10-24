@@ -7,6 +7,7 @@ import { SettingsPage } from './pages/Settings'
 import { AuditLogListPage } from './pages/AuditLogList'
 import { CampaignDetailPage } from './pages/CampaignDetail'
 import { CampaignListPage } from './pages/CampaignList'
+import { DashboardPage } from './pages/Dashboard'
 import { CreatorDetailPage } from './pages/CreatorDetail'
 import { CreatorListPage } from './pages/CreatorList'
 import { LoginPage } from './pages/Login'
@@ -25,7 +26,8 @@ export function AppRoutes() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to="/campaigns" replace />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/campaigns" element={<CampaignListPage />} />
         <Route path="/campaigns/:id" element={<CampaignDetailPage />} />
         <Route path="/creators" element={<CreatorListPage />} />
