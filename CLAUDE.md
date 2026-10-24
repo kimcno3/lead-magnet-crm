@@ -82,7 +82,7 @@ cd e2e && npm ci && npx playwright install chromium && npm test   # 결과: docs
 - `docker-compose.yml`: postgres → backend → admin-web 순서로 헬스체크를 기다린다. 값은 루트 `.env`에서 읽는다.
 - `docs/`: `PLAN.md`(과제 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `OVERVIEW.md`(제출 개요), `api/openapi.yaml`, `ROADMAP.md`(범위 밖), `adr/`.
 - `scripts/bootstrap-github.sh`: 라벨·마일스톤·이슈를 gh api로 만든다. 여러 번 실행해도 안전하다.
-- `scripts/local-up.sh`: 로컬 실행 한 줄(.env 없으면 키 생성, `docker compose up --build -d`, 헬스 대기, 주소 안내, `--fresh`는 볼륨 삭제). `scripts/wiki/build_wiki.py <위키 체크아웃>`: `docs/`를 GitHub 위키 페이지로 변환(위키는 읽기용 사본, 문서는 `docs/`에서 고친다).
+- `scripts/local-up.sh`: 로컬 실행 한 줄(.env 없으면 키 생성, `docker compose up --build -d`, 헬스 대기, 주소 안내, `--fresh`는 볼륨 삭제). GitHub 위키는 제출물을 처음 보는 사람용 요약 안내서다(손으로 쓴다, 근거는 `docs/` 링크). 기능·숫자가 크게 바뀌면 위키의 해당 페이지도 맞춘다.
 
 ## 보안 불변식 (위반 금지)
 
