@@ -4,6 +4,14 @@
 
 필요한 것: Docker (Compose v2)
 
+가장 빠른 방법은 스크립트 하나입니다. `.env`가 없으면 키를 새로 만들고, 전체 시스템을 띄운 뒤 준비되면 접속 주소를 알려 줍니다(`--fresh`는 DB를 비우고 새로 띄움).
+
+```bash
+scripts/local-up.sh
+```
+
+수동으로 하려면:
+
 ```bash
 # .env.example을 복사하면서 JWT_SECRET, 개인정보 암호화 키 두 개, 폼 토큰 키를 새로 만든다(자리표시 값으로는 기동하지 않는다)
 sed -e "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" \
@@ -43,6 +51,8 @@ npm run build
 브라우저 E2E(Playwright, Chromium)는 `docker compose up --build -d`로 전체 시스템을 띄운 뒤 `cd e2e && npm ci && npx playwright install chromium && npm test`로 돌린다. 화면은 `docs/e2e/screenshots/`, 단계별 결과는 `docs/e2e/results.json`에 남는다. CI(`.github/workflows/e2e.yml`)도 develop·main 대상 PR과 push마다 같은 E2E를 돌린다. CI는 키와 관리자 비밀번호를 새로 만든 `.env`로 띄우고, 결과를 `E2E_OUTPUT_DIR`(`e2e/ci-output`)에 써서 `e2e-results` 아티팩트로만 올린다(커밋된 `docs/e2e`는 로컬 실행만 갱신한다). 실패하면 Playwright 리포트·trace와 `docker compose logs`도 `e2e-failure-report`로 올린다.
 
 ## 문서
+
+같은 문서를 [GitHub 위키](https://github.com/kimcno3/lead-magnet-crm/wiki)에서 읽기 좋게 볼 수 있다(`docs/`가 원본이고 위키는 `scripts/wiki/build_wiki.py`로 만든 사본).
 
 | 문서 | 내용 |
 |---|---|
