@@ -19,6 +19,7 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
     public static final String TARGET_FORM = "form";
     public static final String TARGET_TEMPLATE = "template";
     public static final String TARGET_CREATOR = "creator";
+    public static final String TARGET_DASHBOARD = "dashboard";
 
     public AuditEvent {
         detail = detail == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(detail));
@@ -149,6 +150,15 @@ public record AuditEvent(AuditAction action, String targetType, Long targetId, L
     public static AuditEvent creatorArchive(long creatorId) {
         return new AuditEvent(AuditAction.CREATOR_ARCHIVE, TARGET_CREATOR, creatorId, null,
             Map.of("creatorId", creatorId));
+    }
+
+    /** 대시보드 폼 시트 CSV. from·to는 적용된 기간(yyyy-MM-dd, Asia/Seoul), count는 내보낸 폼 행 수. 개인정보는 없다. */
+    public static AuditEvent statsExport(String from, String to, long count) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("from", from);
+        detail.put("to", to);
+        detail.put("count", count);
+        return new AuditEvent(AuditAction.STATS_EXPORT, TARGET_DASHBOARD, null, null, detail);
     }
 
     private static Map<String, Object> filterDetail(Long formId, String channel) {

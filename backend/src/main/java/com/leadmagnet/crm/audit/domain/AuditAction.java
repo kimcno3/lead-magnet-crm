@@ -20,7 +20,8 @@ public enum AuditAction {
     FORM_CLOSE("form.close"),
     TEMPLATE_VERSION_UPLOAD("template.version.upload"),
     CREATOR_ARCHIVE("creator.archive"),
-    PII_REENCRYPT("pii.reencrypt");
+    PII_REENCRYPT("pii.reencrypt"),
+    STATS_EXPORT("stats.export");
 
     private final String value;
 
