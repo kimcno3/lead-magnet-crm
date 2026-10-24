@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,12 +29,28 @@ class PackageDependencyRulesTest {
     static final Set<String> DOMAINS =
         Set.of("auth", "template", "campaign", "form", "link", "tracking", "lead", "stats", "audit", "creator");
 
+    /** 예시 데이터(ADR 0023). 도메인을 참조할 수 있지만 어떤 패키지도 이 패키지를 참조할 수 없다. */
+    static final String DEMO = "demo";
+
     /** 소스 패키지 → 참조하면 안 되는 패키지 */
-    static final Map<String, Set<String>> FORBIDDEN = Map.of(
+    static final Map<String, Set<String>> FORBIDDEN = withDemoForbidden(Map.of(
         "common", DOMAINS,
         "template", Set.of("form"),
         "audit", Set.of("auth", "lead", "campaign", "form", "template", "creator", "stats"),
-        "lead", Set.of("stats"));
+        "lead", Set.of("stats")));
+
+    /** 모든 도메인 패키지와 common의 금지 목록에 demo를 더한다. */
+    static Map<String, Set<String>> withDemoForbidden(Map<String, Set<String>> rules) {
+        Map<String, Set<String>> all = new HashMap<>();
+        Set<String> sources = new HashSet<>(DOMAINS);
+        sources.add("common");
+        for (String source : sources) {
+            Set<String> forbidden = new HashSet<>(rules.getOrDefault(source, Set.of()));
+            forbidden.add(DEMO);
+            all.put(source, Set.copyOf(forbidden));
+        }
+        return Map.copyOf(all);
+    }
 
     private static final Pattern REFERENCE = Pattern.compile("\\b" + Pattern.quote(ROOT) + "\\.([a-z]+)\\b");
 
@@ -104,5 +122,19 @@ class PackageDependencyRulesTest {
         // template → form 금지
         assertThat(violations("template", "template/api/T.java", "import com.leadmagnet.crm.form.api.Foo;"))
             .containsExactly("template/api/T.java:1 template → form");
+    }
+
+    @Test
+    void 어떤_패키지도_demo를_참조할_수_없고_demo는_도메인을_참조할_수_있다() {
+        for (String pkg : DOMAINS) {
+            assertThat(violations(pkg, pkg + "/X.java", "import com.leadmagnet.crm.demo.DemoDataSeeder;"))
+                .as(pkg + " → demo").containsExactly(pkg + "/X.java:1 " + pkg + " → demo");
+        }
+        assertThat(violations("common", "common/X.java", "import com.leadmagnet.crm.demo.DemoDataSeeder;"))
+            .containsExactly("common/X.java:1 common → demo");
+        assertThat(violations("demo", "demo/X.java", """
+            import com.leadmagnet.crm.lead.application.ContactProtector;
+            import com.leadmagnet.crm.link.application.LinkService;
+            """)).isEmpty();
     }
 }

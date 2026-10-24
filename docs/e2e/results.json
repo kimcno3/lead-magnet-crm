@@ -1,7 +1,7 @@
 {
   "suite": "lead-magnet-crm browser E2E (Playwright, Chromium)",
-  "startedAt": "2026-10-24T13:17:24.282Z",
-  "finishedAt": "2026-10-24T13:17:36.949Z",
+  "startedAt": "2026-10-24T13:57:40.671Z",
+  "finishedAt": "2026-10-24T13:57:52.597Z",
   "total": 24,
   "passed": 24,
   "failed": 0,
@@ -13,7 +13,7 @@
       "status": "pass",
       "assertion": "로그인 폼(이메일·비밀번호·로그인 버튼)이 보인다",
       "screenshot": "docs/e2e/screenshots/01-login.png",
-      "durationMs": 233
+      "durationMs": 250
     },
     {
       "id": 2,
@@ -22,7 +22,7 @@
       "status": "pass",
       "assertion": ".env 시드 계정으로 로그인하면 /campaigns로 이동한다",
       "screenshot": null,
-      "durationMs": 448
+      "durationMs": 436
     },
     {
       "id": 3,
@@ -31,9 +31,9 @@
       "status": "pass",
       "assertion": "ai-form.html 업로드 후 상세 화면에 필드 7개가 추출되고 sandbox 미리보기가 렌더링된다",
       "screenshot": "docs/e2e/screenshots/02-template-detail.png",
-      "durationMs": 624,
+      "durationMs": 397,
       "observed": {
-        "templateId": "8",
+        "templateId": "5",
         "fields": [
           "name",
           "phone",
@@ -52,7 +52,7 @@
       "status": "pass",
       "assertion": "목록에 업로드한 템플릿이 필드 수 7로 보인다",
       "screenshot": "docs/e2e/screenshots/03-template-list.png",
-      "durationMs": 134
+      "durationMs": 88
     },
     {
       "id": 5,
@@ -61,9 +61,9 @@
       "status": "pass",
       "assertion": "새 캠페인을 만들면 목록에 진행 중 상태로 보인다",
       "screenshot": "docs/e2e/screenshots/04-campaign-list.png",
-      "durationMs": 290,
+      "durationMs": 276,
       "observed": {
-        "campaignId": 8
+        "campaignId": 5
       }
     },
     {
@@ -73,7 +73,7 @@
       "status": "pass",
       "assertion": "템플릿으로 폼을 만들고 확인 대화상자에서 게시하면 상태가 게시됨이 된다",
       "screenshot": "docs/e2e/screenshots/05-form-published.png",
-      "durationMs": 564
+      "durationMs": 565
     },
     {
       "id": 7,
@@ -82,12 +82,12 @@
       "status": "pass",
       "assertion": "배포 링크 표의 기본 행에 인스타그램·X·유튜브·스레드 링크가 모두 만들어지고 주소가 http://localhost:8081/l/{code} 형식이다",
       "screenshot": "docs/e2e/screenshots/06-links.png",
-      "durationMs": 494,
+      "durationMs": 413,
       "observed": {
-        "instagram": "http://localhost:8081/l/zFpvPMvR",
-        "x": "http://localhost:8081/l/Um0tff3J",
-        "youtube": "http://localhost:8081/l/7qQ9fqql",
-        "threads": "http://localhost:8081/l/Ux64q14G"
+        "instagram": "http://localhost:8081/l/We1mA9qr",
+        "x": "http://localhost:8081/l/nszW0vf5",
+        "youtube": "http://localhost:8081/l/bS22kp87",
+        "threads": "http://localhost:8081/l/pf1VXh9Y"
       }
     },
     {
@@ -97,11 +97,11 @@
       "status": "pass",
       "assertion": "/l/{code}가 302로 /f/{slug}?lm={code}에 도착하고 래퍼가 sandbox iframe에 폼을 그린다",
       "screenshot": "docs/e2e/screenshots/07-visitor-a-form.png",
-      "durationMs": 201,
+      "durationMs": 182,
       "observed": {
         "redirectStatus": 302,
-        "finalUrl": "http://localhost:8081/f/guide-mvmfbets?lm=zFpvPMvR",
-        "lm_vid": "72b9c0f3-d693-431d-9715-aee7bd5e6630"
+        "finalUrl": "http://localhost:8081/f/guide-mvmgr790?lm=We1mA9qr",
+        "lm_vid": "8fb19ea7-16c1-4ca0-b2c2-8810203d817f"
       }
     },
     {
@@ -111,7 +111,7 @@
       "status": "pass",
       "assertion": "iframe 안 폼을 채우고 래퍼 동의 체크 후 제출하면 \"신청이 접수되었습니다. 감사합니다.\"가 보인다",
       "screenshot": "docs/e2e/screenshots/08-visitor-a-success.png",
-      "durationMs": 2586
+      "durationMs": 2471
     },
     {
       "id": 10,
@@ -120,9 +120,9 @@
       "status": "pass",
       "assertion": "스레드 링크로 방문해 신청하면 성공 메시지가 보인다",
       "screenshot": "docs/e2e/screenshots/09-visitor-b-success.png",
-      "durationMs": 2572,
+      "durationMs": 2589,
       "observed": {
-        "lm_vid": "181ba2d6-a7de-41e4-aaf7-9a2a43caa6cd"
+        "lm_vid": "f02cf84e-cc3c-42ef-9b80-1c47443b470b"
       }
     },
     {
@@ -132,9 +132,9 @@
       "status": "pass",
       "assertion": "유튜브 링크로 폼이 열리고 아무 것도 제출하지 않는다",
       "screenshot": null,
-      "durationMs": 109,
+      "durationMs": 107,
       "observed": {
-        "lm_vid": "1793236e-2e0f-4261-ad76-36f419f7a885"
+        "lm_vid": "e4f57f49-88e1-41bb-bef6-9e28f5b18658"
       }
     },
     {
@@ -144,9 +144,9 @@
       "status": "pass",
       "assertion": "같은 lm_vid로 재방문하고, 이름을 비워 제출하면 래퍼가 \"입력 내용을 확인해 주세요.\"와 이름 항목 오류를 보여 준다",
       "screenshot": "docs/e2e/screenshots/10-validation-error.png",
-      "durationMs": 284,
+      "durationMs": 279,
       "observed": {
-        "lm_vid": "72b9c0f3-d693-431d-9715-aee7bd5e6630",
+        "lm_vid": "8fb19ea7-16c1-4ca0-b2c2-8810203d817f",
         "message": "입력 내용을 확인해 주세요.\n\n이름* 항목을 입력해 주세요."
       }
     },
@@ -157,7 +157,7 @@
       "status": "pass",
       "assertion": "방문 4, 방문자 3, 신청 2, 전환 방문자 2, 전환율 66.7%",
       "screenshot": null,
-      "durationMs": 146,
+      "durationMs": 147,
       "observed": {
         "방문": "4",
         "방문자": "3",
@@ -173,7 +173,7 @@
       "status": "pass",
       "assertion": "인스타그램 2/1/1/100.0%, X 0/0/0/0.0%, 유튜브 1/1/0/0.0%, 스레드 1/1/1/100.0%, 직접 유입 0/0/0/0.0%",
       "screenshot": "docs/e2e/screenshots/11-stats.png",
-      "durationMs": 80,
+      "durationMs": 69,
       "observed": [
         [
           "인스타그램",
@@ -224,10 +224,10 @@
       "status": "pass",
       "assertion": "총 2명. 이*우 010-****-5678 h***@example.com 인스타그램, 박*연 010-****-5432 s***@example.com 스레드(명단은 가린 값만 보인다)",
       "screenshot": "docs/e2e/screenshots/12-leads.png",
-      "durationMs": 170,
+      "durationMs": 174,
       "observed": [
         [
-          "2026-10-24 22:17",
+          "2026-10-24 22:57",
           "박*연",
           "010-****-5432",
           "s***@example.com",
@@ -237,7 +237,7 @@
           "원문 보기동의 문구 보기"
         ],
         [
-          "2026-10-24 22:17",
+          "2026-10-24 22:57",
           "이*우",
           "010-****-5678",
           "h***@example.com",
@@ -269,7 +269,7 @@
       "status": "pass",
       "assertion": "이현우 줄의 동의 문구 보기 → 폼을 만들 때 넣은 동의 문구 원문과 64자 sha256, 동의 시각을 대화상자로 보여준다",
       "screenshot": null,
-      "durationMs": 107,
+      "durationMs": 110,
       "observed": {
         "sha256Shown": true
       }
@@ -281,7 +281,7 @@
       "status": "pass",
       "assertion": "관리자 CSP(script-src 'self')가 srcdoc 미리보기의 인라인 스크립트를 막아 #probe가 초기 문구 \"probe: not run\" 그대로다",
       "screenshot": "docs/e2e/screenshots/13-admin-preview-probe.png",
-      "durationMs": 322,
+      "durationMs": 275,
       "observed": {
         "console": "Executing inline script violates the following Content Security Policy directive 'script-src 'self''. Either the 'unsafe-inline' keyword, a hash ('sha256-M3VupVLN56+yBRXziIRBtCtNWFBievScaJwTcBFZL6c='), or a nonce ('nonce-...') is required to enable inline execution. The action has been blocked."
       }
@@ -293,7 +293,7 @@
       "status": "pass",
       "assertion": "보안 점검 캠페인에 probe 템플릿으로 폼을 만들고 게시한다",
       "screenshot": null,
-      "durationMs": 487
+      "durationMs": 477
     },
     {
       "id": 20,
@@ -302,7 +302,7 @@
       "status": "pass",
       "assertion": "parent.document·document.cookie·localStorage 접근이 SecurityError, 관리자 API fetch 두 개 실패, 외부 이미지는 CSP img-src 위반(securitypolicyviolation)으로 차단되어 example.com 응답이 없다(요청 실패 사유 csp)",
       "screenshot": "docs/e2e/screenshots/14-probe-results.png",
-      "durationMs": 114,
+      "durationMs": 103,
       "observed": {
         "probe": {
           "done": true,
@@ -372,7 +372,7 @@
       "status": "pass",
       "assertion": "공개 폼 iframe의 sandbox 속성이 정확히 \"allow-scripts allow-forms\"(allow-same-origin 없음)",
       "screenshot": null,
-      "durationMs": 4,
+      "durationMs": 3,
       "observed": {
         "sandbox": "allow-scripts allow-forms"
       }
@@ -384,7 +384,7 @@
       "status": "pass",
       "assertion": "CSP가 공개 정책과 정확히 같고 X-Frame-Options: DENY, X-Content-Type-Options: nosniff",
       "screenshot": null,
-      "durationMs": 3,
+      "durationMs": 1,
       "observed": {
         "status": 200,
         "content-security-policy": "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'",
@@ -399,7 +399,7 @@
       "status": "pass",
       "assertion": "브라우저로 http://localhost:8081/api/admin/auth/me를 열면 404",
       "screenshot": "docs/e2e/screenshots/15-public-port-admin-api-404.png",
-      "durationMs": 68,
+      "durationMs": 62,
       "observed": {
         "status": 404,
         "body": "{\"type\":\"https://leadmagnet.example/problems/not_found\",\"title\":\"Not Found\",\"status\":404,\"detail\":\"리소스를 찾을 수 없습니다\",\"instance\":\"/api/admin/auth/me\",\"code\":\"not_found\"}"
@@ -412,10 +412,10 @@
       "status": "pass",
       "assertion": "브라우저로 http://localhost:8080/f/{slug}를 열면 404",
       "screenshot": "docs/e2e/screenshots/16-admin-port-public-form-404.png",
-      "durationMs": 70,
+      "durationMs": 39,
       "observed": {
         "status": 404,
-        "body": "{\"type\":\"https://leadmagnet.example/problems/not_found\",\"title\":\"Not Found\",\"status\":404,\"detail\":\"리소스를 찾을 수 없습니다\",\"instance\":\"/f/probe-mvmfbets\",\"code\":\"not_found\"}"
+        "body": "{\"type\":\"https://leadmagnet.example/problems/not_found\",\"title\":\"Not Found\",\"status\":404,\"detail\":\"리소스를 찾을 수 없습니다\",\"instance\":\"/f/probe-mvmgr790\",\"code\":\"not_found\"}"
       }
     }
   ]

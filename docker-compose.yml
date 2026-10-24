@@ -40,6 +40,8 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8081}
       RETENTION_ENABLED: ${RETENTION_ENABLED:-true}
+      # 로컬 체험용 예시 데이터. 빈 DB에 한 번만 넣는다(ADR 0023). 운영에서는 켜지 않는다
+      DEMO_DATA: ${DEMO_DATA:-false}
       # admin 포트에서 X-Forwarded-For를 믿을 직전 피어. 기본은 admin-web nginx의 고정 주소 하나다(ADR 0021).
       # 네트워크 대역 전체를 쓰면 게이트웨이(172.16.57.1)가 들어가는데, 공개된 포트로 들어온 연결은 Docker Desktop·
       # userland-proxy에서 게이트웨이 주소로 보이므로 그 연결의 위조 XFF까지 믿게 된다.

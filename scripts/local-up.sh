@@ -54,13 +54,15 @@ EOM
   sed -e "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 48)|" \
       -e "s|^LEAD_ENC_KEY=.*|LEAD_ENC_KEY=$(openssl rand -base64 32)|" \
       -e "s|^LEAD_HMAC_KEY=.*|LEAD_HMAC_KEY=$(openssl rand -base64 32)|" \
-      -e "s|^FORM_TOKEN_KEY=.*|FORM_TOKEN_KEY=$(openssl rand -base64 32)|" .env.example > .env
-  echo "• .env를 새로 만들었습니다(키 4개 생성)."
+      -e "s|^FORM_TOKEN_KEY=.*|FORM_TOKEN_KEY=$(openssl rand -base64 32)|" \
+      -e "s|^DEMO_DATA=.*|DEMO_DATA=true|" .env.example > .env
+  echo "• .env를 새로 만들었습니다(키 4개 생성, 예시 데이터 켬 DEMO_DATA=true)."
 fi
 
 env_value() { sed -n "s/^$1=//p" .env | tail -1; }
 admin_web_port="$(env_value ADMIN_WEB_PORT)"; admin_web_port="${admin_web_port:-5173}"
 admin_port="$(env_value ADMIN_PORT)"; admin_port="${admin_port:-8080}"
+demo_data="$(env_value DEMO_DATA)"
 public_port="$(env_value PUBLIC_PORT)"; public_port="${public_port:-8081}"
 
 if [[ "$fresh" == true ]]; then
@@ -100,6 +102,12 @@ if [[ "$ready" != true ]]; then
   exit 1
 fi
 
+demo_line=""
+if [[ "$demo_data" == true ]]; then
+  demo_line="
+  예시 데이터가 들어 있습니다(DEMO_DATA=true, 빈 DB에 한 번만). 빈 DB로 시작하려면 .env에서 DEMO_DATA=false로 바꾸고 --fresh"
+fi
+
 cat <<EOF
 
 준비됐습니다.
@@ -107,7 +115,7 @@ cat <<EOF
   관리자 화면   http://localhost:${admin_web_port}
                 로그인: $(env_value ADMIN_SEED_EMAIL) / 비밀번호는 .env의 ADMIN_SEED_PASSWORD
   API 문서      http://localhost:${admin_port}/swagger-ui.html
-  공개 폼       http://localhost:${public_port}/f/{slug}   (관리자 화면에서 폼을 게시한 뒤 열립니다)
+  공개 폼       http://localhost:${public_port}/f/{slug}   (관리자 화면에서 폼을 게시한 뒤 열립니다)${demo_line}
 
   처음이라면: 템플릿 → HTML 업로드(e2e/fixtures/ai-form.html을 써도 됩니다) → 캠페인 → 새 폼 → 게시 → 배포 링크
   종료: docker compose down   (데이터까지 지우려면 docker compose down -v)
