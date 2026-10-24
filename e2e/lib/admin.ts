@@ -8,8 +8,9 @@ export async function login(page: Page): Promise<void> {
   await page.getByLabel('이메일').fill(email)
   await page.getByLabel('비밀번호').fill(password)
   await page.getByRole('button', { name: '로그인' }).click()
-  await expect(page).toHaveURL(/\/campaigns$/)
-  await expect(page.getByRole('heading', { name: '캠페인', level: 1 })).toBeVisible()
+  // 로그인 후 첫 화면은 유입 현황 대시보드다
+  await expect(page).toHaveURL(/\/dashboard$/)
+  await expect(page.getByRole('heading', { name: '대시보드', level: 1 })).toBeVisible()
 }
 
 /** 앱 안에서 이동한다(전체 새로고침 대신 메뉴 링크로 이동해 세션 복원을 거치지 않는다). */

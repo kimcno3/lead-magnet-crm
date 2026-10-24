@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 
 /** 좁은 화면에서 가로 스크롤되는 표 래퍼. 스크롤 영역도 키보드로 닿게 tabIndex를 준다. */
-export function TableWrap({ label, children }: { label: string; children: ReactNode }) {
+export function TableWrap({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <div className="table-wrap" role="region" aria-label={label} tabIndex={0}>
+    <div className={className ? `table-wrap ${className}` : 'table-wrap'} role="region" aria-label={label} tabIndex={0}>
       {children}
     </div>
   )

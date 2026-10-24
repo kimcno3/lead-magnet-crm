@@ -31,6 +31,7 @@ function targetText(log: AuditLog): string {
   if (log.targetType === 'lead') return translate('auditLog.targetLead', { id: String(log.targetId) })
   if (log.targetType === 'operator') return log.targetId === null ? '-' : translate('auditLog.targetOperator', { id: String(log.targetId) })
   if (log.targetType === 'campaign') return translate('auditLog.targetLeadList')
+  if (log.targetType === 'dashboard') return translate('auditLog.targetDashboard')
   return log.targetId === null ? log.targetType : `${log.targetType} #${log.targetId}`
 }
 

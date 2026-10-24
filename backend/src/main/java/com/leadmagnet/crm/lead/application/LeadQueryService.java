@@ -1,6 +1,7 @@
 package com.leadmagnet.crm.lead.application;
 
 import com.leadmagnet.crm.campaign.domain.CampaignRepository;
+import com.leadmagnet.crm.common.PiiMasker;
 import com.leadmagnet.crm.common.crypto.PiiCryptoException;
 import com.leadmagnet.crm.common.error.DomainException;
 import com.leadmagnet.crm.common.error.DomainException.FieldError;
@@ -13,6 +14,8 @@ import com.leadmagnet.crm.link.domain.AttributionChannel;
 import com.leadmagnet.crm.template.domain.FormField;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -80,6 +83,28 @@ public class LeadQueryService {
             .collect(Collectors.toMap(Form::getId, Form::getFieldConfig, (a, b) -> a));
         return new LeadPage(result.stream().map(l -> toView(l, titles.get(l.getFormId()), fields.get(l.getFormId()))).toList(),
             page, size, result.getTotalElements(), result.getTotalPages());
+    }
+
+    /**
+     * 신청 id → 가린 이름(대시보드의 최근 신청용). 전화번호·이메일은 복호화하지 않는다. 이름이 없거나, 파기됐거나,
+     * 복호화하지 못한 신청은 맵에 넣지 않는다(로그에는 신청 id만).
+     */
+    public Map<Long, String> maskedNames(Collection<Long> leadIds) {
+        Map<Long, String> names = new HashMap<>();
+        for (Lead l : leads.findAllById(leadIds)) {
+            if (l.isAnonymized()) {
+                continue;
+            }
+            try {
+                String name = PiiMasker.maskName(protector.revealName(l));
+                if (name != null) {
+                    names.put(l.getId(), name);
+                }
+            } catch (PiiCryptoException e) {
+                log.warn("신청 이름을 복호화하지 못해 대시보드에서 비움: leadId={}", l.getId());
+            }
+        }
+        return names;
     }
 
     /**

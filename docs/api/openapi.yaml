@@ -70,6 +70,7 @@ paths:
           - template.version.upload
           - creator.archive
           - pii.reencrypt
+          - stats.export
       - name: operatorId
         in: query
         required: false
@@ -1321,6 +1322,96 @@ paths:
                 $ref: "#/components/schemas/CampaignListStatsResponse"
       security:
       - bearer: []
+  /api/admin/stats/dashboard:
+    get:
+      tags:
+      - 성과 조회
+      summary: 유입 현황 대시보드
+      description: "from, to는 yyyy-MM-dd(Asia/Seoul)이고 양 끝을 포함한다. 둘 다 없으면 서울 오늘까지\
+        \ 30일, to만 없으면 오늘까지, from만 없으면 to까지 30일이다. 채운 기간은 366일까지이고 넘으면 422 validation_failed(errors[].code\
+        \ range_too_long). 봇 방문은 빼고(ADR 0019) 전환은 ADR 0005를 따른다. totals는 전체 캠페인 합계\
+        (방문자는 캠페인을 가리지 않고 한 번, 전환은 같은 캠페인 안의 교집합). daily는 기간의 모든 서울 날짜(0 포함)이고 일별\
+        \ 전환은 그날 방문하고 같은 날 같은 캠페인에 신청한 방문자다. forms는 방문이나 신청이 있는 폼(최신 캠페인순, 같은 폼 안의\
+        \ 교집합), channels는 다섯 채널(같은 캠페인·채널 안의 교집합), creators는 크리에이터 등록순 다음 직접·자체 링크\
+        (creator null), recentLeads는 최신 10건이고 가린 이름만 준다."
+      operationId: getDashboard
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: 대시보드 지표
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DashboardResponse"
+        "401":
+          description: unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: "날짜 형식·범위 오류, 366일 초과 (validation_failed)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+      security:
+      - bearer: []
+  /api/admin/stats/dashboard.csv:
+    get:
+      tags:
+      - 성과 조회
+      summary: 대시보드 폼 시트 CSV 다운로드
+      description: "from, to는 yyyy-MM-dd(Asia/Seoul)이고 양 끝을 포함한다. 둘 다 없으면 서울 오늘까지\
+        \ 30일, to만 없으면 오늘까지, from만 없으면 to까지 30일이다. 채운 기간은 366일까지이고 넘으면 422 validation_failed(errors[].code\
+        \ range_too_long). 봇 방문은 빼고(ADR 0019) 전환은 ADR 0005를 따른다. UTF-8 BOM으로 시작하는\
+        \ RFC 4180 CSV. 열은 캠페인, 폼, 상태, 방문, 방문자, 신청, 전환 방문자, 전환율이고 순서는 대시보드 forms와\
+        \ 같다. 개인정보는 없다. =, +, -, @, 탭, CR로 시작하는 값에는 작은따옴표를 붙인다. 다운로드는 감사 로그(stats.export,\
+        \ 기간·행 수)에 남기되 기록에 실패해도 내려준다."
+      operationId: exportDashboardFormsCsv
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: CSV 파일
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "422":
+          description: "날짜 형식·범위 오류, 366일 초과 (validation_failed)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+      security:
+      - bearer: []
   /api/admin/templates:
     get:
       tags:
@@ -2273,6 +2364,172 @@ components:
         updatedAt:
           type: string
           format: date-time
+    ChannelStatsItem:
+      type: object
+      properties:
+        channel:
+          type: string
+        visits:
+          type: integer
+          format: int64
+        visitors:
+          type: integer
+          format: int64
+        leads:
+          type: integer
+          format: int64
+        convertedVisitors:
+          type: integer
+          format: int64
+        conversionRate:
+          type: number
+    CreatorItem:
+      type: object
+      description: creator가 null이면 직접·자체 링크(크리에이터 없는 링크 + direct)
+      properties:
+        creator:
+          $ref: "#/components/schemas/CreatorSummary"
+        visits:
+          type: integer
+          format: int64
+        visitors:
+          type: integer
+          format: int64
+        leads:
+          type: integer
+          format: int64
+        convertedVisitors:
+          type: integer
+          format: int64
+        conversionRate:
+          type: number
+    CreatorSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        status:
+          type: string
+    DailyItem:
+      type: object
+      description: 서울 날짜 하루. convertedVisitors는 그날 방문하고 같은 날 같은 캠페인에 신청한 방문자 수
+      properties:
+        date:
+          type: string
+        visits:
+          type: integer
+          format: int64
+        visitors:
+          type: integer
+          format: int64
+        leads:
+          type: integer
+          format: int64
+        convertedVisitors:
+          type: integer
+          format: int64
+    DashboardResponse:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        totals:
+          $ref: "#/components/schemas/MetricsItem"
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyItem"
+        forms:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormItem"
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChannelStatsItem"
+        creators:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreatorItem"
+        recentLeads:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentLeadItem"
+    FormItem:
+      type: object
+      description: 기간 안에 방문이나 신청이 있는 폼. 전환은 같은 폼 안의 교집합
+      properties:
+        campaignId:
+          type: integer
+          format: int64
+        campaignName:
+          type: string
+        formId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        status:
+          type: string
+        visits:
+          type: integer
+          format: int64
+        visitors:
+          type: integer
+          format: int64
+        leads:
+          type: integer
+          format: int64
+        convertedVisitors:
+          type: integer
+          format: int64
+        conversionRate:
+          type: number
+    MetricsItem:
+      type: object
+      properties:
+        visits:
+          type: integer
+          format: int64
+        visitors:
+          type: integer
+          format: int64
+        leads:
+          type: integer
+          format: int64
+        convertedVisitors:
+          type: integer
+          format: int64
+        conversionRate:
+          type: number
+    RecentLeadItem:
+      type: object
+      description: 최근 신청. name은 가린 이름(이름이 없거나 파기·복호화 불가면 null). 전화번호·이메일은 주지 않는다
+      properties:
+        id:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        campaignId:
+          type: integer
+          format: int64
+        campaignName:
+          type: string
+        formTitle:
+          type: string
+        channel:
+          type: string
+        creatorName:
+          type: string
+        name:
+          type: string
     CampaignListStatsResponse:
       type: object
       properties:
@@ -2398,25 +2655,6 @@ components:
           format: int64
         conversionRate:
           type: number
-    ChannelStatsItem:
-      type: object
-      properties:
-        channel:
-          type: string
-        visits:
-          type: integer
-          format: int64
-        visitors:
-          type: integer
-          format: int64
-        leads:
-          type: integer
-          format: int64
-        convertedVisitors:
-          type: integer
-          format: int64
-        conversionRate:
-          type: number
     CreatorStatsItem:
       type: object
       properties:
@@ -2454,16 +2692,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CreatorStatsItem"
-    CreatorSummary:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        name:
-          type: string
-        status:
-          type: string
     ChannelStatsResponse:
       type: object
       properties:
