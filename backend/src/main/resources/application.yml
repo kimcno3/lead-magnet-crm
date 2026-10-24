@@ -39,14 +39,20 @@ app:
     admin-origin: ${ADMIN_ORIGIN:http://localhost:5173}
     # refresh 쿠키와 방문자 쿠키(lm_vid)의 Secure 속성
     cookie-secure: ${COOKIE_SECURE:false}
-    # 로그인 시도 제한(인메모리 슬라이딩 윈도, 인스턴스별). 창 안에서 (이메일, IP) 쌍·이메일 전체·IP별 실패가 한도에 닿으면
-    # 429 + Retry-After (ADR 0021). 이메일 전체 상한은 여러 IP로 나눠 대입할 때만 닿는 값이다
+    # 로그인 시도 제한(슬라이딩 윈도, 실패 기록은 DB login_failures에 두어 서버 여러 대·재시작에도 유지). 창 안에서 (이메일, IP) 쌍·
+    # 이메일 전체·IP별 실패가 한도에 닿으면 429 + Retry-After (ADR 0021). 이메일 전체 상한은 여러 IP로 나눠 대입할 때만 닿는 값이다
     login-throttle:
       email-ip-max-failures: 5
       email-max-failures: 50
       ip-max-failures: 20
       window: 15m
-      max-keys: 10000
+      # 자리 잡기 트랜잭션이 키 잠금을 기다리는 최대 시간. 넘으면 429(연결 풀을 오래 붙잡지 않는다)
+      lock-timeout: 2s
+      # 창이 지난 실패 기록 정리(5분마다). false면 끈다(테스트)
+      cleanup-enabled: true
+    # POST /api/admin/auth/refresh의 클라이언트 IP별 분당 한도(인메모리 토큰 버킷, 인스턴스별). 넘으면 429 too_many_requests +
+    # Retry-After. 정상 사용은 탭마다 access 만료(15분)나 새로고침 때 한 번이다 (ADR 0021 변경 기록)
+    refresh-rate-limit: 30
   # admin 포트에서 X-Forwarded-For를 믿을 직전 피어(쉼표 구분 IP·CIDR). 기본은 docker compose에서 admin-web nginx의 고정 주소
   # (docker-compose.yml과 같음, 네트워크 게이트웨이 172.16.57.1은 포함하지 않는다). 비우면 아무도 신뢰하지 않는다.
   # public 포트는 이 값과 무관하게 XFF를 읽지 않는다 (ADR 0021, common/web/ClientIpFilter)
@@ -55,6 +61,14 @@ app:
     # 필수. 신청자 개인정보 암호화 키와 중복 판정 HMAC 키. 각각 base64로 인코딩한 32바이트, 서로 달라야 한다 (ADR 0015)
     enc-key: ${LEAD_ENC_KEY}
     hmac-key: ${LEAD_HMAC_KEY}
+    # 키 교체 (ADR 0022). 현재 암호화 키의 id(1~255). 새로 쓰는 암호문에 들어간다. v0.3.0까지의 암호문은 키 id 1이다
+    enc-key-id: ${LEAD_ENC_KEY_ID:1}
+    # 이전 암호화 키(선택, id:base64,id:base64). 읽기에만 쓰고, 재암호화(POST /api/admin/pii/reencrypt)로 남은 건수가 0이면 지운다
+    enc-previous-keys: ${LEAD_ENC_PREVIOUS_KEYS:}
+    # 이전 HMAC 키(선택). 설정한 채 기동하면 요청을 받기 전에 모든 중복 판정 해시를 LEAD_HMAC_KEY로 다시 계산한다. 끝나면 지운다
+    hmac-previous-key: ${LEAD_HMAC_PREVIOUS_KEY:}
+    # 재암호화·HMAC 교체에서 한 트랜잭션에 처리할 최대 행 수
+    batch-size: 500
   form-token:
     # 필수. 공개 폼 작성 시간 토큰(ft) HMAC-SHA256 서명 키. base64로 인코딩한 32바이트 (ADR 0019)
     key: ${FORM_TOKEN_KEY}

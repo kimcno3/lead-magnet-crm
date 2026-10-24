@@ -30,9 +30,7 @@ public class AuditLogController {
     }
 
     @Operation(operationId = "listAuditLogs", summary = "감사 로그",
-        description = "최신순. action은 lead.list, lead.contact.view, lead.export, lead.export.reveal, "
-            + "auth.login.success, auth.login.failure, auth.login.locked, retention.anonymize, campaign.retention.update, "
-            + "auth.refresh.reused, auth.logout, form.publish, form.close, template.version.upload, creator.archive. from·to는 Asia/Seoul 날짜(yyyy-MM-dd, 양 끝 포함). "
+        description = "최신순. action은 AuditAction의 값 중 하나(허용 값은 파라미터 스키마의 enum). from·to는 Asia/Seoul 날짜(yyyy-MM-dd, 양 끝 포함). "
             + "page는 0부터, size는 1~100(기본 20). 이 조회 자체는 기록하지 않는다.",
         security = @SecurityRequirement(name = "bearer"))
     @ApiResponse(responseCode = "200", description = "감사 로그 한 페이지")

@@ -82,3 +82,4 @@ ADR 0015로 명단은 가린 값만 보이고 원문은 `GET /api/admin/leads/{i
   - 폼 게시·마감, 템플릿 새 버전, 크리에이터 보관은 공개 콘텐츠나 공개 폼에 영향을 주는 상태 변경이라 같은 트랜잭션에서 `recordRequired`한다. 기록이 실패하면 변경도 롤백되고 500 `internal_error`다. 실제로 전이가 일어난 경우만 남기고(검증·409 실패, 내용만 수정은 제외) 잠금 순서(템플릿 → 폼)는 바꾸지 않는다.
   - detail에는 id, slug(공개 주소의 일부), 버전, 건수만 넣는다. 크리에이터 이름·핸들, 토큰 값, 이메일은 넣지 않는다. 서비스 시그니처에 `AuditActor`가 추가되어 form·creator → audit 의존이 생겼다(auth·lead·campaign과 같은 방향).
 - 2026-10-24 (#55): `AuditActor`·`AuditActors`를 `common/web`에서 audit 패키지(`audit/domain`, `audit/api`)로 옮겼다. 동작은 같고, common이 도메인을 모르게 하려는 패키지 정리다. 감사 기록 목록 조회의 기간은 `common/DateRange`를 쓴다.
+- 2026-10-24 (ADR 0022): `pii.reencrypt`(개인정보 재암호화, 수동 실행마다 한 줄, `recordRequired`를 자기 트랜잭션으로, target `lead`, detail `count`·`unreadable`·`remaining`·`completed`·`interrupted`·실패 시 `error`)를 더했다. 건수만 남기고 신청 id·키 id·키 값은 넣지 않는다. 드라이런은 기록하지 않는다. HMAC 키 교체는 기동 중(요청 전, 운영자 없음)에 일어나 감사 로그가 아니라 애플리케이션 로그에 건수를 남긴다.

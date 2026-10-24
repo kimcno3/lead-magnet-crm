@@ -19,6 +19,7 @@ class AuditActionTest {
         assertThat(AuditAction.fromValue("form.close")).contains(AuditAction.FORM_CLOSE);
         assertThat(AuditAction.fromValue("template.version.upload")).contains(AuditAction.TEMPLATE_VERSION_UPLOAD);
         assertThat(AuditAction.fromValue("creator.archive")).contains(AuditAction.CREATOR_ARCHIVE);
+        assertThat(AuditAction.fromValue("pii.reencrypt")).contains(AuditAction.PII_REENCRYPT);
         assertThat(AuditAction.fromValue("LEAD_LIST")).isEqualTo(Optional.empty());
         assertThat(AuditAction.fromValue(null)).isEmpty();
     }

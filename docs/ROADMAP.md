@@ -1,8 +1,8 @@
 # 로드맵
 
-이번 제출 범위(v0.1.0 core, v0.2.0 extras) 밖에 두는 작업이다. 우선순위나 범위가 바뀌면 이 문서를 고친다.
+v0.4.0까지의 범위(v0.1.0 core, v0.2.0 extras, v0.3.0 hardening, v0.4.0 operations) 밖에 두는 작업이다. 우선순위나 범위가 바뀌면 이 문서를 고친다.
 
-## 배포
+## 배포 (v0.5.0 후보)
 
 - Render 무료 서비스 4개(backend dev·prod, admin-web dev·prod)와 Neon 브랜치(dev·prod)로 환경을 운영한다.
   - develop 병합 시 dev, main 병합 시 prod에 배포한다.
@@ -13,7 +13,7 @@
 
 - Spring Authorization Server(Authorization Code + PKCE). 현재의 Resource Server 설정은 그대로 재사용한다.
 - access token 즉시 무효화(서버 세션 또는 블랙리스트).
-- 로그인 시도 제한을 여러 인스턴스가 나눠 쓰는 저장소(Redis 등)로 옮기기. v0.3.0(#51)의 제한은 인메모리·인스턴스별이다(ADR 0021).
+- ~~로그인 시도 제한을 여러 인스턴스가 나눠 쓰는 저장소로 옮기기~~: v0.4.0(#66)에서 PostgreSQL `login_failures`로 옮겼다(ADR 0021 변경 기록). 제출·`/refresh` rate limit은 아직 인메모리·인스턴스별이다.
 - refresh token 패밀리의 절대 수명 상한. 지금은 교체마다 14일이 다시 시작되어 계속 쓰면 세션이 끝나지 않는다(ADR 0003).
 - Google SSO.
 
@@ -25,10 +25,9 @@
 
 ## 보안
 
-- PII 키 교체 절차(ADR 0015). 지금은 `LEAD_ENC_KEY`·`LEAD_HMAC_KEY`를 바꾸면 기동 시 키 확인(`pii_key_check`)에서 멈춘다.
-  - 암호화 키: 암호문 버전 바이트 → 키 맵을 두고 이전 키로 읽고 새 키로 다시 암호화하는 배치, 끝나면 확인 행을 새 키로 바꾼다.
-  - HMAC 키: 새 해시 컬럼과 인덱스를 더해 두 해시를 함께 쓰는 기간을 두고, 재계산이 끝나면 옛 해시를 지운다(expand → contract).
+- ~~PII 키 교체 절차.~~ v0.4.0 #67에서 완료([ADR 0022](adr/0022-pii-key-rotation.md), GUIDE 2.11): 암호화 키는 형식 2(키 id) + 온라인 재암호화, HMAC 키는 기동 시 재계산. 남은 것:
   - KMS·시크릿 매니저 연동(봉투 암호화).
+  - HMAC 키 교체를 서비스 중단 없이(두 해시 컬럼 기간, expand → contract). 신청이 수백만 건이 되어 기동 시 재계산이 길어질 때.
 - 배포 환경의 프록시·로드밸런서 주소를 `TRUSTED_PROXIES`에 넣는다. admin 포트의 신뢰 프록시 해석은 #51에서 넣었고(ADR 0021), 공개 포트 앞에 프록시를 둘 때는 그 ADR의 포트별 규칙을 다시 정한다.
 - 감사 로그 보존기한·파기와 위변조 방지(해시 체인 또는 별도 저장소), 비정상 다운로드 알림(ADR 0016).
 

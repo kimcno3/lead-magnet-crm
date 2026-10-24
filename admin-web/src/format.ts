@@ -133,6 +133,12 @@ export function summarizeAuditDetail(detail: Record<string, unknown>): string {
       case 'error':
         parts.push(`오류 ${String(value)}`)
         break
+      case 'unreadable':
+        if (Number(value) > 0) parts.push(`풀 수 없음 ${formatNumber(Number(value))}건`)
+        break
+      case 'remaining':
+        parts.push(`남은 ${formatNumber(Number(value))}건`)
+        break
       case 'oldRetentionDays':
         parts.push(`보존 ${String(value)}일 → ${String(detail.newRetentionDays)}일`)
         break

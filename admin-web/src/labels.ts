@@ -69,6 +69,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   'form.close': '폼 마감',
   'template.version.upload': '템플릿 새 버전',
   'creator.archive': '크리에이터 보관',
+  'pii.reencrypt': '개인정보 재암호화',
 }
 
 /** 로그인 시도 제한 감사 기록의 범위 (ADR 0021). */
