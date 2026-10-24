@@ -15,9 +15,11 @@ import { PageHeader } from '../components/PageHeader'
 import { SkeletonRows, TableWrap } from '../components/Table'
 import { formatBytes, formatDateTime, formatNumber } from '../format'
 import { useAsync, useFocusFirstInvalid } from '../hooks'
-import { TEMPLATE_ERROR_GUIDES } from '../labels'
+import { useI18n } from '../i18n/context'
+import { templateErrorGuide } from '../labels'
 
 export function TemplateListPage() {
+  const { t } = useI18n()
   const { data, error, loading, reload } = useAsync(listTemplates, [])
   const [uploadOpen, setUploadOpen] = useState(false)
   const [copyStatus, setCopyStatus] = useState<string>()
@@ -29,63 +31,63 @@ export function TemplateListPage() {
     setCopyFailed(false)
     try {
       await navigator.clipboard.writeText(AI_FORM_PROMPT)
-      setCopyStatus('복사했습니다')
+      setCopyStatus(t('templateList.copied'))
     } catch {
       setCopyFailed(true)
-      setCopyStatus('복사하지 못했습니다. 아래 글을 선택해 직접 복사해 주세요')
+      setCopyStatus(t('templateList.copyFailed'))
     }
   }
 
   return (
     <>
       <PageHeader
-        title="템플릿"
+        title={t('nav.templates')}
         actions={
           <>
             <span className="copy-status" role="status">
               {copyStatus}
             </span>
-            <Button onClick={copyPrompt}>AI 프롬프트 복사</Button>
+            <Button onClick={copyPrompt}>{t('templateList.copyPrompt')}</Button>
             <Button variant="primary" onClick={() => setUploadOpen(true)}>
-              HTML 업로드
+              {t('templateList.upload')}
             </Button>
           </>
         }
       />
       {copyFailed && (
         <div className="note">
-          <label htmlFor="ai-prompt-text">AI 프롬프트 (전체 선택 후 복사)</label>
+          <label htmlFor="ai-prompt-text">{t('templateList.promptLabel')}</label>
           <textarea id="ai-prompt-text" readOnly rows={8} value={AI_FORM_PROMPT} onFocus={(e) => e.currentTarget.select()} style={{ width: '100%' }} />
         </div>
       )}
       <ErrorMessage error={error} onRetry={reload} />
       {data && data.length === 0 ? (
         <EmptyState
-          message="아직 등록한 템플릿이 없습니다. AI로 만든 HTML 폼 파일을 올리면 폼을 만들 수 있습니다."
+          message={t('templateList.empty')}
           action={
             <Button variant="primary" onClick={() => setUploadOpen(true)}>
-              템플릿 올리기
+              {t('templateList.uploadFirst')}
             </Button>
           }
         />
       ) : (
         !error && (
-          <TableWrap label="템플릿 목록">
+          <TableWrap label={t('templateList.tableLabel')}>
             <table className="table">
-              <caption className="visually-hidden">템플릿 목록</caption>
+              <caption className="visually-hidden">{t('templateList.tableLabel')}</caption>
               <thead>
                 <tr>
-                  <th scope="col">이름</th>
+                  <th scope="col">{t('common.name')}</th>
                   <th scope="col" className="num">
-                    크기
+                    {t('templateList.size')}
                   </th>
                   <th scope="col" className="num">
-                    필드 수
+                    {t('templateList.fieldCount')}
                   </th>
                   <th scope="col" className="num">
-                    버전
+                    {t('templateList.version')}
                   </th>
-                  <th scope="col">수정일</th>
+                  <th scope="col">{t('templateList.updatedAt')}</th>
                 </tr>
               </thead>
               <tbody aria-busy={loading}>
@@ -117,6 +119,7 @@ export function TemplateListPage() {
 }
 
 function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t, rich } = useI18n()
   const { formRef, focusFirstInvalid } = useFocusFirstInvalid()
   const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
@@ -167,14 +170,14 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
       focusFirstInvalid()
     } else if (err instanceof ApiError) {
       // nginx 기본 413 페이지처럼 ProblemDetail이 아닌 응답도 상태로 크기 안내를 고른다.
-      const guide = (err.code && TEMPLATE_ERROR_GUIDES[err.code]) || (err.status === 413 ? TEMPLATE_ERROR_GUIDES.template_too_large : undefined)
+      const guide = (err.code && templateErrorGuide(err.code)) || (err.status === 413 ? templateErrorGuide('template_too_large') : undefined)
       setFailure({ guide, detail: err.message, code: err.code })
     } else setFailure({ detail: errorText(err) })
   }
 
   async function run(action: (f: File) => Promise<void>) {
     if (!file) {
-      setFileError('업로드할 HTML 파일을 골라 주세요')
+      setFileError(t('templateList.pickFile'))
       focusFirstInvalid()
       return
     }
@@ -213,16 +216,16 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
   return (
     <Dialog
       open={open}
-      title="HTML 템플릿 업로드"
+      title={t('templateList.dialogTitle')}
       onClose={close}
       footer={
         <>
-          <Button onClick={close}>취소</Button>
+          <Button onClick={close}>{t('common.cancel')}</Button>
           <Button onClick={onInspect} busy={inspecting} disabled={busy}>
-            {inspecting ? '검사 중…' : '검사만 하기'}
+            {inspecting ? t('templateList.inspecting') : t('templateList.inspectOnly')}
           </Button>
           <Button variant="primary" type="submit" form="upload-form" busy={busy}>
-            {busy ? '업로드 중…' : '업로드'}
+            {busy ? t('templateList.uploading') : t('templateList.submit')}
           </Button>
         </>
       }
@@ -238,25 +241,26 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          <Field label="HTML 파일" error={fileError} hint="파일을 이 영역에 끌어다 놓아도 됩니다. .html 또는 .htm, 512KB 이하">
+          <Field label={t('common.htmlFile')} error={fileError} hint={t('templateList.fileHint')}>
             {(p) => <input {...p} type="file" accept=".html,.htm,text/html" onChange={(e) => pick(e.target.files?.[0])} />}
           </Field>
           {file && (
             <p className="dropzone-file">
-              선택한 파일: <strong>{file.name}</strong> <span className="num">({formatBytes(file.size)})</span>
+              {rich('templateList.selectedFile', { name: <strong key="name">{file.name}</strong> })}{' '}
+              <span className="num">({formatBytes(file.size)})</span>
             </p>
           )}
         </div>
-        <Field label="이름" optional error={fieldErrors.name} hint="비우면 파일 이름을 씁니다">
+        <Field label={t('common.name')} optional error={fieldErrors.name} hint={t('templateList.nameHint')}>
           {(p) => <input {...p} type="text" name="name" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />}
         </Field>
         {report && (
           <section aria-labelledby="inspect-heading" className="inspect-result" role="status">
             <h3 id="inspect-heading" className="section-title" tabIndex={-1} ref={reportHeading}>
-              검사 결과
+              {t('templateList.inspectResult')}
             </h3>
             <p className="note">
-              추출될 필드 {report.fields.length}개. 아무것도 저장하지 않았습니다. 고쳐서 다시 검사하거나, 이대로 괜찮으면 업로드를 누르세요.
+              {t('templateList.inspectNote', { count: report.fields.length })}
             </p>
             <InspectionReport warnings={report.inspection} />
           </section>
@@ -265,7 +269,7 @@ function UploadDialog({ open, onClose }: { open: boolean; onClose: () => void })
           <div className="error-box" role="alert">
             {failure.guide && <p className="error-guide">{failure.guide}</p>}
             <p>{failure.detail}</p>
-            {failure.code && <p className="error-code">코드: {failure.code}</p>}
+            {failure.code && <p className="error-code">{t('common.errorCode', { code: failure.code })}</p>}
           </div>
         )}
       </form>

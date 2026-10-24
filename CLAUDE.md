@@ -73,7 +73,7 @@ cd e2e && npm ci && npx playwright install chromium && npm test   # 결과: docs
   - 시나리오 테스트(`scenario` 테스트 패키지): `HappyPath`·`Failure`·`Isolation`이 두 포트를 오가며 로그인→업로드→배포→방문→신청→지표를 실제 HTTP로 잇는다. 기능별 테스트를 복제하지 않고 앞 단계 출력이 다음 입력이 되는지만 본다. 공통 도우미는 `support/ScenarioBase`, 방문자 쿠키를 들고 `/l/{code}` 302를 직접 따라가는 `support/PublicVisitor`. 지표는 테스트 주석에 손계산 표를 두고 정확히 비교한다.
 - `admin-web/`: React + Vite + TypeScript 관리자 SPA. 운영 시에는 nginx(`admin-web/nginx.conf`), 개발 시에는 Vite가 `/api/admin/`과 `/actuator/health`를 backend admin 포트로 프록시한다. 브라우저 입장에서는 admin-web 출처 하나뿐이어서 refresh 쿠키(SameSite=Strict, Path=/api/admin/auth)가 그대로 동작하고, public 출처(:8081)와는 출처가 다르다.
   - 관리자 UI(ADR 0011): `src/api/client.ts`가 access token을 모듈 메모리에만 두고 401 → refresh 한 번(동시 401은 공유) → 재시도를 맡는다. refresh의 네트워크 오류는 세션 종료(401)와 구분해 토큰을 지우지 않는다. 도메인별 호출은 `src/api/*.ts`, DTO 타입은 `src/api/types.ts`(백엔드 record와 같은 이름). 세션 복원·로그인 상태는 `src/auth/`(`AuthProvider`, `RequireAuth`).
-  - 화면은 `src/pages/`(로그인, 캠페인 목록·상세 + `campaign/` 탭 세 개, 크리에이터 목록·상세, 템플릿 목록·상세, 감사 로그), 공용 컴포넌트는 `src/components/`, 포맷(Asia/Seoul·ko-KR)은 `src/format.ts`, 화면 문구·코드별 안내는 `src/labels.ts`. 스타일은 `src/styles/`의 CSS 변수 토큰(라이브러리 없음).
+  - 화면은 `src/pages/`(로그인, 캠페인 목록·상세 + `campaign/` 탭 세 개, 크리에이터 목록·상세, 템플릿 목록·상세, 감사 로그), 공용 컴포넌트는 `src/components/`, 포맷(Asia/Seoul, 숫자는 ko-KR·en-US)은 `src/format.ts`, 코드값 문구(채널·감사 행동·오류 코드 안내)는 `src/labels.ts`의 함수. 화면 문구는 `src/i18n/`(ADR 0011): `ko.ts`가 원천 사전이고 `en.ts`는 같은 키(`Dict` 타입·키 비교 테스트), 컴포넌트는 `useI18n().t('영역.키', {자리표시})`, React 밖은 `i18n/translate`의 `t`. 새 문구는 두 사전에 함께 넣는다. 스타일은 `src/styles/`의 CSS 변수 토큰(라이브러리 없음).
   - 업로드 HTML 미리보기는 `components/SandboxPreview.tsx` 하나로만 렌더링한다. CSP 값은 `admin-web/csp.ts`가 원천이고 nginx.conf와 Vite dev 서버가 같은 값을 쓴다(`csp.test.ts`가 일치 확인, dev만 Fast Refresh nonce 추가).
   - 캠페인 상세의 탭·기간·명단 필터·페이지·펼친 폼은 URL 쿼리(`tab`, `from`, `to`, `form`, `channel`, `page`, `open`)에 둔다.
   - 공개 폼 URL 앞부분은 링크 응답 `url`에서 얻고 없으면 빌드 시 `VITE_PUBLIC_BASE_URL`(compose가 `PUBLIC_BASE_URL`을 빌드 인자로 넘김).
@@ -108,7 +108,7 @@ cd e2e && npm ci && npx playwright install chromium && npm test   # 결과: docs
 - PR 템플릿 체크리스트(마이그레이션 하위 호환, 보안 영향, ADR, OpenAPI, .env.example)를 채운다.
 - Flyway: 이미 적용된 파일은 수정하지 않는다. PR당 마이그레이션은 최대 하나. 파괴적 변경은 expand → contract.
 - 각 PR에는 해당 기능의 성공·실패 테스트와 관련 ADR을 함께 넣는다. 모호한 요구는 가정을 세워 ADR에 기록한다.
-- README에는 실행·테스트 방법과 `docs/` 문서 목록만 둔다. 사용 가이드(`docs/GUIDE.md`), 문제 해결(`docs/TROUBLESHOOTING.md`), 진행 현황(`docs/WORKPLAN.md`)은 기능을 바꿀 때 함께 갱신한다.
+- README에는 실행·테스트 방법만 둔다(과제 요구). 문서 목록은 `docs/README.md`에 둔다. 사용 가이드(`docs/GUIDE.md`), 문제 해결(`docs/TROUBLESHOOTING.md`), 진행 현황(`docs/WORKPLAN.md`)은 기능을 바꿀 때 함께 갱신한다.
 - 범위 밖: 실제 AI 연동, 외부 CRM·문자·알림톡·광고 연동, 범용 폼 빌더, 결제. 배포는 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## 코드 규칙

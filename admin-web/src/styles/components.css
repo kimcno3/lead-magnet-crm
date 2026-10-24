@@ -23,6 +23,80 @@
   letter-spacing: -0.01em;
 }
 
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-toggle {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sidebar-toggle:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.sidebar-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+}
+
+.sidebar-body[hidden] {
+  display: none;
+}
+
+.shell.is-collapsed {
+  grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr);
+}
+
+.shell.is-collapsed .sidebar {
+  padding: 16px 0;
+  align-items: center;
+}
+
+.shell.is-collapsed .brand {
+  display: none;
+}
+
+.theme-picker {
+  display: grid;
+  gap: 4px;
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+}
+
+.theme-picker select {
+  font: inherit;
+  font-size: var(--fs-small);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+}
+
 .nav {
   list-style: none;
   margin: 0;
@@ -100,6 +174,28 @@
     padding: 10px 16px;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-toggle {
+    display: none;
+  }
+
+  .sidebar-body,
+  .sidebar-body[hidden] {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    flex: 1;
+  }
+
+  .shell.is-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .shell.is-collapsed .brand {
+    display: block;
   }
 
   .nav {
@@ -395,6 +491,26 @@
   vertical-align: middle;
 }
 
+/* 셀은 어절·단어 단위로만 줄바꿈한다(글자 중간에서 끊지 않는다). 폭이 모자라면 표가 .table-wrap 안에서 가로로 스크롤된다.
+   코드·주소·날짜·이메일처럼 끊기면 읽기 어려운 값은 .mono·.nowrap·.email로 한 줄을 유지한다. */
+.table td {
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.table td.mono,
+.table td.email {
+  white-space: nowrap;
+}
+
+.table td.text-cell {
+  min-width: 16ch;
+}
+
+.table td.options {
+  min-width: 14ch;
+}
+
 .table thead th {
   position: sticky;
   top: 0;
@@ -405,12 +521,27 @@
   border-bottom: 1px solid var(--border);
 }
 
-.table tbody tr + tr td {
+.table > tbody > tr + tr > td,
+.table > tbody > tr + tr > th {
   border-top: 1px solid var(--border);
 }
 
 .table .num {
   text-align: right;
+}
+
+/* 행 머리글(크리에이터 이름, 채널 등)은 일반 셀과 같은 정렬·배경을 쓰고 굵기로만 구분한다 */
+.table > tbody > tr > th {
+  font-weight: 600;
+  text-align: left;
+  vertical-align: middle;
+}
+
+/* 내용만큼만 차지하는 열(라벨·버튼·짧은 값). 나머지 폭은 다른 열이 나눠 쓴다 */
+.table th.shrink,
+.table td.shrink {
+  width: 1%;
+  white-space: nowrap;
 }
 
 .table td.truncate {
@@ -420,12 +551,12 @@
   white-space: nowrap;
 }
 
-.table-clickable tbody tr {
+.table-clickable > tbody > tr {
   cursor: pointer;
 }
 
-.table-clickable tbody tr:hover td,
-.table-expandable tbody tr.is-open td {
+.table-clickable > tbody > tr:hover > td,
+.table-expandable > tbody > tr.is-open > td {
   background: var(--surface-sunken);
 }
 
@@ -687,7 +818,7 @@
   color: var(--text-muted);
 }
 
-.table tbody tr.panel-row td {
+.table-expandable > tbody > tr.panel-row > td {
   border-top: 0;
   padding: 4px 16px 20px 40px;
   background: var(--surface-sunken);
@@ -696,6 +827,15 @@
 .form-panel {
   display: grid;
   gap: 18px;
+}
+
+.links-block {
+  display: grid;
+  gap: 10px;
+}
+
+.links-block > .toolbar {
+  margin-top: 4px;
 }
 
 .panel-block h3 {
@@ -878,26 +1018,36 @@
   margin-bottom: 4px;
 }
 
+/* 로그인 화면은 사이드바 밖이라 언어 선택을 패널 아래에 따로 둔다. */
+.login-lang {
+  justify-self: start;
+}
+
 /* 펼친 폼 패널이 바깥 표 폭을 늘리지 않도록 고정 레이아웃. 패널 안 표는 자체 스크롤한다. */
 .table-expandable {
   table-layout: fixed;
   min-width: 560px;
 }
 
-.table-expandable th:nth-child(1) {
+.table-expandable > thead > tr > th:nth-child(1) {
   width: 38%;
 }
 
-.table-expandable th:nth-child(2) {
+.table-expandable > thead > tr > th:nth-child(2) {
   width: 26%;
 }
 
-.table-expandable th:nth-child(3) {
+.table-expandable > thead > tr > th:nth-child(3) {
   width: 14%;
 }
 
-.table-expandable td {
+.table-expandable > tbody > tr > td {
   overflow-wrap: anywhere;
+}
+
+/* 펼친 패널 안의 표는 바깥 고정 레이아웃의 줄바꿈 규칙을 물려받지 않는다 */
+.table-expandable .panel-row .table td {
+  overflow-wrap: normal;
 }
 
 .pager-list {
@@ -910,14 +1060,14 @@
 }
 
 /* ---------- 크리에이터별 성과: 펼친 채널 행 ---------- */
-.table tbody tr.sub-row th,
-.table tbody tr.sub-row td {
+.table > tbody > tr.sub-row > th,
+.table > tbody > tr.sub-row > td {
   border-top: 0;
   background: var(--surface-sunken);
   color: var(--text-muted);
 }
 
-.table tbody tr.sub-row th {
+.table > tbody > tr.sub-row > th {
   padding-left: 40px;
   font-weight: 400;
 }
@@ -977,10 +1127,12 @@
 
 /* ---------- 감사 로그 ---------- */
 .detail-list {
+  min-width: 18ch;
   margin: 0;
   font-size: var(--fs-small);
   color: var(--text-muted);
-  word-break: break-all;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .user-agent {

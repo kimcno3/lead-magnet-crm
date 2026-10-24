@@ -4,6 +4,7 @@ import type { Channel } from '../../api/types'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { errorText } from '../../errors'
+import { useI18n } from '../../i18n/context'
 
 interface LeadExportMenuProps {
   campaignId: number
@@ -18,6 +19,7 @@ interface LeadExportMenuProps {
  * 필터(폼·채널)는 화면과 같은 값을 쓴다.
  */
 export function LeadExportMenu({ campaignId, formId, channel, scope }: LeadExportMenuProps) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -85,14 +87,14 @@ export function LeadExportMenu({ campaignId, formId, channel, scope }: LeadExpor
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((v) => !v)}
       >
-        CSV 다운로드
+        {t('export.button')}
       </Button>
       {open && (
-        <ul className="menu" id={menuId} role="menu" aria-label="CSV 다운로드" ref={menuRef} onKeyDown={onMenuKeyDown}>
+        <ul className="menu" id={menuId} role="menu" aria-label={t('export.button')} ref={menuRef} onKeyDown={onMenuKeyDown}>
           <li role="none">
             <button type="button" role="menuitem" className="menu-item" onClick={downloadMasked}>
-              마스킹
-              <span className="menu-hint">이름·연락처를 가린 값</span>
+              {t('export.masked')}
+              <span className="menu-hint">{t('export.maskedHint')}</span>
             </button>
           </li>
           <li role="none">
@@ -106,8 +108,8 @@ export function LeadExportMenu({ campaignId, formId, channel, scope }: LeadExpor
                 setConfirming(true)
               }}
             >
-              원문
-              <span className="menu-hint">확인 후 내려받고 감사 로그에 기록</span>
+              {t('export.reveal')}
+              <span className="menu-hint">{t('export.revealHint')}</span>
             </button>
           </li>
         </ul>
@@ -119,9 +121,9 @@ export function LeadExportMenu({ campaignId, formId, channel, scope }: LeadExpor
       )}
       <ConfirmDialog
         open={confirming}
-        title="원문 CSV 다운로드"
-        message={`범위: ${scope}. 이 범위의 신청자 이름·전화번호·이메일 원문이 담긴 파일을 내려받습니다. 다운로드는 운영자·시각·IP·건수와 함께 감사 로그에 기록됩니다. 파일은 필요한 곳에만 쓰고 다 쓰면 지워 주세요.`}
-        confirmLabel="원문 다운로드"
+        title={t('export.confirmTitle')}
+        message={t('export.confirmMessage', { scope })}
+        confirmLabel={t('export.confirm')}
         onConfirm={() => download(true)}
         onClose={() => setConfirming(false)}
       />

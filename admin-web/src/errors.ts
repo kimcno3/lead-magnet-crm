@@ -1,15 +1,17 @@
 import { ApiError } from './api/client'
+import { t } from './i18n/translate'
 
-/** 화면에 보일 오류 문장. ProblemDetail의 detail을 그대로 쓴다. */
+/** 화면에 보일 오류 문장. ProblemDetail의 detail을 그대로 쓴다(서버 문구라 번역하지 않는다). */
 export function errorText(error: unknown): string {
   if (error instanceof ApiError) return error.message
-  if (error instanceof TypeError) return '서버에 연결하지 못했습니다. 네트워크 상태를 확인해 주세요'
+  if (error instanceof TypeError) return t('errors.network')
   if (error instanceof Error) return error.message
-  return '알 수 없는 오류가 발생했습니다'
+  return t('errors.unknown')
 }
 
 /** 로그인 시도 제한(429, ADR 0021) 안내. Retry-After 초를 분으로 올려 보여준다. */
 export function throttledText(retryAfterSeconds: number | null): string {
-  if (retryAfterSeconds === null || retryAfterSeconds <= 0) return '잠시 후 다시 시도해 주세요'
-  return `잠시 후 다시 시도해 주세요(약 ${Math.ceil(retryAfterSeconds / 60)}분)`
+  if (retryAfterSeconds === null || retryAfterSeconds <= 0) return t('errors.throttled')
+  const minutes = Math.ceil(retryAfterSeconds / 60)
+  return t('errors.throttledMinutes', { minutes, count: minutes })
 }

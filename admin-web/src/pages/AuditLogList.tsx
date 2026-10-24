@@ -11,7 +11,9 @@ import { PeriodFilter } from '../components/PeriodFilter'
 import { SkeletonRows, TableWrap } from '../components/Table'
 import { formatDateTime, formatNumber, summarizeAuditDetail } from '../format'
 import { useAsync } from '../hooks'
-import { AUDIT_ACTION_LABELS } from '../labels'
+import { useI18n } from '../i18n/context'
+import { translate } from '../i18n/translate'
+import { auditActionLabel } from '../labels'
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -26,13 +28,14 @@ function truncate(text: string, max: number): string {
 }
 
 function targetText(log: AuditLog): string {
-  if (log.targetType === 'lead') return `신청 #${log.targetId}`
-  if (log.targetType === 'operator') return log.targetId === null ? '-' : `운영자 #${log.targetId}`
-  if (log.targetType === 'campaign') return '명단'
+  if (log.targetType === 'lead') return translate('auditLog.targetLead', { id: String(log.targetId) })
+  if (log.targetType === 'operator') return log.targetId === null ? '-' : translate('auditLog.targetOperator', { id: String(log.targetId) })
+  if (log.targetType === 'campaign') return translate('auditLog.targetLeadList')
   return log.targetId === null ? log.targetType : `${log.targetType} #${log.targetId}`
 }
 
 export function AuditLogListPage() {
+  const { t, rich } = useI18n()
   const [params, setParams] = useSearchParams()
   const page = Math.max(0, Number(params.get('page')) || 0)
   const action = toAction(params.get('action'))
@@ -65,27 +68,27 @@ export function AuditLogListPage() {
 
   return (
     <>
-      <PageHeader title="감사 로그" />
+      <PageHeader title={t('auditLog.title')} />
       <p className="note">
-        명단 조회, 원문 열람, CSV 다운로드, 로그인 성공·실패가 기록됩니다. 기록은 수정하거나 지울 수 없고, 신청자 원문 개인정보는 남기지 않습니다.
+        {t('auditLog.note')}
       </p>
-      <div className="toolbar" role="group" aria-label="감사 로그 필터">
-        <Field label="행동">
+      <div className="toolbar" role="group" aria-label={t('auditLog.filters')}>
+        <Field label={t('auditLog.action')}>
           {(p) => (
             <select {...p} value={action ?? ''} onChange={(e) => update({ action: e.target.value, page: null })}>
-              <option value="">전체 행동</option>
+              <option value="">{t('auditLog.allActions')}</option>
               {AUDIT_ACTIONS.map((a) => (
                 <option key={a} value={a}>
-                  {AUDIT_ACTION_LABELS[a]}
+                  {auditActionLabel(a)}
                 </option>
               ))}
             </select>
           )}
         </Field>
-        <Field label="캠페인">
+        <Field label={t('common.campaign')}>
           {(p) => (
             <select {...p} value={campaignId ?? ''} onChange={(e) => update({ campaign: e.target.value, page: null })}>
-              <option value="">전체 캠페인</option>
+              <option value="">{t('auditLog.allCampaigns')}</option>
               {campaigns.data?.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -96,7 +99,7 @@ export function AuditLogListPage() {
         </Field>
         {data && (
           <p className="toolbar-note muted small" aria-live="polite">
-            총 <span className="num">{formatNumber(data.totalElements)}</span>건
+            {rich('auditLog.total', { count: <span key="count" className="num">{formatNumber(data.totalElements)}</span> }, data.totalElements)}
           </p>
         )}
       </div>
@@ -105,20 +108,20 @@ export function AuditLogListPage() {
       <ErrorMessage error={error} onRetry={reload} />
       {data && data.totalElements > 0 && data.items.length === 0 ? (
         <EmptyState
-          message="이 페이지에는 기록이 없습니다. 마지막 페이지를 넘었습니다."
+          message={t('auditLog.pastLastPage')}
           action={
             <Button size="sm" onClick={() => update({ page: null })}>
-              첫 페이지로
+              {t('common.firstPage')}
             </Button>
           }
         />
       ) : data && data.totalElements === 0 ? (
         <EmptyState
-          message={filtered ? '조건에 맞는 기록이 없습니다. 필터를 바꿔 보세요.' : '아직 감사 기록이 없습니다.'}
+          message={filtered ? t('auditLog.noMatch') : t('auditLog.empty')}
           action={
             filtered ? (
               <Button size="sm" onClick={() => update({ action: null, campaign: null, from: null, to: null, page: null })}>
-                필터 지우기
+                {t('common.clearFilters')}
               </Button>
             ) : undefined
           }
@@ -126,19 +129,19 @@ export function AuditLogListPage() {
       ) : (
         !(error && !data) && (
           <>
-            <TableWrap label="감사 로그">
+            <TableWrap label={t('auditLog.title')}>
               <table className={`table${loading && data ? ' is-stale' : ''}`}>
-                <caption className="visually-hidden">감사 로그</caption>
+                <caption className="visually-hidden">{t('auditLog.title')}</caption>
                 <thead>
                   <tr>
-                    <th scope="col">시각</th>
-                    <th scope="col">운영자</th>
-                    <th scope="col">행동</th>
-                    <th scope="col">대상</th>
-                    <th scope="col">캠페인</th>
-                    <th scope="col">내용</th>
+                    <th scope="col">{t('auditLog.time')}</th>
+                    <th scope="col">{t('auditLog.operator')}</th>
+                    <th scope="col">{t('auditLog.action')}</th>
+                    <th scope="col">{t('auditLog.target')}</th>
+                    <th scope="col">{t('common.campaign')}</th>
+                    <th scope="col">{t('auditLog.detail')}</th>
                     <th scope="col">IP</th>
-                    <th scope="col">브라우저</th>
+                    <th scope="col">{t('auditLog.browser')}</th>
                   </tr>
                 </thead>
                 <tbody aria-busy={loading}>
@@ -148,12 +151,12 @@ export function AuditLogListPage() {
                     data?.items.map((log) => (
                       <tr key={log.id}>
                         <td className="num nowrap">{formatDateTime(log.createdAt)}</td>
-                        <td className="break" translate="no">
+                        <td className="email" translate="no">
                           {log.operatorEmail ?? (log.operatorId === null ? <span className="muted">-</span> : `#${log.operatorId}`)}
                         </td>
-                        <td className="nowrap">{AUDIT_ACTION_LABELS[log.action] ?? log.action}</td>
+                        <td className="nowrap">{auditActionLabel(log.action)}</td>
                         <td className="nowrap">{targetText(log)}</td>
-                        <td>
+                        <td className="text-cell">
                           {log.campaignId === null ? (
                             <span className="muted">-</span>
                           ) : (
@@ -181,23 +184,23 @@ export function AuditLogListPage() {
               </table>
             </TableWrap>
             {totalPages > 0 && (
-              <nav className="pager" aria-label="감사 로그 페이지">
+              <nav className="pager" aria-label={t('auditLog.pager')}>
                 <ul className="pager-list">
                   <li>
-                    <Button size="sm" disabled={page <= 0} onClick={() => update({ page: page - 1 > 0 ? String(page - 1) : null })} aria-label="이전 페이지">
-                      이전
+                    <Button size="sm" disabled={page <= 0} onClick={() => update({ page: page - 1 > 0 ? String(page - 1) : null })} aria-label={t('common.prevPage')}>
+                      {t('common.prev')}
                     </Button>
                   </li>
                   <li className="num" aria-current="page">
-                    {page + 1} / {totalPages} 페이지
+                    {t('common.pageOf', { page: page + 1, total: totalPages })}
                   </li>
                   <li>
-                    <Button size="sm" disabled={page + 1 >= totalPages} onClick={() => update({ page: String(page + 1) })} aria-label="다음 페이지">
-                      다음
+                    <Button size="sm" disabled={page + 1 >= totalPages} onClick={() => update({ page: String(page + 1) })} aria-label={t('common.nextPage')}>
+                      {t('common.next')}
                     </Button>
                   </li>
                 </ul>
-                <span className="muted small">페이지당 {AUDIT_PAGE_SIZE}건</span>
+                <span className="muted small">{t('auditLog.pageSize', { size: AUDIT_PAGE_SIZE })}</span>
               </nav>
             )}
           </>

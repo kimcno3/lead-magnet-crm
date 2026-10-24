@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
+import { useI18n } from '../i18n/context'
 import { Button } from './Button'
 
-export function CopyButton({ text, label = '복사' }: { text: string; label?: string }) {
+export function CopyButton({ text, label: labelProp }: { text: string; label?: string }) {
+  const { t } = useI18n()
+  const label = labelProp ?? t('components.copy')
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   useEffect(() => {
     if (state === 'idle') return
-    const t = setTimeout(() => setState('idle'), 2000)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setState('idle'), 2000)
+    return () => clearTimeout(timer)
   }, [state])
 
   async function copy() {
@@ -22,10 +25,10 @@ export function CopyButton({ text, label = '복사' }: { text: string; label?: s
   return (
     <span className="copy">
       <Button size="sm" onClick={copy} aria-label={`${label}: ${text}`}>
-        {state === 'copied' ? '복사됨' : label}
+        {state === 'copied' ? t('components.copied') : label}
       </Button>
       <span className="visually-hidden" aria-live="polite">
-        {state === 'copied' ? '클립보드에 복사했습니다' : state === 'failed' ? '복사하지 못했습니다. 직접 선택해 복사해 주세요' : ''}
+        {state === 'copied' ? t('components.copiedAnnounce') : state === 'failed' ? t('components.copyFailed') : ''}
       </span>
     </span>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useI18n } from '../i18n/context'
 
 interface DialogProps {
   open: boolean
@@ -14,6 +15,7 @@ interface DialogProps {
 export function Dialog({ open, title, onClose, children, footer, width = 'md' }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
+  const { t } = useI18n()
 
   useEffect(() => {
     const el = ref.current
@@ -46,7 +48,7 @@ export function Dialog({ open, title, onClose, children, footer, width = 'md' }:
     >
       <div className="dialog-head">
         <h2 id={titleId}>{title}</h2>
-        <button type="button" className="dialog-close" onClick={onClose} aria-label="닫기">
+        <button type="button" className="dialog-close" onClick={onClose} aria-label={t('common.close')}>
           ×
         </button>
       </div>

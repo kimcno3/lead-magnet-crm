@@ -1,16 +1,34 @@
 // 화면에 보이는 숫자·날짜·전화번호 포맷. 날짜는 모두 Asia/Seoul 기준이다.
+// 숫자는 현재 화면 언어의 로케일(ko-KR, en-US)을 따른다. 날짜는 두 언어 모두 yyyy-MM-dd HH:mm으로 같다.
 
 import { CHANNELS, type Channel } from './api/types'
-import { CHANNEL_LABELS, LOGIN_LOCK_SCOPE_LABELS, RETENTION_TRIGGER_LABELS } from './labels'
+import { activeLang, localeOf, t, type Lang } from './i18n/translate'
+import { channelLabel, loginLockScopeLabel, retentionTriggerLabel } from './labels'
 
 const TIME_ZONE = 'Asia/Seoul'
-const numberFormat = new Intl.NumberFormat('ko-KR')
-const percentFormat = new Intl.NumberFormat('ko-KR', {
-  style: 'percent',
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-})
-const oneDecimal = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+
+interface NumberFormats {
+  number: Intl.NumberFormat
+  percent: Intl.NumberFormat
+  oneDecimal: Intl.NumberFormat
+}
+
+const formatsByLang = new Map<Lang, NumberFormats>()
+
+function formats(): NumberFormats {
+  const lang = activeLang()
+  let f = formatsByLang.get(lang)
+  if (!f) {
+    const locale = localeOf(lang)
+    f = {
+      number: new Intl.NumberFormat(locale),
+      percent: new Intl.NumberFormat(locale, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+      oneDecimal: new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+    }
+    formatsByLang.set(lang, f)
+  }
+  return f
+}
 const partsFormat = new Intl.DateTimeFormat('en-CA', {
   timeZone: TIME_ZONE,
   year: 'numeric',
@@ -24,7 +42,7 @@ const partsFormat = new Intl.DateTimeFormat('en-CA', {
 type Maybe<T> = T | null | undefined
 
 export function formatNumber(value: number): string {
-  return numberFormat.format(value)
+  return formats().number.format(value)
 }
 
 /** 0~1 비율을 "66.7%"로. 백엔드 conversionRate는 소수 넷째 자리 반올림 값이다. */
@@ -32,7 +50,7 @@ export function formatPercent(rate: Maybe<number | string>): string {
   if (rate === null || rate === undefined || rate === '') return '-'
   const n = typeof rate === 'number' ? rate : Number(rate)
   if (!Number.isFinite(n)) return '-'
-  return percentFormat.format(n)
+  return formats().percent.format(n)
 }
 
 function seoulParts(iso: string) {
@@ -66,8 +84,8 @@ export function seoulDateToInstant(date: string, edge: 'start' | 'end'): string 
 
 export function formatBytes(size: number): string {
   if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${oneDecimal.format(size / 1024)} KB`
-  return `${oneDecimal.format(size / (1024 * 1024))} MB`
+  if (size < 1024 * 1024) return `${formats().oneDecimal.format(size / 1024)} KB`
+  return `${formats().oneDecimal.format(size / (1024 * 1024))} MB`
 }
 
 /** 국내 전화번호 숫자열을 하이픈 형식으로. 모르는 형식은 원문 그대로. */
@@ -102,74 +120,79 @@ export function summarizeAuditDetail(detail: Record<string, unknown>): string {
     if (value === null || value === undefined) continue
     switch (key) {
       case 'formId':
-        parts.push(`폼 #${String(value)}`)
+        parts.push(t('auditDetail.form', { id: String(value) }))
         break
       case 'channel':
-        parts.push((CHANNELS as readonly string[]).includes(String(value)) ? CHANNEL_LABELS[value as Channel] : String(value))
+        parts.push((CHANNELS as readonly string[]).includes(String(value)) ? channelLabel(value as Channel) : String(value))
         break
       case 'page':
-        parts.push(`${Number(value) + 1}페이지`)
+        parts.push(t('auditDetail.page', { page: Number(value) + 1 }))
         break
       case 'size':
-        parts.push(`페이지당 ${String(value)}건`)
+        parts.push(t('auditDetail.pageSize', { size: String(value) }))
         break
       case 'count':
-        parts.push(`${formatNumber(Number(value))}건`)
+        parts.push(t('auditDetail.count', { count: Number(value) }))
         break
       case 'reveal':
         break
       case 'email':
-        parts.push(`이메일 ${String(value)}`)
+        parts.push(t('auditDetail.email', { email: String(value) }))
         break
       case 'trigger':
-        parts.push(RETENTION_TRIGGER_LABELS[String(value)] ?? String(value))
+        parts.push(retentionTriggerLabel(String(value)))
         break
       case 'completed':
-        if (value === false) parts.push('실패로 중단')
+        if (value === false) parts.push(t('auditDetail.failed'))
         break
       case 'interrupted':
-        if (value === true) parts.push('다른 실행이 처리 중이라 멈춤')
+        if (value === true) parts.push(t('auditDetail.interrupted'))
         break
       case 'error':
-        parts.push(`오류 ${String(value)}`)
+        parts.push(t('auditDetail.error', { error: String(value) }))
         break
       case 'unreadable':
-        if (Number(value) > 0) parts.push(`풀 수 없음 ${formatNumber(Number(value))}건`)
+        if (Number(value) > 0) parts.push(t('auditDetail.unreadable', { count: Number(value) }))
         break
       case 'remaining':
-        parts.push(`남은 ${formatNumber(Number(value))}건`)
+        parts.push(t('auditDetail.remaining', { count: Number(value) }))
         break
       case 'oldRetentionDays':
-        parts.push(`보존 ${String(value)}일 → ${String(detail.newRetentionDays)}일`)
+        parts.push(t('auditDetail.retention', { old: String(value), new: String(detail.newRetentionDays) }))
         break
       case 'newRetentionDays':
         break
       case 'scopes':
         if (Array.isArray(value)) {
-          parts.push(`기준 ${value.map((v) => LOGIN_LOCK_SCOPE_LABELS[String(v)] ?? String(v)).join('·')}`)
+          parts.push(t('auditDetail.scopes', { scopes: value.map((v) => loginLockScopeLabel(String(v))).join('·') }))
         }
         break
       case 'slug':
         parts.push(`slug ${String(value)}`)
         break
       case 'templateId':
-        parts.push(`템플릿 #${String(value)}`)
+        parts.push(t('auditDetail.template', { id: String(value) }))
         break
       case 'version':
         parts.push(`v${String(value)}`)
         break
       case 'affectedDraftForms':
-        parts.push(`draft 폼 ${formatNumber(Number(value))}개 갱신`)
+        parts.push(t('auditDetail.draftForms', { count: Number(value) }))
         break
       case 'creatorId':
-        parts.push(`크리에이터 #${String(value)}`)
+        parts.push(t('auditDetail.creator', { id: String(value) }))
         break
       case 'windowMinutes':
-        parts.push(`${String(value)}분 창`)
+        parts.push(t('auditDetail.window', { minutes: String(value) }))
         break
       default:
         parts.push(`${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`)
     }
   }
   return parts.length > 0 ? parts.join(' · ') : '-'
+}
+
+/** 선택지 목록을 쉼표로 잇는다. 값이 빈 선택지는 select의 안내 문구("선택해 주세요")라 고를 수 있는 값이 아니어서 뺀다. */
+export function formatOptions(options: string[] | null | undefined): string {
+  return (options ?? []).filter((o) => o !== '').join(', ')
 }

@@ -1,4 +1,5 @@
 import { useId, type ReactNode } from 'react'
+import { useI18n } from '../i18n/context'
 
 export interface ControlProps {
   id: string
@@ -17,6 +18,7 @@ interface FieldProps {
 /** 라벨은 입력 위, 도움말과 오류는 입력 아래. 오류는 aria-describedby로 입력에 연결한다. */
 export function Field({ label, error, hint, optional, children }: FieldProps) {
   const id = useId()
+  const { t } = useI18n()
   const hintId = hint ? `${id}-hint` : undefined
   const errorId = error ? `${id}-error` : undefined
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined
@@ -24,7 +26,7 @@ export function Field({ label, error, hint, optional, children }: FieldProps) {
     <div className="field">
       <label htmlFor={id}>
         {label}
-        {optional && <span className="field-optional"> (선택)</span>}
+        {optional && <span className="field-optional"> {t('common.optional')}</span>}
       </label>
       {children({ id, 'aria-invalid': error ? true : undefined, 'aria-describedby': describedBy })}
       {hint && (

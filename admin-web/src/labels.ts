@@ -1,43 +1,35 @@
-import type { AuditAction, CampaignStatus, Channel, CreatorStatus, FormStatus } from './api/types'
+// 코드 값(채널·상태·감사 행동·오류 코드)을 화면 문구로 바꾼다. 문구는 i18n 사전에 있고, 부를 때의 언어로 돌려준다.
+import type { AuditAction, Channel, FormStatus } from './api/types'
+import { ko } from './i18n/ko'
+import { t, type TKey } from './i18n/translate'
 
-export const CHANNEL_LABELS: Record<Channel, string> = {
-  instagram: '인스타그램',
-  x: 'X',
-  youtube: '유튜브',
-  threads: '스레드',
-  direct: '직접 유입',
+/** 사전에 있는 코드면 그 문구, 없으면 undefined. */
+function known(group: Record<string, string>, prefix: string, code: string): string | undefined {
+  return Object.hasOwn(group, code) ? t(`${prefix}.${code}` as TKey) : undefined
 }
 
-export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
-  active: '진행 중',
-  archived: '보관됨',
+/** 모르는 채널 값은 그대로 보여준다. */
+export function channelLabel(channel: Channel | string): string {
+  return known(ko.labels.channel, 'labels.channel', channel) ?? channel
 }
 
-export const CREATOR_STATUS_LABELS: Record<CreatorStatus, string> = {
-  active: '협업 중',
-  archived: '보관됨',
+export function isFormStatus(status: string): status is FormStatus {
+  return status in ko.labels.formStatus
 }
 
 /** 크리에이터별 지표에서 크리에이터 없는 링크와 direct를 묶은 행의 이름. */
-export const SELF_LINK_LABEL = '직접·자체 링크'
-
-export const FORM_STATUS_LABELS: Record<FormStatus, string> = {
-  draft: '초안',
-  published: '게시됨',
-  closed: '마감',
+export function selfLinkLabel(): string {
+  return t('labels.selfLink')
 }
 
-/** 템플릿 업로드 거절 코드별 안내. 백엔드 detail과 함께 보여준다. */
-export const TEMPLATE_ERROR_GUIDES: Record<string, string> = {
-  template_contact_field_missing: 'phone 또는 email 이름의 입력이 있어야 합니다',
-  template_form_count_invalid: '문서에 <form>이 정확히 하나 있어야 합니다',
-  template_forbidden_field: 'type="file", type="password" 입력은 쓸 수 없습니다. 지우고 다시 올려 주세요',
-  template_field_invalid: '입력 필드 규칙을 지키지 않았습니다. 아래 상세 내용을 확인해 주세요',
-  template_not_utf8: 'UTF-8로 저장한 파일이어야 합니다',
-  template_invalid_extension: '.html 또는 .htm 파일만 올릴 수 있습니다',
-  template_empty: '내용이 없는 파일입니다',
-  template_too_large: '512KB 이하 파일만 올릴 수 있습니다',
-  payload_too_large: '512KB 이하 파일만 올릴 수 있습니다',
+/** 보존 기간이 지나 파기된 신청 표시. */
+export function anonymizedLabel(): string {
+  return t('labels.anonymized')
+}
+
+/** 템플릿 업로드 거절 코드별 안내. 백엔드 detail과 함께 보여준다. 모르는 코드는 undefined. */
+export function templateErrorGuide(code: string): string | undefined {
+  return known(ko.labels.templateError, 'labels.templateError', code)
 }
 
 /** VITE_PUBLIC_BASE_URL(빌드 시 주입). 공개 폼 주소 앞부분이다. */
@@ -52,41 +44,20 @@ export function publicBaseFrom(linkUrl: string | undefined): string {
   return PUBLIC_BASE_URL
 }
 
-/** 감사 로그 action 이름 (ADR 0016). */
-export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
-  'lead.list': '명단 조회',
-  'lead.contact.view': '원문 열람',
-  'lead.export': 'CSV 다운로드(마스킹)',
-  'lead.export.reveal': 'CSV 다운로드(원문)',
-  'auth.login.success': '로그인 성공',
-  'auth.login.failure': '로그인 실패',
-  'auth.login.locked': '로그인 시도 제한',
-  'retention.anonymize': '보존 기간 파기',
-  'campaign.retention.update': '보존 기간 변경',
-  'auth.refresh.reused': '토큰 재사용 감지',
-  'auth.logout': '로그아웃',
-  'form.publish': '폼 게시',
-  'form.close': '폼 마감',
-  'template.version.upload': '템플릿 새 버전',
-  'creator.archive': '크리에이터 보관',
-  'pii.reencrypt': '개인정보 재암호화',
+/** 감사 로그 action 이름 (ADR 0016). 모르는 값은 그대로 보여준다. */
+export function auditActionLabel(action: AuditAction | string): string {
+  return known(ko.labels.auditAction, 'labels.auditAction', action) ?? action
 }
 
 /** 로그인 시도 제한 감사 기록의 범위 (ADR 0021). */
-export const LOGIN_LOCK_SCOPE_LABELS: Record<string, string> = {
-  email_ip: '이메일+IP',
-  email: '이메일 전체',
-  ip: 'IP',
+export function loginLockScopeLabel(scope: string): string {
+  return known(ko.labels.loginLockScope, 'labels.loginLockScope', scope) ?? scope
 }
 
 /** 보존 기간 파기 감사 기록의 실행 방식 (ADR 0020). */
-export const RETENTION_TRIGGER_LABELS: Record<string, string> = {
-  scheduled: '자동 실행(매일 03:00)',
-  manual: '수동 실행',
+export function retentionTriggerLabel(trigger: string): string {
+  return known(ko.labels.retentionTrigger, 'labels.retentionTrigger', trigger) ?? trigger
 }
 
 /** 캠페인 보존 기간 기본값·범위(일). 백엔드 Campaign과 같다. */
 export const RETENTION_DAYS = { default: 365, min: 1, max: 3650 } as const
-
-/** 보존 기간이 지나 파기된 신청 표시. */
-export const ANONYMIZED_LABEL = '파기됨'
