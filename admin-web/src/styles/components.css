@@ -131,9 +131,95 @@
   border-top: 1px solid var(--border);
 }
 
-.sidebar-foot .btn {
-  justify-self: start;
-  padding-left: 0;
+.settings-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.settings-link:hover {
+  color: var(--text);
+  background: var(--border);
+}
+
+.settings-link.active {
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: inset 2px 0 0 var(--accent);
+  font-weight: 600;
+}
+
+.settings-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* 접힌 사이드바: 톱니바퀴만 남긴다 */
+.shell.is-collapsed .sidebar-foot {
+  border-top: 0;
+  padding: 0;
+}
+
+.shell.is-collapsed .settings-text {
+  display: none;
+}
+
+.shell.is-collapsed .settings-link {
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+/* ---------- 설정 화면 ---------- */
+.settings {
+  display: grid;
+  gap: 16px;
+  max-width: 640px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.settings-section h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.settings-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 16px;
+}
+
+.settings-fields .theme-picker select {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.settings-dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.settings-dl dt {
+  color: var(--text-muted);
+}
+
+.settings-dl dd {
+  margin: 0;
 }
 
 .operator {
