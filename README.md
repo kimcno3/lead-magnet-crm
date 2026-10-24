@@ -52,7 +52,7 @@ npm run build
 
 ## 문서
 
-같은 문서를 [GitHub 위키](https://github.com/kimcno3/lead-magnet-crm/wiki)에서 읽기 좋게 볼 수 있다(`docs/`가 원본이고 위키는 `scripts/wiki/build_wiki.py`로 만든 사본).
+처음 보는 분은 [GitHub 위키](https://github.com/kimcno3/lead-magnet-crm/wiki)부터 보세요. 무엇을 왜 만들었는지, 직접 실행하는 순서, 화면, 설계 하이라이트를 요약해 두었습니다. 세부 근거는 아래 문서가 원본입니다.
 
 | 문서 | 내용 |
 |---|---|
