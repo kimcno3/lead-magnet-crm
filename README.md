@@ -2,11 +2,7 @@
 
 운영자가 AI로 만든 신청 폼 HTML을 올려 캠페인과 인스타그램·X·유튜브·스레드 배포 링크를 만들고, 들어온 신청을 암호화된 CRM 명단으로 모아 채널·크리에이터별 성과를 보는 시스템입니다. 글로우업리즈 개발자 채용 과제 제출물입니다.
 
-| 먼저 보면 좋은 것 | |
-|---|---|
-| [GitHub 위키](https://github.com/kimcno3/lead-magnet-crm/wiki) | 무엇을 왜 만들었는지, 화면, 설계 하이라이트를 요약한 안내서 |
-| [사용 가이드](https://claude.ai/artifact/TtUgcd4xd4J9pKPnADsXfk) | 화면과 함께 보는 운영자 매뉴얼 |
-| [결정 기록(ADR)](docs/adr/README.md) | 주요 결정 23건과 그 이유. 핵심 결정은 아래 [설계와 결정](#설계와-결정) |
+문서: [GitHub 위키](https://github.com/kimcno3/lead-magnet-crm/wiki) · [사용 가이드](https://claude.ai/artifact/TtUgcd4xd4J9pKPnADsXfk) · [결정 기록(ADR)](docs/adr/README.md) · [문서 목록](docs/README.md)
 
 ## 실행 방법
 
@@ -135,19 +131,3 @@ npm ci
 npx playwright install chromium
 npm test
 ```
-
-## 설계와 결정
-
-과제에서 가장 중요하게 본 요구는 "등록한 HTML은 관리자 인증 정보와 관리자 API에 접근할 수 없어야 한다"와 "인증한 운영자만 신청자 데이터에 접근한다"입니다. 핵심 결정은 다음과 같습니다. 전체 23건은 [ADR 목록](docs/adr/README.md), 한 줄 요약은 [위키의 결정 기록 요약](https://github.com/kimcno3/lead-magnet-crm/wiki/결정-기록-요약)에 있습니다.
-
-| 결정 | 이유 | ADR |
-|---|---|---|
-| 앱 하나에 포트 두 개(관리자 :8080, 공개 :8081) | 앱을 쪼개지 않고 출처(origin) 단위로 관리자와 공개 영역을 격리 | [0010](docs/adr/0010-single-app-two-ports.md) |
-| 업로드 HTML은 sandbox iframe + postMessage + CSP | AI가 만든 폼의 스크립트는 살리고 권한은 0으로 | [0002](docs/adr/0002-html-isolation.md) |
-| access token은 메모리, refresh는 HttpOnly 쿠키로 매번 교체·재사용 감지 | 스크립트 주입으로 토큰을 훔칠 곳을 없앰 | [0003](docs/adr/0003-auth.md) |
-| 전환율 = 방문과 신청 양쪽에 있는 방문자 ÷ 방문자(서울 시간) | 모호한 "전환율"을 재현 가능한 정의로 | [0005](docs/adr/0005-metrics-definition.md) |
-| 링크로 채널·크리에이터 귀속 | 성과형(R/S) 협업의 정산 근거 | [0006](docs/adr/0006-channel-attribution.md), [0014](docs/adr/0014-creator-attribution.md) |
-| 연락처 AES-256-GCM 암호화, 중복 판정은 HMAC, 원문 열람은 감사 필수 | DB가 새어도 연락처 보호, 기록 없는 열람 금지 | [0015](docs/adr/0015-pii-encryption.md), [0016](docs/adr/0016-audit-log.md) |
-| 보존 기간이 지나면 연락처만 지우고 지표는 유지 | 개인정보 최소 보관과 성과 기록 보존을 함께 | [0020](docs/adr/0020-retention-and-consent-evidence.md) |
-
-API 명세는 [docs/api/openapi.yaml](docs/api/openapi.yaml)(실행 중이면 http://localhost:8080/swagger-ui.html), 그 밖의 문서 목록은 [docs/](docs/README.md)에 있습니다.
