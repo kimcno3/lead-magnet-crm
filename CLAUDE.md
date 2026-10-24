@@ -109,7 +109,7 @@ cd e2e && npm ci && npx playwright install chromium && npm test   # 결과: docs
 - PR 템플릿 체크리스트(마이그레이션 하위 호환, 보안 영향, ADR, OpenAPI, .env.example)를 채운다.
 - Flyway: 이미 적용된 파일은 수정하지 않는다. PR당 마이그레이션은 최대 하나. 파괴적 변경은 expand → contract.
 - 각 PR에는 해당 기능의 성공·실패 테스트와 관련 ADR을 함께 넣는다. 모호한 요구는 가정을 세워 ADR에 기록한다.
-- README에는 실행·테스트 방법만 둔다(과제 요구). 문서 목록은 `docs/README.md`에 둔다. 사용 가이드(`docs/GUIDE.md`), 문제 해결(`docs/TROUBLESHOOTING.md`), 진행 현황(`docs/WORKPLAN.md`)은 기능을 바꿀 때 함께 갱신한다.
+- README는 실행·테스트 방법이 중심이다(과제 요구). 처음 보는 사람을 위한 위키·사용 가이드·핵심 ADR 링크까지만 두고, 전체 문서 목록은 `docs/README.md`에 둔다. 사용 가이드(`docs/GUIDE.md`), 문제 해결(`docs/TROUBLESHOOTING.md`), 진행 현황(`docs/WORKPLAN.md`)은 기능을 바꿀 때 함께 갱신한다.
 - 범위 밖: 실제 AI 연동, 외부 CRM·문자·알림톡·광고 연동, 범용 폼 빌더, 결제. 배포는 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## 코드 규칙
