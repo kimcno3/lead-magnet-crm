@@ -129,6 +129,10 @@ describe('summarizeAuditDetail', () => {
     )
   })
 
+  it('대시보드 CSV는 기간과 행 수를 보여준다', () => {
+    expect(summarizeAuditDetail({ from: '2026-03-10', to: '2026-03-12', count: 3 })).toBe('기간 2026-03-10~2026-03-12 · 3건')
+  })
+
   it('보존 기간 파기는 실행 방식과 건수를 보여준다', () => {
     expect(summarizeAuditDetail({ trigger: 'scheduled', count: 3 })).toBe('자동 실행(매일 03:00) · 3건')
     expect(summarizeAuditDetail({ trigger: 'manual', count: 0, completed: true, interrupted: false })).toBe('수동 실행 · 0건')

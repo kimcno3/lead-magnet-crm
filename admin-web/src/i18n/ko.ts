@@ -51,10 +51,12 @@ export const ko = {
   },
   nav: {
     main: '주 메뉴',
+    dashboard: '대시보드',
     campaigns: '캠페인',
     creators: '크리에이터',
     templates: '템플릿',
     auditLogs: '감사 로그',
+    settings: '설정',
   },
   layout: {
     skipToContent: '본문으로 건너뛰기',
@@ -66,6 +68,13 @@ export const ko = {
     themeDark: '다크',
     language: '언어 / Language',
     signOut: '로그아웃',
+  },
+  settings: {
+    title: '설정',
+    display: '화면',
+    displayNote: '이 브라우저에 기억합니다.',
+    account: '계정',
+    signedInAs: '로그인한 운영자',
   },
   login: {
     title: '운영자 로그인',
@@ -128,6 +137,7 @@ export const ko = {
       'template.version.upload': '템플릿 새 버전',
       'creator.archive': '크리에이터 보관',
       'pii.reencrypt': '개인정보 재암호화',
+      'stats.export': '대시보드 CSV 다운로드',
     },
     loginLockScope: {
       email_ip: '이메일+IP',
@@ -171,6 +181,7 @@ export const ko = {
     draftForms_one: 'draft 폼 {count}개 갱신',
     creator: '크리에이터 #{id}',
     window: '{minutes}분 창',
+    period: '기간 {from}~{to}',
   },
   components: {
     copy: '복사',
@@ -222,6 +233,35 @@ export const ko = {
     shortenMessage:
       '보존 기간을 {old}일 → {new}일로 줄입니다. 신청 후 {new}일이 지난 신청은 다음 파기 실행(매일 03:00)에서 이름·연락처가 파기되며 되돌릴 수 없습니다.',
     shortenConfirm: '줄이기',
+  },
+  dashboard: {
+    title: '대시보드',
+    note: '모든 캠페인의 공개 폼으로 들어온 방문과 신청입니다. 봇 방문은 빠집니다.',
+    quickPeriods: '빠른 기간',
+    defaultPeriod: '기본 기간(최근 30일)',
+    lastDays: '최근 {count}일',
+    lastDays_one: '최근 {count}일',
+    appliedPeriod: '조회 기간 {from} ~ {to}',
+    trend: '일별 추이',
+    trendChart: '일별 방문과 신청 추이 그래프',
+    trendTable: '일별 추이 데이터',
+    legendVisits: '방문(막대, 왼쪽 축)',
+    legendLeads: '신청(선, 오른쪽 축)',
+    date: '날짜',
+    tooltip: '{date} · 방문 {visits} · 신청 {leads}',
+    sheet: '폼별 유입',
+    sheetTable: '폼별 유입 시트',
+    sortHint: '열 머리글을 누르면 정렬합니다.',
+    total: '합계',
+    totalNote: '합계 행의 방문자·전환 방문자·전환율은 폼 행을 더한 값이 아니라 전체 기간의 고유 방문자 기준입니다.',
+    downloadCsv: 'CSV 내려받기',
+    sheetEmpty: '이 기간에 방문이나 신청이 있는 폼이 없습니다.',
+    recentLeads: '최근 신청',
+    recentEmpty: '이 기간에 신청이 없습니다.',
+    noName: '(이름 없음)',
+    recentLeadLabel: '{campaign} 명단으로 이동',
+    definition:
+      '전환율 = 신청한 방문자 / 방문자. 폼 행은 같은 폼 안에서, 일별 전환은 같은 날 같은 캠페인에서 방문하고 신청한 방문자로 셉니다.',
   },
   stats: {
     kpis: '핵심 지표',
@@ -442,6 +482,7 @@ export const ko = {
     targetLead: '신청 #{id}',
     targetOperator: '운영자 #{id}',
     targetLeadList: '명단',
+    targetDashboard: '대시보드 폼 시트',
   },
 }
 

@@ -13,11 +13,11 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-function renderApp() {
+function renderApp(path = '/templates') {
   mockBackend((url) => (url.pathname === '/api/admin/templates' ? json([]) : undefined))
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={['/templates']}>
+      <MemoryRouter initialEntries={[path]}>
         <AppRoutes />
       </MemoryRouter>
     </AuthProvider>,
@@ -43,7 +43,7 @@ describe('사이드바', () => {
   })
 
   it('화면 테마를 고르면 문서에 적용하고 기억하며, 시스템 설정은 data-theme을 지운다', async () => {
-    renderApp()
+    renderApp('/settings')
     const picker = await screen.findByLabelText('화면 테마')
     expect(picker).toHaveValue('system')
 

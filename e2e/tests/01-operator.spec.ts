@@ -40,7 +40,7 @@ test('로그인 화면과 로그인', async () => {
       await expect(page.getByRole('button', { name: '로그인' })).toBeEnabled()
     },
   )
-  await step({ area: AREA, name: '로그인', assertion: '.env 시드 계정으로 로그인하면 /campaigns로 이동한다' }, async () => {
+  await step({ area: AREA, name: '로그인', assertion: '.env 시드 계정으로 로그인하면 대시보드(/dashboard)로 이동한다' }, async () => {
     await login(page)
   })
 })

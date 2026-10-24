@@ -20,6 +20,7 @@ class AuditActionTest {
         assertThat(AuditAction.fromValue("template.version.upload")).contains(AuditAction.TEMPLATE_VERSION_UPLOAD);
         assertThat(AuditAction.fromValue("creator.archive")).contains(AuditAction.CREATOR_ARCHIVE);
         assertThat(AuditAction.fromValue("pii.reencrypt")).contains(AuditAction.PII_REENCRYPT);
+        assertThat(AuditAction.fromValue("stats.export")).contains(AuditAction.STATS_EXPORT);
         assertThat(AuditAction.fromValue("LEAD_LIST")).isEqualTo(Optional.empty());
         assertThat(AuditAction.fromValue(null)).isEmpty();
     }

@@ -258,6 +258,47 @@ export interface ChannelStats {
   channels: (Metrics & { channel: Channel })[]
 }
 
+/** 유입 현황 대시보드 (GET /api/admin/stats/dashboard). from·to는 적용된 기간(서울 날짜, 양 끝 포함)이다. */
+export interface Dashboard {
+  from: string
+  to: string
+  totals: Metrics
+  daily: DashboardDay[]
+  forms: DashboardForm[]
+  channels: (Metrics & { channel: Channel })[]
+  creators: (Metrics & { creator: { id: number; name: string; status: CreatorStatus } | null })[]
+  recentLeads: RecentLead[]
+}
+
+/** 서울 날짜 하루. convertedVisitors는 그날 방문하고 같은 날 같은 캠페인에 신청한 방문자 수. */
+export interface DashboardDay {
+  date: string
+  visits: number
+  visitors: number
+  leads: number
+  convertedVisitors: number
+}
+
+export interface DashboardForm extends Metrics {
+  campaignId: number
+  campaignName: string
+  formId: number
+  title: string
+  status: FormStatus
+}
+
+/** 최근 신청. name은 가린 이름(없을 수 있다). 전화번호·이메일은 오지 않는다. */
+export interface RecentLead {
+  id: number
+  createdAt: string
+  campaignId: number
+  campaignName: string
+  formTitle: string
+  channel: Channel
+  creatorName: string | null
+  name: string | null
+}
+
 export interface Creator {
   id: number
   name: string
@@ -334,6 +375,7 @@ export const AUDIT_ACTIONS = [
   'template.version.upload',
   'creator.archive',
   'pii.reencrypt',
+  'stats.export',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
 

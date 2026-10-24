@@ -1,30 +1,21 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router'
-import { useAuth } from '../auth/context'
-import {
-  readSidebarCollapsed,
-  readTheme,
-  saveSidebarCollapsed,
-  saveTheme,
-  type ThemePreference,
-} from '../preferences'
 import { useI18n } from '../i18n/context'
-import { LanguagePicker } from '../i18n/LanguagePicker'
-import type { TKey } from '../i18n/translate'
-import { Button } from './Button'
+import { readSidebarCollapsed, saveSidebarCollapsed } from '../preferences'
 
-const THEME_OPTIONS: { value: ThemePreference; label: TKey }[] = [
-  { value: 'system', label: 'layout.themeSystem' },
-  { value: 'light', label: 'layout.themeLight' },
-  { value: 'dark', label: 'layout.themeDark' },
-]
+/** 톱니바퀴 아이콘(설정). currentColor로 테마 색을 따른다. */
+function GearIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    </svg>
+  )
+}
 
 export function Layout() {
-  const { operator, signOut } = useAuth()
   const { t } = useI18n()
-  const [busy, setBusy] = useState(false)
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
-  const [theme, setTheme] = useState(readTheme)
 
   const toggleSidebar = () => {
     setCollapsed((prev) => {
@@ -57,6 +48,9 @@ export function Layout() {
           <nav aria-label={t('nav.main')}>
             <ul className="nav">
               <li>
+                <NavLink to="/dashboard">{t('nav.dashboard')}</NavLink>
+              </li>
+              <li>
                 <NavLink to="/campaigns">{t('nav.campaigns')}</NavLink>
               </li>
               <li>
@@ -70,46 +64,13 @@ export function Layout() {
               </li>
             </ul>
           </nav>
-          <div className="sidebar-foot">
-            <label className="theme-picker">
-              <span>{t('layout.theme')}</span>
-              <select
-                value={theme}
-                onChange={(e) => {
-                  const next = e.target.value as ThemePreference
-                  setTheme(next)
-                  saveTheme(next)
-                }}
-              >
-                {THEME_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {t(o.label)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <LanguagePicker />
-            <p className="operator" title={operator?.email} translate="no">
-              {operator?.email}
-            </p>
-            <Button
-              size="sm"
-              variant="ghost"
-              busy={busy}
-              onClick={async () => {
-                setBusy(true)
-                try {
-                  await signOut()
-                } catch {
-                  // 서버 로그아웃이 실패해도 signOut이 메모리 세션을 지웠다. 화면은 로그인으로 넘어간다.
-                } finally {
-                  setBusy(false)
-                }
-              }}
-            >
-              {t('layout.signOut')}
-            </Button>
-          </div>
+        </div>
+        {/* 설정은 사이드바를 접어도 닿도록 본문 영역 밖, 맨 아래에 둔다 */}
+        <div className="sidebar-foot">
+          <NavLink to="/settings" className="settings-link" aria-label={t('nav.settings')} title={t('nav.settings')}>
+            <GearIcon />
+            <span className="settings-text">{t('nav.settings')}</span>
+          </NavLink>
         </div>
       </aside>
       <main id="main" className="main" tabIndex={-1}>

@@ -26,12 +26,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function renderApp() {
+function renderApp(path = '/templates') {
   mockBackend((url) => (url.pathname === '/api/admin/templates' ? json([]) : undefined))
   return render(
     <LanguageProvider>
       <AuthProvider>
-        <MemoryRouter initialEntries={['/templates']}>
+        <MemoryRouter initialEntries={[path]}>
           <AppRoutes />
         </MemoryRouter>
       </AuthProvider>
@@ -77,7 +77,7 @@ describe('코드별 문구', () => {
 
 describe('언어 선택', () => {
   it('기본은 한국어이고, English를 고르면 메뉴와 테마 문구가 바뀐다', async () => {
-    renderApp()
+    renderApp('/settings')
     const picker = await screen.findByLabelText('언어 / Language')
     expect(picker).toHaveValue('ko')
     expect(screen.getByRole('link', { name: '캠페인' })).toBeInTheDocument()
@@ -94,14 +94,14 @@ describe('언어 선택', () => {
   })
 
   it('고른 언어를 lm.lang에 기억하고 <html lang>과 문서 제목을 바꾼다', async () => {
-    const view = renderApp()
+    const view = renderApp('/settings')
     fireEvent.change(await screen.findByLabelText('언어 / Language'), { target: { value: 'en' } })
     expect(window.localStorage.getItem('lm.lang')).toBe('en')
     expect(document.documentElement.lang).toBe('en')
     expect(document.title).toBe('Lead Magnet CRM Admin')
 
     view.unmount()
-    renderApp()
+    renderApp('/settings')
     expect(await screen.findByLabelText('언어 / Language')).toHaveValue('en')
     expect(screen.getByRole('link', { name: 'Templates' })).toBeInTheDocument()
 
@@ -125,7 +125,7 @@ describe('언어 선택', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('blocked')
     })
-    renderApp()
+    renderApp('/settings')
     fireEvent.change(await screen.findByLabelText('언어 / Language'), { target: { value: 'en' } })
     expect(screen.getByRole('link', { name: 'Creators' })).toBeInTheDocument()
   })

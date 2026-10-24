@@ -13,7 +13,7 @@ function targetFrom(state: unknown): string {
   // 같은 앱 안의 경로만 허용한다(//evil.example 같은 프로토콜 상대 주소 차단).
   return typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && from !== '/login'
     ? from
-    : '/campaigns'
+    : '/dashboard'
 }
 
 export function LoginPage() {

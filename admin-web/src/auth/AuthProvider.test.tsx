@@ -79,7 +79,7 @@ describe('로그아웃', () => {
       if (url.pathname === '/api/admin/templates') return json([])
       return undefined
     })
-    renderAt('/templates')
+    renderAt('/settings')
     fireEvent.click(await screen.findByRole('button', { name: '로그아웃' }))
 
     expect(await screen.findByRole('heading', { name: '운영자 로그인' })).toBeInTheDocument()

@@ -83,6 +83,12 @@ v0.3.0 최종 리뷰에서 나왔지만 그때 하지 않은 것 가운데 운�
 
 v0.4.0 operations 3건(#65 ~ #67)을 모두 마쳤고, 릴리스 준비는 #71(PR #72)에서 했다: 릴리스 노트(`RELEASE_NOTES_v0.4.0.md`), OVERVIEW 12절, OpenAPI `info.version` 0.4.0, GUIDE 2.11의 compose 명령(`up -d`, `restart` 금지), PLAN 6.4절, E2E 재실행. 결과 지표: backend 테스트 825건(99개 클래스, 1건은 verify 모드에서 건너뜀), admin-web 166건(18개 파일), 브라우저 E2E 24단계(새 볼륨, 로컬 실행).
 
+## v0.5.0 ui (진행 중)
+
+| 이슈 | 내용 | PR |
+|---|---|---|
+| #100 | 유입 현황 대시보드: `GET /api/admin/stats/dashboard`(합계·서울 날짜별 일별·폼·채널·크리에이터·최근 신청 가린 이름), 폼 시트 CSV(감사 `stats.export`), 로그인 뒤 첫 화면 `/dashboard`(GUIDE 2.13, ADR 0005 변경 기록) | - |
+
 ## 다음 작업 (v0.5.0 후보)
 
 v0.4.0 최종 리뷰에서 나왔지만 이번에 하지 않은 것이다.

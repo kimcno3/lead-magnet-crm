@@ -50,10 +50,12 @@ export const en: Dict = {
   },
   nav: {
     main: 'Main menu',
+    dashboard: 'Dashboard',
     campaigns: 'Campaigns',
     creators: 'Creators',
     templates: 'Templates',
     auditLogs: 'Audit log',
+    settings: 'Settings',
   },
   layout: {
     skipToContent: 'Skip to content',
@@ -65,6 +67,13 @@ export const en: Dict = {
     themeDark: 'Dark',
     language: '언어 / Language',
     signOut: 'Sign out',
+  },
+  settings: {
+    title: 'Settings',
+    display: 'Display',
+    displayNote: 'Saved in this browser.',
+    account: 'Account',
+    signedInAs: 'Signed in as',
   },
   login: {
     title: 'Operator sign-in',
@@ -127,6 +136,7 @@ export const en: Dict = {
       'template.version.upload': 'New template version',
       'creator.archive': 'Creator archived',
       'pii.reencrypt': 'Personal data re-encrypted',
+      'stats.export': 'Dashboard CSV download',
     },
     loginLockScope: {
       email_ip: 'email+IP',
@@ -170,6 +180,7 @@ export const en: Dict = {
     draftForms_one: '{count} draft form updated',
     creator: 'creator #{id}',
     window: '{minutes}-minute window',
+    period: 'period {from}–{to}',
   },
   components: {
     copy: 'Copy',
@@ -221,6 +232,35 @@ export const en: Dict = {
     shortenMessage:
       'Retention goes from {old} to {new} days. Leads older than {new} days lose their names and contacts on the next purge run (daily 03:00). This cannot be undone.',
     shortenConfirm: 'Shorten',
+  },
+  dashboard: {
+    title: 'Dashboard',
+    note: 'Visits and sign-ups that came in through public forms across all campaigns. Bot visits are excluded.',
+    quickPeriods: 'Quick periods',
+    defaultPeriod: 'Default period (last 30 days)',
+    lastDays: 'Last {count} days',
+    lastDays_one: 'Last {count} day',
+    appliedPeriod: 'Period {from} – {to}',
+    trend: 'Daily trend',
+    trendChart: 'Daily visits and sign-ups chart',
+    trendTable: 'Daily trend data',
+    legendVisits: 'Visits (bars, left axis)',
+    legendLeads: 'Sign-ups (line, right axis)',
+    date: 'Date',
+    tooltip: '{date} · {visits} visits · {leads} sign-ups',
+    sheet: 'Inflow by form',
+    sheetTable: 'Inflow by form sheet',
+    sortHint: 'Click a column header to sort.',
+    total: 'Total',
+    totalNote: 'Visitors, converted visitors and conversion rate in the total row are unique across the whole period, not the sum of the form rows.',
+    downloadCsv: 'Download CSV',
+    sheetEmpty: 'No form had visits or sign-ups in this period.',
+    recentLeads: 'Recent sign-ups',
+    recentEmpty: 'No sign-ups in this period.',
+    noName: '(no name)',
+    recentLeadLabel: 'Go to the {campaign} lead list',
+    definition:
+      'Conversion rate = visitors who signed up / visitors. Form rows count within the same form; daily conversion counts visitors who visited and signed up in the same campaign on the same day.',
   },
   stats: {
     kpis: 'Key metrics',
@@ -441,5 +481,6 @@ export const en: Dict = {
     targetLead: 'lead #{id}',
     targetOperator: 'operator #{id}',
     targetLeadList: 'lead list',
+    targetDashboard: 'dashboard form sheet',
   },
 }

@@ -44,6 +44,11 @@ public class ContactProtector {
             cipher.decrypt(stored.emailEnc(), EMAIL));
     }
 
+    /** 원문 이름만. 전화번호·이메일은 풀지 않는다. 값이 없으면 null이다. */
+    public String revealName(Lead lead) {
+        return cipher.decrypt(lead.getProtectedContact().nameEnc(), NAME);
+    }
+
     /** 현재 암호화 키가 아닌 암호문만 현재 키로 다시 암호화한다. 해시는 그대로다. 풀 수 없으면 PiiCryptoException. */
     public ProtectedContact reencrypt(ProtectedContact stored) {
         return new ProtectedContact(cipher.reencrypt(stored.nameEnc(), NAME), cipher.reencrypt(stored.phoneEnc(), PHONE),
