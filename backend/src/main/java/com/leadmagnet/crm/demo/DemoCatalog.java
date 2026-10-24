@@ -24,8 +24,9 @@ final class DemoCatalog {
     record CreatorSpec(String key, String name, String handle, String memo, boolean archived) {
     }
 
+    /** archived면 폼을 마감한 뒤 보관한다(행사가 끝난 캠페인). 목록은 이 순서대로 위에서 아래로 보인다. */
     record CampaignSpec(String key, String name, String description, Integer retentionDays, Integer startsDaysAgo,
-            Integer endsDaysAgo) {
+            Integer endsDaysAgo, boolean archived) {
     }
 
     /**
@@ -74,16 +75,16 @@ final class DemoCatalog {
     static final List<CampaignSpec> CAMPAIGNS = List.of(
         new CampaignSpec("academy", "아카데미 · 유튜브 첫 1,000명 로드맵",
             "다음 세대 크리에이터를 위한 실전 유튜브 무료 라이브 클래스 모집. 해솔쌤·옷장정리 유나 채널과 함께 홍보한다.",
-            null, null, null),
+            null, null, null, false),
         new CampaignSpec("mcn", "MCN · 크리에이터 파트너 모집",
             "R/S 기반 맞춤 프로듀싱 파트너 상담 신청. 소속 크리에이터 추천 링크로 들어온 상담을 따로 본다.",
-            null, null, null),
+            null, null, null, false),
         new CampaignSpec("yogo", "요고 · 브랜드 입점·공동구매",
             "요고 플랫폼 브랜드 입점과 크리에이터 공동구매 협업 문의. 브랜드 담당자 연락처라 6개월만 보관한다.",
-            180, null, null),
+            180, null, null, false),
         new CampaignSpec("fnb", "F&B · 성수 매장 오픈 시식회",
-            "성수 신규 매장 오픈 전 시식회 사전 신청. 정원이 차서 마감했다.",
-            null, PERIOD_DAYS + 3, 4));
+            "성수 신규 매장 오픈 전 시식회 사전 신청. 정원이 차서 마감했고 행사가 끝나 보관했다.",
+            null, PERIOD_DAYS + 3, 4, true));
 
     static final List<FormSpec> FORMS = List.of(
         new FormSpec("academy", "academy", "academy", "academy-first-1000", "유튜브 첫 1,000명 구독자 로드맵 무료 라이브",

@@ -233,6 +233,13 @@ public class DemoDataSeeder {
                     forms.update(formByKey.get(spec.key()).getId(), null, null, null, "closed", ACTOR);
                 }
             }
+            // 행사가 끝난 캠페인은 폼을 마감한 뒤 보관한다(보관된 캠페인에는 새 폼을 만들 수 없다).
+            for (CampaignSpec spec : DemoCatalog.CAMPAIGNS) {
+                if (spec.archived()) {
+                    campaigns.update(campaignByKey.get(spec.key()).getId(), null, null, null, null, null, "archived",
+                        ACTOR);
+                }
+            }
             transaction.executeWithoutResult(status -> backdate());
             return new SeedResult(Outcome.SEEDED, templateByKey.size(), campaignByKey.size(), formByKey.size(),
                 creatorByKey.size(), linkByKey.size(), visitRows.size(), botVisits, leadRows.size());
@@ -353,9 +360,14 @@ public class DemoDataSeeder {
                     at(DemoCatalog.PERIOD_DAYS + 4), at(spec.archived() ? 11 : DemoCatalog.PERIOD_DAYS + 4),
                     creatorByKey.get(spec.key()).getId());
             }
-            for (Campaign campaign : campaignByKey.values()) {
-                jdbc.update("UPDATE campaigns SET created_at = ?, updated_at = ? WHERE id = ?",
-                    at(DemoCatalog.PERIOD_DAYS + 3), at(DemoCatalog.PERIOD_DAYS + 3), campaign.getId());
+            // 목록은 created_at 내림차순이다. 카탈로그 첫 캠페인이 맨 위에 오도록 뒤 캠페인일수록 한 시간씩 앞당긴다.
+            List<CampaignSpec> specs = DemoCatalog.CAMPAIGNS;
+            for (int i = 0; i < specs.size(); i++) {
+                CampaignSpec spec = specs.get(i);
+                OffsetDateTime created = at(DemoCatalog.PERIOD_DAYS + 3).minusHours(i);
+                OffsetDateTime updated = spec.archived() && spec.endsDaysAgo() != null ? at(spec.endsDaysAgo()) : created;
+                jdbc.update("UPDATE campaigns SET created_at = ?, updated_at = ? WHERE id = ?", created, updated,
+                    campaignByKey.get(spec.key()).getId());
             }
             for (FormSpec spec : DemoCatalog.FORMS) {
                 long id = formByKey.get(spec.key()).getId();

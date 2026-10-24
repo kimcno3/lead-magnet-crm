@@ -172,6 +172,21 @@ class DemoDataSeederTest {
     }
 
     @Test
+    void 캠페인_목록은_아카데미_MCN_요고_FnB_순이고_FnB만_보관이다() {
+        seeder.seedIfEnabled();
+        String token = AdminLogin.accessToken(EMAIL, PASSWORD);
+
+        List<Map<String, Object>> list = RestAssured.given().auth().oauth2(token).get("/api/admin/campaigns")
+            .then().statusCode(200).extract().jsonPath().getList("");
+
+        assertThat(list).extracting(c -> (String) c.get("name")).containsExactly(
+            "아카데미 · 유튜브 첫 1,000명 로드맵", "MCN · 크리에이터 파트너 모집", "요고 · 브랜드 입점·공동구매",
+            "F&B · 성수 매장 오픈 시식회");
+        assertThat(list).extracting(c -> (String) c.get("status"))
+            .containsExactly("active", "active", "active", "archived");
+    }
+
+    @Test
     void 방문과_신청은_최근_21일에_흩어지고_보관된_크리에이터_링크는_지난_방문만_있다() {
         clock.freezeAt(Instant.parse("2026-10-24T05:00:00Z"));
         seeder.seedIfEnabled();
