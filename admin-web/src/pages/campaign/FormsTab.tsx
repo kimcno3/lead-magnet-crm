@@ -192,8 +192,8 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
             <caption className="visually-hidden">채널별 배포 링크</caption>
             <thead>
               <tr>
-                <th scope="col">채널</th>
-                <th scope="col">링크</th>
+                <th scope="col" className="shrink">채널</th>
+                <th scope="col" className="shrink">링크</th>
                 <th scope="col">UTM (source / medium / campaign)</th>
               </tr>
             </thead>
@@ -202,8 +202,8 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
                 const link = links.data?.find((l) => l.channel === channel && !l.creator)
                 return (
                   <tr key={channel}>
-                    <td className="nowrap">{CHANNEL_LABELS[channel]}</td>
-                    <td>
+                    <td className="shrink">{CHANNEL_LABELS[channel]}</td>
+                    <td className="shrink">
                       {link ? (
                         <span className="inline-row">
                           <code className="url" translate="no">{link.url}</code>

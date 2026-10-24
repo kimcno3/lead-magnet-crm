@@ -173,3 +173,8 @@ export function summarizeAuditDetail(detail: Record<string, unknown>): string {
   }
   return parts.length > 0 ? parts.join(' · ') : '-'
 }
+
+/** 선택지 목록을 쉼표로 잇는다. 값이 빈 선택지는 select의 안내 문구("선택해 주세요")라 고를 수 있는 값이 아니어서 뺀다. */
+export function formatOptions(options: string[] | null | undefined): string {
+  return (options ?? []).filter((o) => o !== '').join(', ')
+}
