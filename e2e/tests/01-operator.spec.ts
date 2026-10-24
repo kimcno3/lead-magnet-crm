@@ -140,7 +140,7 @@ test('폼 생성과 게시', async () => {
 
       const status = page.getByRole('region', { name: '상태' })
       await expect(status).toContainText('초안')
-      await status.getByRole('button', { name: '게시', exact: true }).click()
+      await status.getByRole('button', { name: '폼 게시하기' }).click()
       const confirm = page.getByRole('dialog', { name: '폼 게시' })
       await expect(confirm).toContainText('게시하면 공개 URL로 신청을 받기 시작하고')
       await confirm.getByRole('button', { name: '게시하기' }).click()
@@ -172,7 +172,7 @@ test('채널별 링크 4개', async () => {
       }
       const links: Record<string, string> = {}
       const channels = Object.keys(CHANNEL_LABELS)
-      const codes = defaultRow.locator('code.url')
+      const codes = defaultRow.locator('[data-url]')
       await expect(codes).toHaveCount(4)
       for (let i = 0; i < channels.length; i++) {
         const code = codes.nth(i)
