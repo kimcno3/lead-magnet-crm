@@ -157,25 +157,29 @@ test('채널별 링크 4개', async () => {
     {
       area: AREA,
       name: '채널 링크 생성',
-      assertion: '인스타그램·X·유튜브·스레드 링크가 모두 http://localhost:8081/l/{code} 형식으로 표에 보인다',
+      assertion: '배포 링크 표의 기본 행에 인스타그램·X·유튜브·스레드 링크가 모두 만들어지고 주소가 http://localhost:8081/l/{code} 형식이다',
       screenshot: '06-links',
       page,
     },
     async (record) => {
-      const table = page.getByRole('table', { name: '채널별 배포 링크' })
-      const makeButtons = table.getByRole('button', { name: '링크 만들기' })
+      const table = page.getByRole('table', { name: '배포 링크' })
+      const defaultRow = table.locator('tbody tr').first()
+      const makeButtons = defaultRow.getByRole('button', { name: /^기본 .* 링크 만들기$/ })
       for (let remaining = 4; remaining > 0; remaining--) {
         await expect(makeButtons).toHaveCount(remaining)
         await makeButtons.first().click()
         await expect(makeButtons).toHaveCount(remaining - 1)
       }
       const links: Record<string, string> = {}
-      for (const [channel, label] of Object.entries(CHANNEL_LABELS)) {
-        const row = table.locator('tbody tr').filter({ has: page.getByRole('cell', { name: label, exact: true }) })
-        const url = (await row.locator('code.url').textContent())?.trim() ?? ''
+      const channels = Object.keys(CHANNEL_LABELS)
+      const codes = defaultRow.locator('code.url')
+      await expect(codes).toHaveCount(4)
+      for (let i = 0; i < channels.length; i++) {
+        const code = codes.nth(i)
+        const url = (await code.getAttribute('data-url')) ?? ''
         expect(url).toMatch(new RegExp(`^${PUBLIC_URL.replace(/[.:/]/g, '\\$&')}/l/[A-Za-z0-9_-]+$`))
-        await expect(row.locator('td').nth(2)).toContainText(channel)
-        links[channel] = url
+        expect(await code.getAttribute('title')).toContain(channels[i])
+        links[channels[i]] = url
       }
       expect(new Set(Object.values(links)).size).toBe(4)
       writeState({ links })
