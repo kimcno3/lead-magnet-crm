@@ -11,7 +11,8 @@ import { Field } from '../../components/Field'
 import { TableWrap } from '../../components/Table'
 import { errorText } from '../../errors'
 import { useAsync } from '../../hooks'
-import { CHANNEL_LABELS } from '../../labels'
+import { useI18n } from '../../i18n/context'
+import { channelLabel } from '../../labels'
 
 interface DistributionLinksProps {
   formId: number
@@ -30,8 +31,6 @@ interface Row {
   archived: boolean
 }
 
-const DEFAULT_ROW_NAME = '기본'
-
 function utmText(link: DistributionLink): string {
   return [link.utmSource, link.utmMedium, link.utmCampaign, link.utmContent].filter(Boolean).join(' / ')
 }
@@ -42,6 +41,7 @@ function utmText(link: DistributionLink): string {
  * 크리에이터가 비어 있으면 기본 링크다. 보관된 크리에이터는 고를 수 없고, 이미 링크가 있으면 행은 남지만 새 링크는 만들 수 없다.
  */
 export function DistributionLinks({ formId, closed, links, linksError, onReloadLinks }: DistributionLinksProps) {
+  const { t, rich } = useI18n()
   const creators = useAsync(listCreators, [])
   const [added, setAdded] = useState<number[]>([])
   const [selected, setSelected] = useState('')
@@ -53,7 +53,7 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
     .filter((c) => linkedIds.has(c.id) || added.includes(c.id))
     .sort((a, b) => a.id - b.id)
     .map((c) => ({ key: `c${c.id}`, creatorId: c.id, name: c.name, archived: c.status === 'archived' }))
-  const rows: Row[] = [{ key: 'default', creatorId: null, name: DEFAULT_ROW_NAME, archived: false }, ...creatorRows]
+  const rows: Row[] = [{ key: 'default', creatorId: null, name: t('links.defaultRow'), archived: false }, ...creatorRows]
   const options = (creators.data ?? []).filter(
     (c) => c.status === 'active' && !creatorRows.some((r) => r.creatorId === c.id),
   )
@@ -69,7 +69,7 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
       await createLink(formId, channel, row.creatorId ?? undefined)
       onReloadLinks()
     } catch (e) {
-      setError(`${row.name} ${CHANNEL_LABELS[channel]} 링크를 만들지 못했습니다: ${errorText(e)}`)
+      setError(t('links.createFailed', { name: row.name, channel: channelLabel(channel), error: errorText(e) }))
     } finally {
       setBusy(null)
     }
@@ -83,15 +83,15 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
           {error}
         </p>
       )}
-      <TableWrap label="배포 링크">
+      <TableWrap label={t('forms.distributionLinks')}>
         <table className="table table-compact">
-          <caption className="visually-hidden">배포 링크</caption>
+          <caption className="visually-hidden">{t('forms.distributionLinks')}</caption>
           <thead>
             <tr>
-              <th scope="col" className="shrink">대상</th>
+              <th scope="col" className="shrink">{t('links.target')}</th>
               {LINK_CHANNELS.map((ch) => (
                 <th key={ch} scope="col">
-                  {CHANNEL_LABELS[ch]}
+                  {channelLabel(ch)}
                 </th>
               ))}
             </tr>
@@ -102,7 +102,7 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
                 <th scope="row" className="shrink">
                   <span className="inline-row">
                     {row.name}
-                    {row.creatorId === null && <span className="muted small">크리에이터 없음</span>}
+                    {row.creatorId === null && <span className="muted small">{t('links.noCreator')}</span>}
                     {row.archived && <CreatorStatusBadge status="archived" />}
                   </span>
                 </th>
@@ -120,12 +120,12 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
                       ) : links ? (
                         <Button
                           size="sm"
-                          aria-label={`${row.name} ${CHANNEL_LABELS[ch]} 링크 만들기`}
+                          aria-label={t('links.create', { name: row.name, channel: channelLabel(ch) })}
                           onClick={() => make(row, ch)}
                           busy={busy === `${row.key}-${ch}`}
                           disabled={closed || row.archived || busy !== null}
                         >
-                          만들기
+                          {t('common.create')}
                         </Button>
                       ) : (
                         <span className="skeleton" aria-hidden="true" />
@@ -139,7 +139,7 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
         </table>
       </TableWrap>
       <p className="muted small">
-        칸에는 짧은 주소(/l/코드)의 코드가 보입니다. 복사 버튼은 전체 주소를 복사하고, 코드에 마우스를 올리면 주소와 UTM 값이 보입니다.
+        {t('links.note')}
       </p>
 
       {creators.error ? (
@@ -147,18 +147,18 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
       ) : !creators.data ? (
         <div className="toolbar" aria-busy="true">
           <span className="skeleton" aria-hidden="true" />
-          <span className="visually-hidden">크리에이터 목록을 불러오는 중</span>
+          <span className="visually-hidden">{t('links.loadingCreators')}</span>
         </div>
       ) : creators.data.length === 0 ? (
         <p className="muted small">
-          수익 배분 크리에이터별로 링크를 나누려면 <Link to="/creators">크리에이터 메뉴</Link>에서 먼저 등록하세요.
+          {rich('links.registerFirst', { link: <Link key="link" to="/creators">{t('links.creatorMenu')}</Link> })}
         </p>
       ) : (
-        <div className="toolbar" role="group" aria-label="크리에이터 행 추가">
-          <Field label="크리에이터">
+        <div className="toolbar" role="group" aria-label={t('links.addRowGroup')}>
+          <Field label={t('common.creator')}>
             {(p) => (
               <select {...p} value={selected} onChange={(e) => setSelected(e.target.value)} disabled={options.length === 0}>
-                <option value="">{options.length === 0 ? '추가할 크리에이터 없음' : '선택'}</option>
+                <option value="">{options.length === 0 ? t('links.noCreatorToAdd') : t('links.select')}</option>
                 {options.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -175,7 +175,7 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
               setSelected('')
             }}
           >
-            행 추가
+            {t('links.addRow')}
           </Button>
         </div>
       )}

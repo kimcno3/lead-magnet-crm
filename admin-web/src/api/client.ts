@@ -5,6 +5,7 @@
 // - 로그인·refresh·logout에는 Authorization을 붙이지 않는다(만료 토큰이 있으면 Resource Server가 401을 낸다).
 // - API 401이면 refresh를 한 번만 하고(동시 401은 같은 refresh를 기다린다) 원 요청을 다시 보낸다.
 
+import { t } from '../i18n/translate'
 import type { FieldError, ProblemDetail, TokenResponse } from './types'
 
 const AUTH_BASE = '/api/admin/auth'
@@ -21,7 +22,7 @@ export class ApiError extends Error {
   readonly retryAfterSeconds: number | null
 
   constructor(status: number, problem: ProblemDetail, retryAfterSeconds: number | null = null) {
-    super(problem.detail || problem.title || `요청을 처리하지 못했습니다 (HTTP ${status})`)
+    super(problem.detail || problem.title || t('errors.httpStatus', { status }))
     this.name = 'ApiError'
     this.status = status
     this.code = problem.code

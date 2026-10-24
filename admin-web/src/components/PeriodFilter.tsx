@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router'
+import { useI18n } from '../i18n/context'
 import { Button } from './Button'
 import { Field } from './Field'
 
@@ -7,6 +8,7 @@ import { Field } from './Field'
  * resetParams: 기간이 바뀌면 함께 지울 쿼리(예: 페이지가 있는 목록의 page).
  */
 export function PeriodFilter({ resetParams = [] }: { resetParams?: readonly string[] } = {}) {
+  const { t } = useI18n()
   const [params, setParams] = useSearchParams()
   const from = params.get('from') ?? ''
   const to = params.get('to') ?? ''
@@ -27,19 +29,19 @@ export function PeriodFilter({ resetParams = [] }: { resetParams?: readonly stri
   }
 
   return (
-    <div className="toolbar" role="group" aria-label="기간 필터">
-      <Field label="시작일">
+    <div className="toolbar" role="group" aria-label={t('components.periodFilter')}>
+      <Field label={t('common.startDate')}>
         {(p) => <input {...p} type="date" value={from} max={to || undefined} onChange={(e) => setPeriod({ from: e.target.value })} />}
       </Field>
-      <Field label="종료일">
+      <Field label={t('common.endDate')}>
         {(p) => <input {...p} type="date" value={to} min={from || undefined} onChange={(e) => setPeriod({ to: e.target.value })} />}
       </Field>
       {(from || to) && (
         <Button size="sm" variant="ghost" onClick={() => setPeriod({ from: '', to: '' })}>
-          전체 기간
+          {t('components.allPeriod')}
         </Button>
       )}
-      <p className="toolbar-note muted small">{from || to ? '날짜는 서울 시각 기준이며 양 끝 날짜를 포함합니다' : '전체 기간'}</p>
+      <p className="toolbar-note muted small">{from || to ? t('components.periodNote') : t('components.allPeriod')}</p>
     </div>
   )
 }

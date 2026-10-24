@@ -11,7 +11,9 @@ import { formatDateTime, formatNumber, formatPhone, summarizePayload } from '../
 import { LeadExportMenu } from './LeadExportMenu'
 import { errorText } from '../../errors'
 import { useAsync } from '../../hooks'
-import { ANONYMIZED_LABEL, CHANNEL_LABELS } from '../../labels'
+import { useI18n } from '../../i18n/context'
+import { translate } from '../../i18n/translate'
+import { anonymizedLabel, channelLabel } from '../../labels'
 import { ConsentDialog } from './ConsentDialog'
 
 /** 원문 보기 상태. 그 줄에만, 같은 명단 조회(캠페인·페이지·필터) 동안에만 유지한다. */
@@ -23,13 +25,16 @@ function toChannel(value: string | null): Channel | null {
 
 /** CSV 확인 대화상자에 보여줄 필터 범위. */
 function exportScope(campaign: Campaign, formId: number | null, channel: Channel | null): string {
-  if (!formId && !channel) return '전체'
-  const form = formId ? `폼 ${campaign.forms.find((f) => f.id === formId)?.title ?? `#${formId}`}` : '전체 폼'
-  const ch = channel ? `채널 ${CHANNEL_LABELS[channel]}` : '전체 채널'
+  if (!formId && !channel) return translate('leads.scopeAll')
+  const form = formId
+    ? translate('leads.scopeForm', { title: campaign.forms.find((f) => f.id === formId)?.title ?? `#${formId}` })
+    : translate('common.allForms')
+  const ch = channel ? translate('leads.scopeChannel', { channel: channelLabel(channel) }) : translate('common.allChannels')
   return `${form} · ${ch}`
 }
 
 export function LeadsTab({ campaign }: { campaign: Campaign }) {
+  const { t, rich } = useI18n()
   const [params, setParams] = useSearchParams()
   const page = Math.max(0, Number(params.get('page')) || 0)
   const formId = Number(params.get('form')) || null
@@ -88,11 +93,11 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
 
   return (
     <>
-      <div className="toolbar" role="group" aria-label="명단 필터">
-        <Field label="폼">
+      <div className="toolbar" role="group" aria-label={t('leads.filters')}>
+        <Field label={t('common.form')}>
           {(p) => (
             <select {...p} value={formId ?? ''} onChange={(e) => update({ form: e.target.value, page: null })}>
-              <option value="">전체 폼</option>
+              <option value="">{t('common.allForms')}</option>
               {campaign.forms.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.title}
@@ -101,13 +106,13 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
             </select>
           )}
         </Field>
-        <Field label="채널">
+        <Field label={t('common.channel')}>
           {(p) => (
             <select {...p} value={channel ?? ''} onChange={(e) => update({ channel: e.target.value, page: null })}>
-              <option value="">전체 채널</option>
+              <option value="">{t('common.allChannels')}</option>
               {CHANNELS.map((c) => (
                 <option key={c} value={c}>
-                  {CHANNEL_LABELS[c]}
+                  {channelLabel(c)}
                 </option>
               ))}
             </select>
@@ -115,7 +120,7 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
         </Field>
         {data && (
           <p className="toolbar-note muted small" aria-live="polite">
-            총 <span className="num">{formatNumber(data.totalElements)}</span>명
+            {rich('leads.total', { count: <span key="count" className="num">{formatNumber(data.totalElements)}</span> }, data.totalElements)}
           </p>
         )}
         <LeadExportMenu campaignId={campaign.id} formId={formId} channel={channel} scope={exportScope(campaign, formId, channel)} />
@@ -124,10 +129,10 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
       <ErrorMessage error={error} onRetry={reload} />
       {data && data.totalElements > 0 && data.items.length === 0 ? (
         <EmptyState
-          message="이 페이지에는 신청이 없습니다. 마지막 페이지를 넘었습니다."
+          message={t('leads.pastLastPage')}
           action={
             <Button size="sm" onClick={() => update({ page: null })}>
-              첫 페이지로
+              {t('common.firstPage')}
             </Button>
           }
         />
@@ -135,32 +140,32 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
         <EmptyState
           message={
             formId || channel
-              ? '조건에 맞는 신청이 없습니다. 필터를 바꿔 보세요.'
-              : '아직 신청이 없습니다. 폼 탭에서 폼을 게시하고 채널 링크를 배포하면 여기에 쌓입니다.'
+              ? t('leads.noMatch')
+              : t('leads.empty')
           }
           action={
             formId || channel ? (
               <Button size="sm" onClick={() => update({ form: null, channel: null, page: null })}>
-                필터 지우기
+                {t('common.clearFilters')}
               </Button>
             ) : undefined
           }
         />
       ) : (
         <>
-          <TableWrap label="신청자 명단">
+          <TableWrap label={t('leads.tableLabel')}>
             <table className={`table${loading && data ? ' is-stale' : ''}`}>
-              <caption className="visually-hidden">신청자 명단</caption>
+              <caption className="visually-hidden">{t('leads.tableLabel')}</caption>
               <thead>
                 <tr>
-                  <th scope="col">신청일</th>
-                  <th scope="col">이름</th>
-                  <th scope="col">전화번호</th>
-                  <th scope="col">이메일</th>
-                  <th scope="col">채널</th>
-                  <th scope="col">폼</th>
-                  <th scope="col">추가 항목</th>
-                  <th scope="col">보기</th>
+                  <th scope="col">{t('leads.createdAt')}</th>
+                  <th scope="col">{t('common.name')}</th>
+                  <th scope="col">{t('leads.phone')}</th>
+                  <th scope="col">{t('leads.email')}</th>
+                  <th scope="col">{t('common.channel')}</th>
+                  <th scope="col">{t('common.form')}</th>
+                  <th scope="col">{t('leads.extra')}</th>
+                  <th scope="col">{t('leads.actions')}</th>
                 </tr>
               </thead>
               <tbody aria-busy={loading}>
@@ -182,23 +187,23 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
             </table>
           </TableWrap>
           {totalPages > 0 && (
-            <nav className="pager" aria-label="명단 페이지">
+            <nav className="pager" aria-label={t('leads.pager')}>
               <ul className="pager-list">
                 <li>
-                  <Button size="sm" disabled={page <= 0} onClick={() => update({ page: page - 1 > 0 ? String(page - 1) : null })} aria-label="이전 페이지">
-                    이전
+                  <Button size="sm" disabled={page <= 0} onClick={() => update({ page: page - 1 > 0 ? String(page - 1) : null })} aria-label={t('common.prevPage')}>
+                    {t('common.prev')}
                   </Button>
                 </li>
                 <li className="num" aria-current="page">
-                  {page + 1} / {totalPages} 페이지
+                  {t('common.pageOf', { page: page + 1, total: totalPages })}
                 </li>
                 <li>
-                  <Button size="sm" disabled={page + 1 >= totalPages} onClick={() => update({ page: String(page + 1) })} aria-label="다음 페이지">
-                    다음
+                  <Button size="sm" disabled={page + 1 >= totalPages} onClick={() => update({ page: String(page + 1) })} aria-label={t('common.nextPage')}>
+                    {t('common.next')}
                   </Button>
                 </li>
               </ul>
-              <span className="muted small">페이지당 {LEAD_PAGE_SIZE}명</span>
+              <span className="muted small">{t('leads.pageSize', { size: LEAD_PAGE_SIZE })}</span>
             </nav>
           )}
         </>
@@ -213,17 +218,18 @@ export function LeadsTab({ campaign }: { campaign: Campaign }) {
  * 동의 문구 보기만 둔다(개인정보가 아니다, ADR 0020).
  */
 function AnonymizedRow({ lead, onConsent }: { lead: Lead; onConsent: () => void }) {
+  const { t } = useI18n()
   return (
     <tr>
       <td className="num nowrap">{formatDateTime(lead.createdAt)}</td>
       <td>
-        <span className="muted" title={`보존 기간이 지나 ${formatDateTime(lead.anonymizedAt)}에 이름·연락처를 파기했습니다`}>
-          {ANONYMIZED_LABEL}
+        <span className="muted" title={t('leads.anonymizedTitle', { when: formatDateTime(lead.anonymizedAt) })}>
+          {anonymizedLabel()}
         </span>
       </td>
       <td className="muted">-</td>
       <td className="muted">-</td>
-      <td className="nowrap">{CHANNEL_LABELS[lead.channel] ?? lead.channel}</td>
+      <td className="nowrap">{channelLabel(lead.channel)}</td>
       <td className="text-cell">{lead.formTitle}</td>
       <td className="muted">-</td>
       <td className="nowrap">
@@ -246,6 +252,7 @@ function LeadRow({
   onHide: () => void
   onConsent: () => void
 }) {
+  const { t } = useI18n()
   if (lead.anonymizedAt) return <AnonymizedRow lead={lead} onConsent={onConsent} />
   const when = formatDateTime(lead.createdAt)
   const shown = reveal?.status === 'shown' ? reveal.contact : null
@@ -257,8 +264,8 @@ function LeadRow({
       <td className="num nowrap">{formatDateTime(lead.createdAt)}</td>
       <td className="nowrap">
         {lead.contactUnavailable ? (
-          <span className="muted" title="연락처를 복호화하지 못했습니다. 키 설정을 확인하세요">
-            복호화 불가
+          <span className="muted" title={t('leads.undecryptableTitle')}>
+            {t('leads.undecryptable')}
           </span>
         ) : (
           contact.name || <span className="muted">-</span>
@@ -266,15 +273,15 @@ function LeadRow({
       </td>
       <td className="num nowrap">{formatPhone(contact.phone)}</td>
       <td className="email">{contact.email || <span className="muted">-</span>}</td>
-      <td className="nowrap">{CHANNEL_LABELS[lead.channel] ?? lead.channel}</td>
+      <td className="nowrap">{channelLabel(lead.channel)}</td>
       <td className="text-cell">{lead.formTitle}</td>
       <td className="truncate" title={extra}>
         {extra}
       </td>
       <td className="nowrap">
         {lead.contactUnavailable ? null : shown ? (
-          <Button size="sm" variant="ghost" onClick={onHide} aria-label={`${when} 신청의 원문 가리기`}>
-            가리기
+          <Button size="sm" variant="ghost" onClick={onHide} aria-label={t('leads.hideOf', { when })}>
+            {t('leads.hide')}
           </Button>
         ) : (
           <Button
@@ -282,9 +289,9 @@ function LeadRow({
             variant="ghost"
             busy={reveal?.status === 'loading'}
             onClick={onReveal}
-            aria-label={`${when} 신청의 원문 보기`}
+            aria-label={t('leads.revealOf', { when })}
           >
-            원문 보기
+            {t('leads.reveal')}
           </Button>
         )}
         <ConsentButton lead={lead} onClick={onConsent} />
@@ -300,9 +307,10 @@ function LeadRow({
 
 /** 줄마다 같은 글자가 반복되므로 스크린리더에는 신청일을 붙여 어느 줄인지 알린다. */
 function ConsentButton({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+  const { t } = useI18n()
   return (
-    <Button size="sm" variant="ghost" onClick={onClick} aria-label={`${formatDateTime(lead.createdAt)} 신청의 동의 문구 보기`}>
-      동의 문구 보기
+    <Button size="sm" variant="ghost" onClick={onClick} aria-label={t('leads.consentOf', { when: formatDateTime(lead.createdAt) })}>
+      {t('leads.consent')}
     </Button>
   )
 }

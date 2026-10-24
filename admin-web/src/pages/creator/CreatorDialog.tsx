@@ -6,6 +6,7 @@ import { Dialog } from '../../components/Dialog'
 import { Field } from '../../components/Field'
 import { errorText } from '../../errors'
 import { useFocusFirstInvalid } from '../../hooks'
+import { useI18n } from '../../i18n/context'
 
 export interface CreatorValues {
   name: string
@@ -30,6 +31,7 @@ export function CreatorDialog({ open, title, submitLabel, initial, onSubmit, onC
 }
 
 function CreatorDialogBody({ title, submitLabel, initial, onSubmit, onClose }: Omit<CreatorDialogProps, 'open'>) {
+  const { t } = useI18n()
   const { formRef, focusFirstInvalid } = useFocusFirstInvalid()
   const [name, setName] = useState(initial?.name ?? '')
   const [handle, setHandle] = useState(initial?.handle ?? '')
@@ -62,7 +64,7 @@ function CreatorDialogBody({ title, submitLabel, initial, onSubmit, onClose }: O
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>취소</Button>
+          <Button onClick={onClose}>{t('common.cancel')}</Button>
           <Button variant="primary" type="submit" form="creator-form" busy={busy}>
             {submitLabel}
           </Button>
@@ -70,13 +72,13 @@ function CreatorDialogBody({ title, submitLabel, initial, onSubmit, onClose }: O
       }
     >
       <form ref={formRef} id="creator-form" onSubmit={submit} noValidate>
-        <Field label="이름" error={errors.name}>
+        <Field label={t('common.name')} error={errors.name}>
           {(p) => <input {...p} type="text" value={name} autoComplete="off" maxLength={100} onChange={(e) => setName(e.target.value)} required />}
         </Field>
-        <Field label="핸들" optional hint="채널 계정 이름(예: @sky_kim)" error={errors.handle}>
+        <Field label={t('creatorList.handle')} optional hint={t('creatorDialog.handleHint')} error={errors.handle}>
           {(p) => <input {...p} type="text" value={handle} autoComplete="off" maxLength={100} onChange={(e) => setHandle(e.target.value)} />}
         </Field>
-        <Field label="메모" optional hint="정산 조건 등 운영 메모" error={errors.memo}>
+        <Field label={t('creatorDialog.memo')} optional hint={t('creatorDialog.memoHint')} error={errors.memo}>
           {(p) => <textarea {...p} rows={3} value={memo} maxLength={2000} onChange={(e) => setMemo(e.target.value)} />}
         </Field>
         {formError && (

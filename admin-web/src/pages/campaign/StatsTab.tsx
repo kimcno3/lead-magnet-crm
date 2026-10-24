@@ -5,10 +5,15 @@ import { PeriodFilter } from '../../components/PeriodFilter'
 import { SkeletonRows, TableWrap } from '../../components/Table'
 import { formatNumber, formatPercent } from '../../format'
 import { useAsync } from '../../hooks'
-import { CHANNEL_LABELS } from '../../labels'
+import { useI18n } from '../../i18n/context'
+import type { TKey } from '../../i18n/translate'
+import { channelLabel } from '../../labels'
 import { CreatorStatsTable } from './CreatorStatsTable'
 
+const KPI_LABELS: TKey[] = ['common.visits', 'common.visitors', 'common.leads', 'common.convertedVisitors', 'common.conversionRate']
+
 export function StatsTab({ campaignId }: { campaignId: number }) {
+  const { t } = useI18n()
   const [params] = useSearchParams()
   const from = params.get('from') ?? ''
   const to = params.get('to') ?? ''
@@ -19,12 +24,12 @@ export function StatsTab({ campaignId }: { campaignId: number }) {
 
   const kpis = total.data
     ? [
-        ['방문', formatNumber(total.data.visits)],
-        ['방문자', formatNumber(total.data.visitors)],
-        ['신청', formatNumber(total.data.leads)],
-        ['전환 방문자', formatNumber(total.data.convertedVisitors)],
-        ['전환율', formatPercent(total.data.conversionRate)],
-      ]
+        formatNumber(total.data.visits),
+        formatNumber(total.data.visitors),
+        formatNumber(total.data.leads),
+        formatNumber(total.data.convertedVisitors),
+        formatPercent(total.data.conversionRate),
+      ].map((value, i) => [t(KPI_LABELS[i]), value])
     : null
   const maxLeads = Math.max(1, ...(byChannel.data?.channels.map((c) => c.leads) ?? [0]))
 
@@ -33,7 +38,7 @@ export function StatsTab({ campaignId }: { campaignId: number }) {
       <PeriodFilter />
 
       <ErrorMessage error={total.error} onRetry={total.reload} />
-      <ul className={`kpis${total.loading ? ' is-stale' : ''}`} aria-label="핵심 지표" aria-busy={total.loading}>
+      <ul className={`kpis${total.loading ? ' is-stale' : ''}`} aria-label={t('stats.kpis')} aria-busy={total.loading}>
         {kpis
           ? kpis.map(([label, value]) => (
               <li key={label} className="kpi">
@@ -41,7 +46,7 @@ export function StatsTab({ campaignId }: { campaignId: number }) {
                 <span className="kpi-value">{value}</span>
               </li>
             ))
-          : ['방문', '방문자', '신청', '전환 방문자', '전환율'].map((label) => (
+          : KPI_LABELS.map((key) => t(key)).map((label) => (
               <li key={label} className="kpi">
                 <span className="kpi-label">{label}</span>
                 <span className="kpi-value">
@@ -51,25 +56,25 @@ export function StatsTab({ campaignId }: { campaignId: number }) {
             ))}
       </ul>
       <p className="definition">
-        방문은 공개 폼 페이지 조회 수, 방문자는 고유 방문자 수입니다. 전환율 = 신청한 방문자 / 방문자.
+        {t('stats.definition')}
       </p>
 
-      <h2 className="section-title">채널별</h2>
+      <h2 className="section-title">{t('stats.byChannel')}</h2>
       <ErrorMessage error={byChannel.error} onRetry={byChannel.reload} />
       {!byChannel.error && (
         <>
-      <TableWrap label="채널별 성과">
+      <TableWrap label={t('stats.byChannelTable')}>
         <table className={`table${byChannel.loading ? ' is-stale' : ''}`}>
-          <caption className="visually-hidden">채널별 성과</caption>
+          <caption className="visually-hidden">{t('stats.byChannelTable')}</caption>
           <thead>
             <tr>
-              <th scope="col">채널</th>
-              <th scope="col" className="num">방문</th>
-              <th scope="col" className="num">방문자</th>
-              <th scope="col" className="num">신청</th>
-              <th scope="col" className="num">전환율</th>
+              <th scope="col">{t('common.channel')}</th>
+              <th scope="col" className="num">{t('common.visits')}</th>
+              <th scope="col" className="num">{t('common.visitors')}</th>
+              <th scope="col" className="num">{t('common.leads')}</th>
+              <th scope="col" className="num">{t('common.conversionRate')}</th>
               <th scope="col" className="bar-col">
-                신청 수 비교
+                {t('stats.compareLeads')}
               </th>
             </tr>
           </thead>
@@ -79,7 +84,7 @@ export function StatsTab({ campaignId }: { campaignId: number }) {
             ) : (
               byChannel.data.channels.map((c) => (
                 <tr key={c.channel}>
-                  <td>{CHANNEL_LABELS[c.channel]}</td>
+                  <td>{channelLabel(c.channel)}</td>
                   <td className="num">{formatNumber(c.visits)}</td>
                   <td className="num">{formatNumber(c.visitors)}</td>
                   <td className="num">{formatNumber(c.leads)}</td>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from './Button'
 import { Dialog } from './Dialog'
 import { errorText } from '../errors'
+import { useI18n } from '../i18n/context'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -15,6 +16,7 @@ interface ConfirmDialogProps {
 
 /** 되돌리기 어려운 행동 확인. 실패하면 닫지 않고 오류를 보여준다. */
 export function ConfirmDialog({ open, title, message, confirmLabel, danger = true, onConfirm, onClose }: ConfirmDialogProps) {
+  const { t } = useI18n()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,7 +46,7 @@ export function ConfirmDialog({ open, title, message, confirmLabel, danger = tru
       width="sm"
       footer={
         <>
-          <Button onClick={close}>취소</Button>
+          <Button onClick={close}>{t('common.cancel')}</Button>
           <Button variant={danger ? 'danger' : 'primary'} onClick={confirm} busy={busy}>
             {confirmLabel}
           </Button>

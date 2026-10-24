@@ -15,15 +15,17 @@ import { PageHeader } from '../components/PageHeader'
 import { Tabs, type TabItem } from '../components/Tabs'
 import { formatPeriod } from '../format'
 import { useAsync } from '../hooks'
+import { useI18n } from '../i18n/context'
+import type { TKey } from '../i18n/translate'
 import { FormsTab } from './campaign/FormsTab'
 import { LeadsTab } from './campaign/LeadsTab'
 import { StatsTab } from './campaign/StatsTab'
 
 type TabKey = 'stats' | 'forms' | 'leads'
-const TABS: readonly TabItem<TabKey>[] = [
-  { key: 'stats', label: '성과' },
-  { key: 'forms', label: '폼' },
-  { key: 'leads', label: '명단' },
+const TABS: readonly { key: TabKey; label: TKey }[] = [
+  { key: 'stats', label: 'campaignDetail.tabStats' },
+  { key: 'forms', label: 'campaignDetail.tabForms' },
+  { key: 'leads', label: 'campaignDetail.tabLeads' },
 ]
 
 function isTab(value: string | null): value is TabKey {
@@ -31,6 +33,7 @@ function isTab(value: string | null): value is TabKey {
 }
 
 export function CampaignDetailPage() {
+  const { t } = useI18n()
   const id = Number(useParams().id)
   const [params, setParams] = useSearchParams()
   const tabParam = params.get('tab')
@@ -46,16 +49,16 @@ export function CampaignDetailPage() {
 
   return (
     <>
-      <nav className="crumbs" aria-label="경로">
-        <Link to="/campaigns">캠페인</Link>
+      <nav className="crumbs" aria-label={t('common.breadcrumb')}>
+        <Link to="/campaigns">{t('nav.campaigns')}</Link>
       </nav>
       <PageHeader
-        title={campaign?.name ?? (loading ? '불러오는 중…' : '캠페인')}
+        title={campaign?.name ?? (loading ? t('common.loading') : t('common.campaign'))}
         actions={
           campaign && (
             <>
-              <Button onClick={() => setEditingRetention(true)}>보존 기간 변경</Button>
-              {campaign.status === 'active' && <Button onClick={() => setConfirmArchive(true)}>보관</Button>}
+              <Button onClick={() => setEditingRetention(true)}>{t('campaignDetail.changeRetention')}</Button>
+              {campaign.status === 'active' && <Button onClick={() => setConfirmArchive(true)}>{t('common.archive')}</Button>}
             </>
           )
         }
@@ -64,7 +67,7 @@ export function CampaignDetailPage() {
           <p className="page-meta">
             <StatusBadge status={campaign.status} />
             <span className="num">{formatPeriod(campaign.startsAt, campaign.endsAt)}</span>
-            <span className="num">보존 {campaign.retentionDays}일</span>
+            <span className="num">{t('campaignDetail.retention', { days: String(campaign.retentionDays) })}</span>
             {campaign.description && <span>{campaign.description}</span>}
           </p>
         )}
@@ -72,7 +75,13 @@ export function CampaignDetailPage() {
       <ErrorMessage error={error} onRetry={reload} />
       {campaign && (
         <>
-          <Tabs items={TABS} active={tab} onChange={selectTab} idPrefix="campaign" label="캠페인 보기" />
+          <Tabs
+            items={TABS.map((item): TabItem<TabKey> => ({ key: item.key, label: t(item.label) }))}
+            active={tab}
+            onChange={selectTab}
+            idPrefix="campaign"
+            label={t('campaignDetail.tabsLabel')}
+          />
           <section
             role="tabpanel"
             id={`campaign-panel-${tab}`}
@@ -85,9 +94,9 @@ export function CampaignDetailPage() {
           </section>
           <ConfirmDialog
             open={confirmArchive}
-            title="캠페인 보관"
-            message="보관하면 이 캠페인에 새 폼을 만들 수 없습니다. 이미 게시한 폼과 링크, 명단은 그대로 남습니다. 되돌릴 수 없습니다."
-            confirmLabel="보관하기"
+            title={t('campaignDetail.archiveTitle')}
+            message={t('campaignDetail.archiveMessage')}
+            confirmLabel={t('common.archiveConfirm')}
             onConfirm={async () => {
               await archiveCampaign(id)
               reload()
@@ -115,6 +124,7 @@ export function CampaignDetailPage() {
  * 범위를 벗어난 값은 확인 없이 보내 서버 오류를 칸에 보인다. 변경은 감사 로그(보존 기간 변경)에 남는다.
  */
 function RetentionDialog({ campaign, onClose, onSaved }: { campaign: Campaign; onClose: () => void; onSaved: () => void }) {
+  const { t } = useI18n()
   const [days, setDays] = useState(String(campaign.retentionDays))
   const [error, setError] = useState<string | undefined>()
   const [formError, setFormError] = useState<string | null>(null)
@@ -147,21 +157,21 @@ function RetentionDialog({ campaign, onClose, onSaved }: { campaign: Campaign; o
   return (
     <Dialog
       open
-      title="보존 기간 변경"
+      title={t('campaignDetail.changeRetention')}
       width="sm"
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>취소</Button>
+          <Button onClick={onClose}>{t('common.cancel')}</Button>
           <Button variant="primary" type="submit" form="retention-days" busy={busy}>
-            저장
+            {t('common.save')}
           </Button>
         </>
       }
     >
       <form id="retention-days" onSubmit={submit} noValidate>
         <RetentionDaysField value={days} onChange={setDays} error={error} />
-        <p className="muted small">기간을 줄이면 이미 그 기간이 지난 신청은 다음 파기 실행 때 바로 파기되며 되돌릴 수 없습니다.</p>
+        <p className="muted small">{t('campaignDetail.retentionNote')}</p>
         {formError && (
           <p className="form-error" role="alert">
             {formError}
@@ -170,9 +180,9 @@ function RetentionDialog({ campaign, onClose, onSaved }: { campaign: Campaign; o
       </form>
       <ConfirmDialog
         open={confirmShorten}
-        title="보존 기간 단축"
-        message={`보존 기간을 ${campaign.retentionDays}일 → ${next}일로 줄입니다. 신청 후 ${next}일이 지난 신청은 다음 파기 실행(매일 03:00)에서 이름·연락처가 파기되며 되돌릴 수 없습니다.`}
-        confirmLabel="줄이기"
+        title={t('campaignDetail.shortenTitle')}
+        message={t('campaignDetail.shortenMessage', { old: String(campaign.retentionDays), new: String(next) })}
+        confirmLabel={t('campaignDetail.shortenConfirm')}
         onConfirm={async () => {
           await updateCampaign(campaign.id, { retentionDays: next })
           onSaved()

@@ -7,11 +7,11 @@ import { Button } from '../../components/Button'
 import { TableWrap } from '../../components/Table'
 import { errorText } from '../../errors'
 import { useFocusFirstInvalid } from '../../hooks'
-
-const LABEL_REQUIRED = '라벨을 비울 수 없습니다. 원래 라벨로 되돌리려면 다시 입력해 주세요'
+import { useI18n } from '../../i18n/context'
 
 /** draft 폼의 label·required 수정. 백엔드는 빈 라벨을 받지 않으므로 저장 전에 막는다. */
 export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () => void }) {
+  const { t } = useI18n()
   const { formRef, focusFirstInvalid } = useFocusFirstInvalid()
   const [rows, setRows] = useState(() => form.fieldConfig.map((f) => ({ ...f, label: f.label ?? '' })))
   const [busy, setBusy] = useState(false)
@@ -39,7 +39,7 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
     const empty = rows.filter((r) => !r.label.trim() && original.get(r.name)).map((r) => r.name)
     if (empty.length) {
       setBlank(new Set(empty))
-      setMessage({ kind: 'error', text: LABEL_REQUIRED })
+      setMessage({ kind: 'error', text: t('fieldConfig.labelRequired') })
       focusFirstInvalid()
       return
     }
@@ -49,7 +49,7 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
       await updateForm(form.id, {
         fieldConfig: rows.map((r) => ({ name: r.name, label: r.label.trim() || undefined, required: r.required })),
       })
-      setMessage({ kind: 'ok', text: '필드 설정을 저장했습니다' })
+      setMessage({ kind: 'ok', text: t('fieldConfig.saved') })
       onSaved()
     } catch (err) {
       // 백엔드는 fieldConfig 하나로 오류를 묶고 메시지에 필드 이름을 넣는다.
@@ -62,16 +62,16 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
 
   return (
     <form ref={formRef} onSubmit={save} noValidate>
-      <TableWrap label={`${form.title} 필드 설정`}>
+      <TableWrap label={t('forms.fieldConfigOf', { title: form.title })}>
         <table className="table table-compact">
-          <caption className="visually-hidden">{form.title} 필드 설정</caption>
+          <caption className="visually-hidden">{t('forms.fieldConfigOf', { title: form.title })}</caption>
           <thead>
             <tr>
-              <th scope="col" className="shrink">이름</th>
-              <th scope="col" className="shrink">유형</th>
-              <th scope="col">라벨</th>
-              <th scope="col" className="shrink">필수</th>
-              <th scope="col">선택지</th>
+              <th scope="col" className="shrink">{t('common.name')}</th>
+              <th scope="col" className="shrink">{t('components.fieldType')}</th>
+              <th scope="col">{t('components.fieldLabel')}</th>
+              <th scope="col" className="shrink">{t('common.required')}</th>
+              <th scope="col">{t('components.fieldOptions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -88,7 +88,7 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
                     <input
                       type="text"
                       className="input-inline"
-                      aria-label={`${r.name} 라벨`}
+                      aria-label={t('fieldConfig.labelOf', { name: r.name })}
                       aria-invalid={invalid || undefined}
                       aria-describedby={invalid ? errorId : undefined}
                       value={r.label}
@@ -97,7 +97,7 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
                     />
                     {invalid && (
                       <p id={errorId} className="field-error">
-                        라벨을 입력해 주세요
+                        {t('fieldConfig.enterLabel')}
                       </p>
                     )}
                   </td>
@@ -105,11 +105,11 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
                     <label className="check">
                       <input
                         type="checkbox"
-                        aria-label={`${r.name} 필수`}
+                        aria-label={t('fieldConfig.requiredOf', { name: r.name })}
                         checked={r.required}
                         onChange={(e) => change(i, { required: e.target.checked })}
                       />
-                      <span aria-hidden="true">필수</span>
+                      <span aria-hidden="true">{t('common.required')}</span>
                     </label>
                   </td>
                   <td className="options">{formatOptions(r.options) || <span className="muted">-</span>}</td>
@@ -121,7 +121,7 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
       </TableWrap>
       <div className="inline-row form-actions">
         <Button type="submit" size="sm" variant="primary" busy={busy}>
-          필드 설정 저장
+          {t('fieldConfig.save')}
         </Button>
         <span className={message?.kind === 'error' ? 'form-error' : 'muted small'} role="status">
           {message?.text}

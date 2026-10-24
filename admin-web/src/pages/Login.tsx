@@ -5,8 +5,8 @@ import { useAuth } from '../auth/context'
 import { Button } from '../components/Button'
 import { errorText, throttledText } from '../errors'
 import { Field } from '../components/Field'
-
-const BAD_CREDENTIALS = '이메일 또는 비밀번호가 올바르지 않습니다'
+import { useI18n } from '../i18n/context'
+import { LanguagePicker } from '../i18n/LanguagePicker'
 
 function targetFrom(state: unknown): string {
   const from = (state as { from?: unknown } | null)?.from
@@ -20,6 +20,7 @@ export function LoginPage() {
   const { status, signIn } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -39,7 +40,7 @@ export function LoginPage() {
       navigate(target, { replace: true })
     } catch (err) {
       setPassword('')
-      if (err instanceof ApiError && err.status === 401) setError(BAD_CREDENTIALS)
+      if (err instanceof ApiError && err.status === 401) setError(t('login.badCredentials'))
       else if (err instanceof ApiError && err.status === 429) setError(throttledText(err.retryAfterSeconds))
       else if (err instanceof ApiError && err.status === 422) {
         setFieldErrors(err.fieldErrors)
@@ -52,10 +53,10 @@ export function LoginPage() {
   return (
     <main className="login">
       <div className="login-panel">
-        <p className="login-brand">리드마그넷 CRM</p>
-        <h1>운영자 로그인</h1>
+        <p className="login-brand">{t('app.brand')}</p>
+        <h1>{t('login.title')}</h1>
         <form onSubmit={onSubmit} noValidate>
-          <Field label="이메일" error={fieldErrors.email}>
+          <Field label={t('login.email')} error={fieldErrors.email}>
             {(p) => (
               <input
                 {...p}
@@ -69,7 +70,7 @@ export function LoginPage() {
               />
             )}
           </Field>
-          <Field label="비밀번호" error={fieldErrors.password}>
+          <Field label={t('login.password')} error={fieldErrors.password}>
             {(p) => (
               <input
                 {...p}
@@ -88,14 +89,17 @@ export function LoginPage() {
             </p>
           )}
           <Button type="submit" variant="primary" busy={submitting} className="btn-block">
-            {submitting ? '로그인 중…' : '로그인'}
+            {submitting ? t('login.submitting') : t('login.submit')}
           </Button>
         </form>
         {status === 'restoring' && (
           <p className="muted small" role="status">
-            이전 세션을 확인하는 중…
+            {t('login.restoring')}
           </p>
         )}
+        <div className="login-lang">
+          <LanguagePicker />
+        </div>
       </div>
     </main>
   )
