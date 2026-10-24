@@ -148,7 +148,7 @@ export function AuditLogListPage() {
                     data?.items.map((log) => (
                       <tr key={log.id}>
                         <td className="num nowrap">{formatDateTime(log.createdAt)}</td>
-                        <td className="break" translate="no">
+                        <td className="email" translate="no">
                           {log.operatorEmail ?? (log.operatorId === null ? <span className="muted">-</span> : `#${log.operatorId}`)}
                         </td>
                         <td className="nowrap">{AUDIT_ACTION_LABELS[log.action] ?? log.action}</td>
