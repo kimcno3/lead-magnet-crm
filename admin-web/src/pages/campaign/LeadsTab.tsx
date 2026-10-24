@@ -224,7 +224,7 @@ function AnonymizedRow({ lead, onConsent }: { lead: Lead; onConsent: () => void 
       <td className="muted">-</td>
       <td className="muted">-</td>
       <td className="nowrap">{CHANNEL_LABELS[lead.channel] ?? lead.channel}</td>
-      <td>{lead.formTitle}</td>
+      <td className="text-cell">{lead.formTitle}</td>
       <td className="muted">-</td>
       <td className="nowrap">
         <ConsentButton lead={lead} onClick={onConsent} />
@@ -255,7 +255,7 @@ function LeadRow({
   return (
     <tr>
       <td className="num nowrap">{formatDateTime(lead.createdAt)}</td>
-      <td>
+      <td className="nowrap">
         {lead.contactUnavailable ? (
           <span className="muted" title="연락처를 복호화하지 못했습니다. 키 설정을 확인하세요">
             복호화 불가
@@ -265,9 +265,9 @@ function LeadRow({
         )}
       </td>
       <td className="num nowrap">{formatPhone(contact.phone)}</td>
-      <td className="break">{contact.email || <span className="muted">-</span>}</td>
+      <td className="email">{contact.email || <span className="muted">-</span>}</td>
       <td className="nowrap">{CHANNEL_LABELS[lead.channel] ?? lead.channel}</td>
-      <td>{lead.formTitle}</td>
+      <td className="text-cell">{lead.formTitle}</td>
       <td className="truncate" title={extra}>
         {extra}
       </td>

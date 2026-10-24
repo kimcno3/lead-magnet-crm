@@ -40,12 +40,14 @@
   --fs-kpi: 28px;
 
   --sidebar-w: 216px;
-  --content-max: 1200px;
+  --sidebar-w-collapsed: 52px;
+  --content-max: 1440px;
   --shadow-dialog: 0 12px 32px rgb(0 0 0 / 0.18);
 }
 
+/* 다크 값. 테마 선택이 "시스템"(data-theme 없음)이면 OS 설정을, 직접 고르면 data-theme 값을 따른다. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0a0a0a;
     --surface: #111111;
     --surface-sunken: #1a1a1a;
@@ -68,4 +70,33 @@
     --focus: #f5f5f5;
     --shadow-dialog: 0 12px 32px rgb(0 0 0 / 0.5);
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface-sunken: #1a1a1a;
+  --text: #f5f5f5;
+  /* #a8a8a8 on #111 8.0:1 */
+  --text-muted: #a8a8a8;
+  --border: #2a2a2a;
+  --border-strong: #4a4a4a;
+
+  --accent: #f5f5f5;
+  --accent-hover: #d6d6d6;
+  --accent-text: #0a0a0a;
+  --accent-soft: #262626;
+  --bar: #f5f5f5;
+
+  --danger: #f5f5f5;
+  --danger-soft: #1a1a1a;
+  --danger-text: #f5f5f5;
+  --closed: #a8a8a8;
+  --focus: #f5f5f5;
+  --shadow-dialog: 0 12px 32px rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
