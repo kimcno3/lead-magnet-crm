@@ -107,7 +107,7 @@ export function CreatorLinks({ formId, closed, links, onCreated }: CreatorLinksP
             <caption className="visually-hidden">크리에이터별 배포 링크</caption>
             <thead>
               <tr>
-                <th scope="col">크리에이터</th>
+                <th scope="col" className="shrink">크리에이터</th>
                 {LINK_CHANNELS.map((ch) => (
                   <th key={ch} scope="col">
                     {CHANNEL_LABELS[ch]}
@@ -118,7 +118,7 @@ export function CreatorLinks({ formId, closed, links, onCreated }: CreatorLinksP
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id}>
-                  <th scope="row" className="nowrap">
+                  <th scope="row" className="shrink">
                     <span className="inline-row">
                       {c.name}
                       {c.status === 'archived' && <CreatorStatusBadge status="archived" />}

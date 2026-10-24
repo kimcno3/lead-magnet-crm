@@ -247,6 +247,13 @@ describe('필드 설정 편집(draft)', () => {
     })
   }
 
+  it('초안 편집 표는 읽기 전용 필드 표와 같은 열 순서다(이름·유형·라벨·필수·선택지)', async () => {
+    draftBackend()
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=12')
+    const table = await screen.findByRole('table', { name: '전자책 받기 필드 설정' })
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['이름', '유형', '라벨', '필수', '선택지'])
+  })
+
   function patches(fetchMock: ReturnType<typeof mockBackend>) {
     return fetchMock.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'PATCH')
   }

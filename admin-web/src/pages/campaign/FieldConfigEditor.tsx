@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { formatOptions } from '../../format'
 import { ApiError } from '../../api/client'
 import { updateForm } from '../../api/forms'
 import type { Form } from '../../api/types'
@@ -66,10 +67,11 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
           <caption className="visually-hidden">{form.title} 필드 설정</caption>
           <thead>
             <tr>
-              <th scope="col">이름</th>
-              <th scope="col">유형</th>
+              <th scope="col" className="shrink">이름</th>
+              <th scope="col" className="shrink">유형</th>
               <th scope="col">라벨</th>
-              <th scope="col">필수</th>
+              <th scope="col" className="shrink">필수</th>
+              <th scope="col">선택지</th>
             </tr>
           </thead>
           <tbody>
@@ -78,11 +80,11 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
               const errorId = `label-error-${form.id}-${r.name}`
               return (
                 <tr key={r.name}>
-                  <td className="mono" translate="no">
+                  <td className="mono shrink" translate="no">
                     {r.name}
                   </td>
-                  <td className="mono">{r.type}</td>
-                  <td>
+                  <td className="mono shrink">{r.type}</td>
+                  <td className="text-cell">
                     <input
                       type="text"
                       className="input-inline"
@@ -99,7 +101,7 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
                       </p>
                     )}
                   </td>
-                  <td>
+                  <td className="shrink">
                     <label className="check">
                       <input
                         type="checkbox"
@@ -110,6 +112,7 @@ export function FieldConfigEditor({ form, onSaved }: { form: Form; onSaved: () =
                       <span aria-hidden="true">필수</span>
                     </label>
                   </td>
+                  <td className="options">{formatOptions(r.options) || <span className="muted">-</span>}</td>
                 </tr>
               )
             })}

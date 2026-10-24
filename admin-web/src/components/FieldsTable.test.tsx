@@ -19,3 +19,10 @@ describe('FieldsTable', () => {
     expect(screen.getAllByText('-').length).toBeGreaterThan(0)
   })
 })
+
+describe('필드 표 열 순서', () => {
+  it('읽기 전용 필드 표는 이름·유형·라벨·필수·선택지 순서다(초안 편집 표와 같다)', () => {
+    render(<FieldsTable caption="필드" fields={[{ name: 'name', type: 'text', required: true, label: '이름', options: null }]} />)
+    expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['이름', '유형', '라벨', '필수', '선택지'])
+  })
+})
