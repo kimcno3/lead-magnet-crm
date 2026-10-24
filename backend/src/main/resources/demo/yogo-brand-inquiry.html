@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>요고 브랜드 입점·공동구매 협업 문의</title>
+<style>
+  :root { --ink: #14151a; --sub: #5d6170; --line: #e4e6ee; --soft: #f6f7fb; --accent: #6a4cff;
+    --prism: linear-gradient(120deg, #ff6fb5 0%, #ffb86b 22%, #ffe66d 40%, #6ff0c4 60%, #6ab8ff 80%, #a67bff 100%); }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px 16px 28px; color: var(--ink); background: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .hero { position: relative; padding: 26px 22px 22px; border-radius: 18px; background: #101118; color: #fff; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--prism); }
+  .hero::after { content: ""; position: absolute; right: -60px; top: -60px; width: 180px; height: 180px; border-radius: 50%;
+    background: var(--prism); opacity: .28; filter: blur(30px); }
+  .brand { font-size: 12px; font-weight: 700; letter-spacing: .12em; opacity: .75; }
+  .tag { display: inline-block; margin-top: 14px; padding: 4px 10px; font-size: 12px; font-weight: 700; border-radius: 999px;
+    background: rgba(255,255,255,.12); }
+  h1 { position: relative; margin: 10px 0 8px; font-size: 24px; line-height: 1.35; letter-spacing: -.02em; }
+  .lead { position: relative; margin: 0; font-size: 15px; line-height: 1.6; opacity: .85; }
+  form { display: grid; gap: 16px; padding: 22px 2px 6px; }
+  .row { display: grid; gap: 6px; }
+  .row > label, .group-title { font-size: 14px; font-weight: 700; }
+  .opt { color: var(--sub); font-weight: 500; font-size: 12px; margin-left: 4px; }
+  input[type=text], input[type=tel], input[type=email], input[type=url], select, textarea {
+    width: 100%; padding: 12px 14px; font: inherit; color: var(--ink); background: var(--soft);
+    border: 1px solid var(--line); border-radius: 12px; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; background: #fff; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+  .hint { color: var(--sub); font-size: 12px; }
+  button { padding: 15px; font: inherit; font-weight: 800; color: #fff; border: 0; border-radius: 14px; cursor: pointer;
+    background: #14151a; box-shadow: 0 0 0 2px #fff inset, 0 6px 18px rgba(106, 76, 255, .25); }
+  button:hover { background: #262833; }
+  .foot { margin-top: 6px; text-align: center; font-size: 12px; color: var(--sub); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="brand">YOGO by GLOW UP RIZZ</div>
+    <span class="tag">브랜드 담당자 전용</span>
+    <h1>크리에이터와 함께 파는 브랜드, 요고에서</h1>
+    <p class="lead">입점부터 크리에이터 공동구매, 숏폼 콘텐츠까지 한 번에 제안드립니다.</p>
+  </section>
+
+  <form>
+    <div class="row">
+      <label for="f-company">회사·브랜드명</label>
+      <input id="f-company" type="text" name="company" autocomplete="organization" placeholder="브랜드명" required>
+    </div>
+    <div class="row">
+      <label for="f-name">담당자 이름</label>
+      <input id="f-name" type="text" name="name" autocomplete="name" placeholder="홍길동" required>
+    </div>
+    <div class="row">
+      <label for="f-phone">담당자 연락처</label>
+      <input id="f-phone" type="tel" name="phone" autocomplete="tel" inputmode="numeric" placeholder="010-0000-0000" required>
+    </div>
+    <div class="row">
+      <label for="f-email">업무 이메일</label>
+      <input id="f-email" type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+    </div>
+    <div class="row">
+      <label for="f-category">상품 카테고리</label>
+      <select id="f-category" name="category" required>
+        <option value="">선택해 주세요</option>
+        <option value="뷰티">뷰티</option>
+        <option value="패션·잡화">패션·잡화</option>
+        <option value="식품·건강">식품·건강</option>
+        <option value="리빙">리빙</option>
+        <option value="기타">기타</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="f-budget">월 마케팅 예산</label>
+      <select id="f-budget" name="monthly_budget" required>
+        <option value="">선택해 주세요</option>
+        <option value="500만 원 미만">500만 원 미만</option>
+        <option value="500만~2,000만 원">500만~2,000만 원</option>
+        <option value="2,000만~5,000만 원">2,000만~5,000만 원</option>
+        <option value="5,000만 원 이상">5,000만 원 이상</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="f-message">문의 내용</label>
+      <textarea id="f-message" name="message" rows="4" maxlength="800" placeholder="상품 소개, 희망 일정, 원하는 크리에이터 분야를 알려 주세요."></textarea>
+    </div>
+    <button type="submit">협업 문의 보내기</button>
+  </form>
+  <p class="foot">제안서는 담당자 이메일로 보내드립니다.</p>
+</div>
+</body>
+</html>

@@ -92,6 +92,10 @@ app:
   template:
     # 업로드 HTML 최대 바이트(512KB). multipart 한도(1MB)와의 사이 크기는 애플리케이션이 413으로 막는다 (ADR 0004)
     max-bytes: 524288
+  demo:
+    # 로컬 체험용 예시 데이터(가상의 캠페인·폼·크리에이터·방문·신청). true면 기동 때 캠페인이 하나도 없을 때만 한 번 넣는다.
+    # 운영에서는 켜지 않는다 (ADR 0023, demo/DemoDataSeeder)
+    enabled: ${DEMO_DATA:false}
   seed:
     operator:
       email: ${ADMIN_SEED_EMAIL:}
