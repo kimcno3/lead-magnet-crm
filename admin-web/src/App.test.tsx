@@ -34,10 +34,10 @@ describe('App 라우팅', () => {
     expect(await screen.findByRole('heading', { name: '운영자 로그인' })).toBeInTheDocument()
   })
 
-  it('세션이 복원되면 사이드바에 운영자 이메일과 메뉴를 보여준다', async () => {
+  it('세션이 복원되면 사이드바에 메뉴와 설정 링크를, 설정 화면에 운영자 이메일을 보여준다', async () => {
     mockBackend((url) => (url.pathname === '/api/admin/templates' ? json([]) : undefined))
     renderAt('/templates')
-    expect(await screen.findByText('ops@example.com')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: '설정' })).toHaveAttribute('href', '/settings')
     expect(screen.getByRole('link', { name: '캠페인' })).toHaveAttribute('href', '/campaigns')
     expect(screen.getByRole('link', { name: '크리에이터' })).toHaveAttribute('href', '/creators')
     expect(screen.getByRole('heading', { name: '템플릿', level: 1 })).toBeInTheDocument()

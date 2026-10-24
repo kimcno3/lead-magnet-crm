@@ -54,6 +54,7 @@ export const en: Dict = {
     creators: 'Creators',
     templates: 'Templates',
     auditLogs: 'Audit log',
+    settings: 'Settings',
   },
   layout: {
     skipToContent: 'Skip to content',
@@ -65,6 +66,13 @@ export const en: Dict = {
     themeDark: 'Dark',
     language: '언어 / Language',
     signOut: 'Sign out',
+  },
+  settings: {
+    title: 'Settings',
+    display: 'Display',
+    displayNote: 'Saved in this browser.',
+    account: 'Account',
+    signedInAs: 'Signed in as',
   },
   login: {
     title: 'Operator sign-in',

@@ -55,6 +55,7 @@ export const ko = {
     creators: '크리에이터',
     templates: '템플릿',
     auditLogs: '감사 로그',
+    settings: '설정',
   },
   layout: {
     skipToContent: '본문으로 건너뛰기',
@@ -66,6 +67,13 @@ export const ko = {
     themeDark: '다크',
     language: '언어 / Language',
     signOut: '로그아웃',
+  },
+  settings: {
+    title: '설정',
+    display: '화면',
+    displayNote: '이 브라우저에 기억합니다.',
+    account: '계정',
+    signedInAs: '로그인한 운영자',
   },
   login: {
     title: '운영자 로그인',
