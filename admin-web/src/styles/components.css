@@ -829,6 +829,15 @@
   gap: 18px;
 }
 
+.links-block {
+  display: grid;
+  gap: 10px;
+}
+
+.links-block > .toolbar {
+  margin-top: 4px;
+}
+
 .panel-block h3 {
   margin-bottom: 6px;
   font-size: var(--fs-small);

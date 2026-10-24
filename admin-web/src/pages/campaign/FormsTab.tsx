@@ -1,22 +1,21 @@
 import { Fragment, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { getForm, updateForm } from '../../api/forms'
-import { createLink, listLinks } from '../../api/links'
-import { LINK_CHANNELS, type Campaign, type FormSummary, type LinkChannel } from '../../api/types'
+import { listLinks } from '../../api/links'
+import type { Campaign, FormSummary } from '../../api/types'
 import { StatusBadge } from '../../components/Badge'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { CopyButton } from '../../components/CopyButton'
 import { EmptyState } from '../../components/EmptyState'
 import { ErrorMessage } from '../../components/ErrorMessage'
-import { errorText } from '../../errors'
 import { FieldsTable } from '../../components/FieldsTable'
 import { TableWrap } from '../../components/Table'
 import { formatDateTime } from '../../format'
 import { useAsync } from '../../hooks'
-import { CHANNEL_LABELS, publicBaseFrom } from '../../labels'
+import { publicBaseFrom } from '../../labels'
 import { FieldConfigEditor } from './FieldConfigEditor'
-import { CreatorLinks } from './CreatorLinks'
+import { DistributionLinks } from './DistributionLinks'
 import { NewFormDialog } from './NewFormDialog'
 
 export function FormsTab({ campaign, onChanged }: { campaign: Campaign; onChanged: () => void }) {
@@ -120,24 +119,9 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
   const form = useAsync(() => getForm(summary.id), [summary.id, summary.status])
   const links = useAsync(() => listLinks(summary.id), [summary.id])
   const [transition, setTransition] = useState<'published' | 'closed' | null>(null)
-  const [creatingChannel, setCreatingChannel] = useState<LinkChannel | null>(null)
-  const [linkError, setLinkError] = useState<string | null>(null)
 
   const publicUrl = `${publicBaseFrom(links.data?.[0]?.url)}/f/${summary.slug}`
   const status = form.data?.status ?? summary.status
-
-  async function makeLink(channel: LinkChannel) {
-    setCreatingChannel(channel)
-    setLinkError(null)
-    try {
-      await createLink(summary.id, channel)
-      links.reload()
-    } catch (e) {
-      setLinkError(`${CHANNEL_LABELS[channel]} 링크를 만들지 못했습니다: ${errorText(e)}`)
-    } finally {
-      setCreatingChannel(null)
-    }
-  }
 
   return (
     <div className="form-panel">
@@ -179,63 +163,15 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
         </div>
       </section>
 
-      <section className="panel-block" aria-label="배포 링크">
-        <h3>배포 링크 (크리에이터 없음)</h3>
-        <ErrorMessage error={links.error} onRetry={links.reload} />
-        {linkError && (
-          <p className="form-error" role="alert">
-            {linkError}
-          </p>
-        )}
-        <TableWrap label="채널별 배포 링크">
-          <table className="table table-compact">
-            <caption className="visually-hidden">채널별 배포 링크</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="shrink">채널</th>
-                <th scope="col" className="shrink">링크</th>
-                <th scope="col">UTM (source / medium / campaign)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {LINK_CHANNELS.map((channel) => {
-                const link = links.data?.find((l) => l.channel === channel && !l.creator)
-                return (
-                  <tr key={channel}>
-                    <td className="shrink">{CHANNEL_LABELS[channel]}</td>
-                    <td className="shrink">
-                      {link ? (
-                        <span className="inline-row">
-                          <code className="url" translate="no">{link.url}</code>
-                          <CopyButton text={link.url} />
-                        </span>
-                      ) : links.data ? (
-                        <Button
-                          size="sm"
-                          onClick={() => makeLink(channel)}
-                          busy={creatingChannel === channel}
-                          disabled={status === 'closed' || creatingChannel !== null}
-                        >
-                          링크 만들기
-                        </Button>
-                      ) : (
-                        <span className="skeleton" aria-hidden="true" />
-                      )}
-                    </td>
-                    <td className="mono small nowrap">
-                      {link ? `${link.utmSource} / ${link.utmMedium} / ${link.utmCampaign}` : <span className="muted">-</span>}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </TableWrap>
-      </section>
-
       <section className="panel-block">
-        <h3>크리에이터별 배포 링크</h3>
-        <CreatorLinks formId={summary.id} closed={status === 'closed'} links={links.data} onCreated={links.reload} />
+        <h3>배포 링크</h3>
+        <DistributionLinks
+          formId={summary.id}
+          closed={status === 'closed'}
+          links={links.data}
+          linksError={links.error}
+          onReloadLinks={links.reload}
+        />
       </section>
 
       <section className="panel-block" aria-label="필드 설정">
