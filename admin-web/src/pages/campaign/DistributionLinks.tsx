@@ -7,7 +7,6 @@ import { CreatorStatusBadge } from '../../components/Badge'
 import { Button } from '../../components/Button'
 import { CopyButton } from '../../components/CopyButton'
 import { ErrorMessage } from '../../components/ErrorMessage'
-import { Field } from '../../components/Field'
 import { TableWrap } from '../../components/Table'
 import { errorText } from '../../errors'
 import { useAsync } from '../../hooks'
@@ -77,6 +76,51 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
 
   return (
     <div className="links-block">
+      <div className="links-head">
+        <h3>{t('forms.distributionLinks')}</h3>
+        {creators.error ? (
+          <ErrorMessage error={creators.error} onRetry={creators.reload} />
+        ) : !creators.data ? (
+          <div className="inline-row" aria-busy="true">
+            <span className="skeleton" aria-hidden="true" />
+            <span className="visually-hidden">{t('links.loadingCreators')}</span>
+          </div>
+        ) : creators.data.length === 0 ? (
+          <p className="muted small">
+            {rich('links.registerFirst', { link: <Link key="link" to="/creators">{t('links.creatorMenu')}</Link> })}
+          </p>
+        ) : (
+          <div className="inline-row" role="group" aria-label={t('links.addRowGroup')}>
+            <label className="visually-hidden" htmlFor={`creator-pick-${formId}`}>
+              {t('common.creator')}
+            </label>
+            <select
+              id={`creator-pick-${formId}`}
+              className="inline-select"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              disabled={options.length === 0}
+            >
+              <option value="">{options.length === 0 ? t('links.noCreatorToAdd') : t('links.select')}</option>
+              {options.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <Button
+              size="sm"
+              disabled={!selected}
+              onClick={() => {
+                setAdded((prev) => [...prev, Number(selected)])
+                setSelected('')
+              }}
+            >
+              {t('links.addRow')}
+            </Button>
+          </div>
+        )}
+      </div>
       <ErrorMessage error={linksError} onRetry={onReloadLinks} />
       {error && (
         <p className="form-error" role="alert">
@@ -111,11 +155,8 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
                   return (
                     <td key={ch}>
                       {link ? (
-                        <span className="inline-row">
-                          <code className="url" translate="no" title={`${link.url}\nUTM: ${utmText(link)}`} data-url={link.url}>
-                            {link.code}
-                          </code>
-                          <CopyButton text={link.url} />
+                        <span className="link-cell" title={`${link.url}\nUTM: ${utmText(link)}`} data-url={link.url}>
+                          <CopyButton text={link.url} label={t('links.copy')} />
                         </span>
                       ) : links ? (
                         <Button
@@ -142,43 +183,6 @@ export function DistributionLinks({ formId, closed, links, linksError, onReloadL
         {t('links.note')}
       </p>
 
-      {creators.error ? (
-        <ErrorMessage error={creators.error} onRetry={creators.reload} />
-      ) : !creators.data ? (
-        <div className="toolbar" aria-busy="true">
-          <span className="skeleton" aria-hidden="true" />
-          <span className="visually-hidden">{t('links.loadingCreators')}</span>
-        </div>
-      ) : creators.data.length === 0 ? (
-        <p className="muted small">
-          {rich('links.registerFirst', { link: <Link key="link" to="/creators">{t('links.creatorMenu')}</Link> })}
-        </p>
-      ) : (
-        <div className="toolbar" role="group" aria-label={t('links.addRowGroup')}>
-          <Field label={t('common.creator')}>
-            {(p) => (
-              <select {...p} value={selected} onChange={(e) => setSelected(e.target.value)} disabled={options.length === 0}>
-                <option value="">{options.length === 0 ? t('links.noCreatorToAdd') : t('links.select')}</option>
-                {options.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
-          <Button
-            size="sm"
-            disabled={!selected}
-            onClick={() => {
-              setAdded((prev) => [...prev, Number(selected)])
-              setSelected('')
-            }}
-          >
-            {t('links.addRow')}
-          </Button>
-        </div>
-      )}
     </div>
   )
 }

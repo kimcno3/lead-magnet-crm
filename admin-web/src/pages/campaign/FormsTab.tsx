@@ -65,7 +65,7 @@ export function FormsTab({ campaign, onChanged }: { campaign: Campaign; onChange
                 <th scope="col">{t('forms.title')}</th>
                 <th scope="col">slug</th>
                 <th scope="col">{t('common.status')}</th>
-                <th scope="col">{t('forms.publishedAt')}</th>
+                <th scope="col" className="num">{t('forms.publishedAt')}</th>
               </tr>
             </thead>
             <tbody>
@@ -130,8 +130,14 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
     <div className="form-panel">
       <section className="panel-block" aria-label={t('common.status')}>
         <h3>{t('common.status')}</h3>
-        <div className="inline-row">
-          <StatusBadge status={status} />
+        {/* 상태 표시(배지·안내)와 상태를 바꾸는 행동(게시·마감)을 나눈다. 행동은 오른쪽 끝, 동사로 쓴다 */}
+        <div className="panel-status">
+          <div className="inline-row">
+            <StatusBadge status={status} />
+            <span className="muted small">
+              {status === 'draft' ? t('forms.draftNote') : status === 'published' ? t('forms.publishedNote') : t('forms.closedNote')}
+            </span>
+          </div>
           {status === 'draft' && (
             <Button variant="primary" size="sm" onClick={() => setTransition('published')}>
               {t('forms.publish')}
@@ -142,8 +148,6 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
               {t('forms.close')}
             </Button>
           )}
-          {status === 'closed' && <span className="muted small">{t('forms.closedNote')}</span>}
-          {status === 'draft' && <span className="muted small">{t('forms.draftNote')}</span>}
         </div>
       </section>
 
@@ -167,7 +171,6 @@ function FormPanel({ summary, onChanged }: { summary: FormSummary; onChanged: ()
       </section>
 
       <section className="panel-block">
-        <h3>{t('forms.distributionLinks')}</h3>
         <DistributionLinks
           formId={summary.id}
           closed={status === 'closed'}
