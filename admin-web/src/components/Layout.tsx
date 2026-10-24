@@ -8,16 +8,20 @@ import {
   saveTheme,
   type ThemePreference,
 } from '../preferences'
+import { useI18n } from '../i18n/context'
+import { LanguagePicker } from '../i18n/LanguagePicker'
+import type { TKey } from '../i18n/translate'
 import { Button } from './Button'
 
-const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: 'system', label: '시스템 설정' },
-  { value: 'light', label: '라이트' },
-  { value: 'dark', label: '다크' },
+const THEME_OPTIONS: { value: ThemePreference; label: TKey }[] = [
+  { value: 'system', label: 'layout.themeSystem' },
+  { value: 'light', label: 'layout.themeLight' },
+  { value: 'dark', label: 'layout.themeDark' },
 ]
 
 export function Layout() {
   const { operator, signOut } = useAuth()
+  const { t } = useI18n()
   const [busy, setBusy] = useState(false)
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed)
   const [theme, setTheme] = useState(readTheme)
@@ -32,43 +36,43 @@ export function Layout() {
   return (
     <div className={collapsed ? 'shell is-collapsed' : 'shell'}>
       <a className="skip-link" href="#main">
-        본문으로 건너뛰기
+        {t('layout.skipToContent')}
       </a>
       <aside className="sidebar">
         <div className="sidebar-head">
-          <p className="brand" translate="no">리드마그넷 CRM</p>
+          <p className="brand" translate="no">{t('app.brand')}</p>
           <button
             type="button"
             className="sidebar-toggle"
             aria-expanded={!collapsed}
             aria-controls="sidebar-body"
-            aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-            title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
+            aria-label={collapsed ? t('layout.expandMenu') : t('layout.collapseMenu')}
+            title={collapsed ? t('layout.expandMenu') : t('layout.collapseMenu')}
             onClick={toggleSidebar}
           >
             <span aria-hidden="true">{collapsed ? '»' : '«'}</span>
           </button>
         </div>
         <div id="sidebar-body" className="sidebar-body" hidden={collapsed}>
-          <nav aria-label="주 메뉴">
+          <nav aria-label={t('nav.main')}>
             <ul className="nav">
               <li>
-                <NavLink to="/campaigns">캠페인</NavLink>
+                <NavLink to="/campaigns">{t('nav.campaigns')}</NavLink>
               </li>
               <li>
-                <NavLink to="/creators">크리에이터</NavLink>
+                <NavLink to="/creators">{t('nav.creators')}</NavLink>
               </li>
               <li>
-                <NavLink to="/templates">템플릿</NavLink>
+                <NavLink to="/templates">{t('nav.templates')}</NavLink>
               </li>
               <li>
-                <NavLink to="/audit-logs">감사 로그</NavLink>
+                <NavLink to="/audit-logs">{t('nav.auditLogs')}</NavLink>
               </li>
             </ul>
           </nav>
           <div className="sidebar-foot">
             <label className="theme-picker">
-              <span>화면 테마</span>
+              <span>{t('layout.theme')}</span>
               <select
                 value={theme}
                 onChange={(e) => {
@@ -79,11 +83,12 @@ export function Layout() {
               >
                 {THEME_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
-                    {o.label}
+                    {t(o.label)}
                   </option>
                 ))}
               </select>
             </label>
+            <LanguagePicker />
             <p className="operator" title={operator?.email} translate="no">
               {operator?.email}
             </p>
@@ -102,7 +107,7 @@ export function Layout() {
                 }
               }}
             >
-              로그아웃
+              {t('layout.signOut')}
             </Button>
           </div>
         </div>

@@ -6,13 +6,16 @@ import { ErrorMessage } from '../../components/ErrorMessage'
 import { SkeletonRows, TableWrap } from '../../components/Table'
 import { formatNumber, formatPercent } from '../../format'
 import { useAsync } from '../../hooks'
-import { CHANNEL_LABELS, SELF_LINK_LABEL } from '../../labels'
+import { useI18n } from '../../i18n/context'
+import { channelLabel, selfLinkLabel } from '../../labels'
 
 /**
  * 캠페인의 크리에이터별 성과(ADR 0014). 마지막 행은 크리에이터 없는 링크와 direct를 묶은 "직접·자체 링크"다.
  * 행마다 채널별 보기를 펼치면 같은 크리에이터·같은 채널 안의 지표가 아래 행으로 붙는다.
  */
 export function CreatorStatsTable({ campaignId, period }: { campaignId: number; period: Period }) {
+  const { t } = useI18n()
+  const selfLink = selfLinkLabel()
   const result = useAsync(() => creatorStats(campaignId, period), [campaignId, period.from, period.to])
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
 
@@ -27,20 +30,20 @@ export function CreatorStatsTable({ campaignId, period }: { campaignId: number; 
 
   return (
     <>
-      <h2 className="section-title">크리에이터별</h2>
+      <h2 className="section-title">{t('stats.byCreator')}</h2>
       <ErrorMessage error={result.error} onRetry={result.reload} />
       {!result.error && (
-        <TableWrap label="크리에이터별 성과">
+        <TableWrap label={t('stats.byCreatorTable')}>
           <table className={`table${result.loading ? ' is-stale' : ''}`}>
-            <caption className="visually-hidden">크리에이터별 성과</caption>
+            <caption className="visually-hidden">{t('stats.byCreatorTable')}</caption>
             <thead>
               <tr>
-                <th scope="col">크리에이터</th>
-                <th scope="col" className="num">방문</th>
-                <th scope="col" className="num">방문자</th>
-                <th scope="col" className="num">신청</th>
-                <th scope="col" className="num">전환 방문자</th>
-                <th scope="col" className="num">전환율</th>
+                <th scope="col">{t('common.creator')}</th>
+                <th scope="col" className="num">{t('common.visits')}</th>
+                <th scope="col" className="num">{t('common.visitors')}</th>
+                <th scope="col" className="num">{t('common.leads')}</th>
+                <th scope="col" className="num">{t('common.convertedVisitors')}</th>
+                <th scope="col" className="num">{t('common.conversionRate')}</th>
               </tr>
             </thead>
             <tbody>
@@ -48,7 +51,7 @@ export function CreatorStatsTable({ campaignId, period }: { campaignId: number; 
                 ? result.loading && <SkeletonRows columns={6} rows={2} />
                 : result.data.creators.map((row) => {
                     const key = row.creator ? String(row.creator.id) : 'self'
-                    const name = row.creator?.name ?? SELF_LINK_LABEL
+                    const name = row.creator?.name ?? selfLink
                     const expanded = open.has(key)
                     return (
                       <Fragment key={key}>
@@ -59,7 +62,7 @@ export function CreatorStatsTable({ campaignId, period }: { campaignId: number; 
                                 type="button"
                                 className="disclosure"
                                 aria-expanded={expanded}
-                                aria-label={`${name} 채널별 보기`}
+                                aria-label={t('stats.expandChannels', { name })}
                                 onClick={() => toggle(key)}
                               >
                                 <span className="disclosure-mark" aria-hidden="true">
@@ -71,7 +74,7 @@ export function CreatorStatsTable({ campaignId, period }: { campaignId: number; 
                                   {row.creator.name}
                                 </Link>
                               ) : (
-                                <span>{SELF_LINK_LABEL}</span>
+                                <span>{selfLink}</span>
                               )}
                               {row.creator?.status === 'archived' && <CreatorStatusBadge status="archived" />}
                             </span>
@@ -85,7 +88,7 @@ export function CreatorStatsTable({ campaignId, period }: { campaignId: number; 
                         {expanded &&
                           row.channels.map((c) => (
                             <tr key={`${key}-${c.channel}`} className="sub-row">
-                              <th scope="row">{CHANNEL_LABELS[c.channel]}</th>
+                              <th scope="row">{channelLabel(c.channel)}</th>
                               <td className="num">{formatNumber(c.visits)}</td>
                               <td className="num">{formatNumber(c.visitors)}</td>
                               <td className="num">{formatNumber(c.leads)}</td>
@@ -101,8 +104,7 @@ export function CreatorStatsTable({ campaignId, period }: { campaignId: number; 
         </TableWrap>
       )}
       <p className="definition">
-        크리에이터는 신청자가 들어온 배포 링크로 정합니다. 전환 방문자는 같은 크리에이터의 링크로 방문하고 신청한 사람입니다(채널은 달라도
-        됩니다). {SELF_LINK_LABEL}은 크리에이터를 지정하지 않은 링크와 링크 없이 들어온 방문을 합친 값입니다.
+        {t('stats.creatorDefinition', { selfLink })}
       </p>
     </>
   )

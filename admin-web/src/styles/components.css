@@ -504,7 +504,7 @@
 }
 
 .table td.text-cell {
-  min-width: 14ch;
+  min-width: 16ch;
 }
 
 .table td.options {
@@ -1018,6 +1018,11 @@
   margin-bottom: 4px;
 }
 
+/* 로그인 화면은 사이드바 밖이라 언어 선택을 패널 아래에 따로 둔다. */
+.login-lang {
+  justify-self: start;
+}
+
 /* 펼친 폼 패널이 바깥 표 폭을 늘리지 않도록 고정 레이아웃. 패널 안 표는 자체 스크롤한다. */
 .table-expandable {
   table-layout: fixed;
@@ -1122,10 +1127,12 @@
 
 /* ---------- 감사 로그 ---------- */
 .detail-list {
+  min-width: 18ch;
   margin: 0;
   font-size: var(--fs-small);
   color: var(--text-muted);
-  word-break: break-all;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .user-agent {

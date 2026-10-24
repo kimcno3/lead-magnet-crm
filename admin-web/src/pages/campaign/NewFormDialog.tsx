@@ -10,6 +10,7 @@ import { ErrorMessage } from '../../components/ErrorMessage'
 import { Field } from '../../components/Field'
 import { errorText } from '../../errors'
 import { useAsync, useFocusFirstInvalid } from '../../hooks'
+import { useI18n } from '../../i18n/context'
 
 /** 캠페인에 새 폼을 만든다. 템플릿 fields가 폼 fieldConfig의 스냅샷이 된다(ADR 0013). */
 export function NewFormDialog({
@@ -23,6 +24,7 @@ export function NewFormDialog({
   onClose: () => void
   onCreated: (form: Form) => void
 }) {
+  const { t, rich } = useI18n()
   const { formRef, focusFirstInvalid } = useFocusFirstInvalid()
   const templates = useAsync(() => (open ? listTemplates() : Promise.resolve(null)), [open])
   const [templateId, setTemplateId] = useState('')
@@ -74,13 +76,13 @@ export function NewFormDialog({
   return (
     <Dialog
       open={open}
-      title="새 폼"
+      title={t('forms.new')}
       onClose={close}
       footer={
         <>
-          <Button onClick={close}>취소</Button>
+          <Button onClick={close}>{t('common.cancel')}</Button>
           <Button variant="primary" type="submit" form="new-form" busy={busy} disabled={templates.data?.length === 0}>
-            만들기
+            {t('common.create')}
           </Button>
         </>
       }
@@ -89,29 +91,29 @@ export function NewFormDialog({
         <ErrorMessage error={templates.error} onRetry={templates.reload} />
         {templates.data?.length === 0 ? (
           <p className="note">
-            먼저 HTML 템플릿을 등록해야 합니다. <Link to="/templates">템플릿 화면으로 이동</Link>
+            {rich('newForm.needTemplate', { link: <Link key="link" to="/templates">{t('newForm.goToTemplates')}</Link> })}
           </p>
         ) : (
           <>
-            <Field label="템플릿" error={errors.templateId}>
+            <Field label={t('newForm.template')} error={errors.templateId}>
               {(p) => (
                 <select {...p} value={templateId} onChange={(e) => setTemplateId(e.target.value)} required>
-                  <option value="">{templates.loading ? '불러오는 중…' : '템플릿 선택'}</option>
-                  {list.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} (필드 {t.fieldCount}개)
+                  <option value="">{templates.loading ? t('common.loading') : t('newForm.selectTemplate')}</option>
+                  {list.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>
+                      {t('newForm.templateOption', { name: tpl.name, count: tpl.fieldCount })}
                     </option>
                   ))}
                 </select>
               )}
             </Field>
-            <Field label="제목" error={errors.title}>
+            <Field label={t('forms.title')} error={errors.title}>
               {(p) => <input {...p} type="text" value={title} autoComplete="off" onChange={(e) => setTitle(e.target.value)} required />}
             </Field>
-            <Field label="동의 문구" error={errors.consentText} hint="신청자가 체크해야 하는 개인정보 수집·이용 동의 문구입니다">
+            <Field label={t('newForm.consentText')} error={errors.consentText} hint={t('newForm.consentHint')}>
               {(p) => <textarea {...p} rows={4} autoComplete="off" value={consentText} onChange={(e) => setConsentText(e.target.value)} required />}
             </Field>
-            <Field label="slug" optional error={errors.slug} hint="공개 주소 /f/{slug}. 비우면 자동으로 만듭니다. 소문자·숫자·하이픈 3~64자">
+            <Field label="slug" optional error={errors.slug} hint={t('newForm.slugHint')}>
               {(p) => (
                 <input
                   {...p}

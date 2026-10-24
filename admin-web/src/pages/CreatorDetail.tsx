@@ -10,10 +10,12 @@ import { PageHeader } from '../components/PageHeader'
 import { SkeletonRows, TableWrap } from '../components/Table'
 import { formatNumber, formatPercent } from '../format'
 import { useAsync } from '../hooks'
+import { useI18n } from '../i18n/context'
 import { PeriodFilter } from '../components/PeriodFilter'
 import { CreatorDialog } from './creator/CreatorDialog'
 
 export function CreatorDetailPage() {
+  const { t } = useI18n()
   const id = Number(useParams().id)
   const [params] = useSearchParams()
   const from = params.get('from') ?? ''
@@ -26,16 +28,16 @@ export function CreatorDetailPage() {
 
   return (
     <>
-      <nav className="crumbs" aria-label="경로">
-        <Link to="/creators">크리에이터</Link>
+      <nav className="crumbs" aria-label={t('common.breadcrumb')}>
+        <Link to="/creators">{t('nav.creators')}</Link>
       </nav>
       <PageHeader
-        title={c?.name ?? (creator.loading ? '불러오는 중…' : '크리에이터')}
+        title={c?.name ?? (creator.loading ? t('common.loading') : t('common.creator'))}
         actions={
           c && (
             <>
-              <Button onClick={() => setEditing(true)}>수정</Button>
-              {c.status === 'active' && <Button onClick={() => setConfirmArchive(true)}>보관</Button>}
+              <Button onClick={() => setEditing(true)}>{t('common.edit')}</Button>
+              {c.status === 'active' && <Button onClick={() => setConfirmArchive(true)}>{t('common.archive')}</Button>}
             </>
           )
         }
@@ -49,29 +51,29 @@ export function CreatorDetailPage() {
         )}
       </PageHeader>
       <ErrorMessage error={creator.error} onRetry={creator.reload} />
-      {c?.status === 'archived' && <p className="note">보관된 크리에이터입니다. 새 링크를 만들 수 없고, 이미 만든 링크와 성과는 그대로 남습니다.</p>}
+      {c?.status === 'archived' && <p className="note">{t('creatorDetail.archivedNote')}</p>}
 
       {c && (
         <>
-          <h2 className="section-title">캠페인별 성과</h2>
+          <h2 className="section-title">{t('creatorDetail.byCampaign')}</h2>
           <PeriodFilter />
           <ErrorMessage error={stats.error} onRetry={stats.reload} />
           {stats.data && stats.data.campaigns.length === 0 ? (
-            <EmptyState message="아직 이 크리에이터의 배포 링크가 없습니다. 캠페인의 폼 탭에서 크리에이터 링크를 만드세요." />
+            <EmptyState message={t('creatorDetail.empty')} />
           ) : (
             !stats.error && (
-              <TableWrap label="캠페인별 성과">
+              <TableWrap label={t('creatorDetail.byCampaign')}>
                 <table className={`table${stats.loading ? ' is-stale' : ''}`}>
-                  <caption className="visually-hidden">캠페인별 성과</caption>
+                  <caption className="visually-hidden">{t('creatorDetail.byCampaign')}</caption>
                   <thead>
                     <tr>
-                      <th scope="col">캠페인</th>
-                      <th scope="col">상태</th>
-                      <th scope="col" className="num">방문</th>
-                      <th scope="col" className="num">방문자</th>
-                      <th scope="col" className="num">신청</th>
-                      <th scope="col" className="num">전환 방문자</th>
-                      <th scope="col" className="num">전환율</th>
+                      <th scope="col">{t('common.campaign')}</th>
+                      <th scope="col">{t('common.status')}</th>
+                      <th scope="col" className="num">{t('common.visits')}</th>
+                      <th scope="col" className="num">{t('common.visitors')}</th>
+                      <th scope="col" className="num">{t('common.leads')}</th>
+                      <th scope="col" className="num">{t('common.convertedVisitors')}</th>
+                      <th scope="col" className="num">{t('common.conversionRate')}</th>
                     </tr>
                   </thead>
                   <tbody aria-busy={stats.loading}>
@@ -102,16 +104,15 @@ export function CreatorDetailPage() {
             )
           )}
           <p className="definition">
-            이 크리에이터의 배포 링크로 들어온 방문과 신청만 셉니다. 전환 방문자는 같은 캠페인에서 이 크리에이터 링크로 방문하고 신청한
-            사람이며, 캠페인 행끼리 방문자를 더하지 않습니다.
+            {t('creatorDetail.definition')}
           </p>
         </>
       )}
 
       <CreatorDialog
         open={editing}
-        title="크리에이터 수정"
-        submitLabel="저장"
+        title={t('creatorDetail.editTitle')}
+        submitLabel={t('common.save')}
         initial={c}
         onClose={() => setEditing(false)}
         onSubmit={async (v) => {
@@ -122,9 +123,9 @@ export function CreatorDetailPage() {
       />
       <ConfirmDialog
         open={confirmArchive}
-        title="크리에이터 보관"
-        message="보관하면 이 크리에이터로 새 배포 링크를 만들 수 없습니다. 이미 만든 링크는 계속 동작하고 성과도 그대로 남습니다. 되돌릴 수 없습니다."
-        confirmLabel="보관하기"
+        title={t('creatorDetail.archiveTitle')}
+        message={t('creatorDetail.archiveMessage')}
+        confirmLabel={t('common.archiveConfirm')}
         onConfirm={async () => {
           await archiveCreator(id)
           creator.reload()
