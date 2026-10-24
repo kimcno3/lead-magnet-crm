@@ -156,7 +156,7 @@ export function AuditLogListPage() {
                         </td>
                         <td className="nowrap">{auditActionLabel(log.action)}</td>
                         <td className="nowrap">{targetText(log)}</td>
-                        <td>
+                        <td className="text-cell">
                           {log.campaignId === null ? (
                             <span className="muted">-</span>
                           ) : (
