@@ -52,7 +52,7 @@ export async function createPublishedForm(
   await formDialog.getByRole('button', { name: '만들기' }).click()
   await expect(formDialog).toBeHidden()
   const status = page.getByRole('region', { name: '상태' })
-  await status.getByRole('button', { name: '게시', exact: true }).click()
+  await status.getByRole('button', { name: '폼 게시하기' }).click()
   await page.getByRole('dialog', { name: '폼 게시' }).getByRole('button', { name: '게시하기' }).click()
   await expect(status).toContainText('게시됨')
 }

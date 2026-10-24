@@ -91,7 +91,7 @@
   font: inherit;
   font-size: var(--fs-small);
   color: var(--text);
-  background: var(--surface);
+  background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 4px 6px;
@@ -391,11 +391,28 @@
   padding: 6px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 
 .field textarea {
   resize: vertical;
+}
+
+/* 선택 상자: 브라우저 기본 화살표는 테두리에 붙어 보여서 직접 그린다(가는 쉐브론, 테마별 색은 --select-chevron).
+   화살표는 테두리에서 12px 안쪽, 글자와는 padding-right로 띄운다. */
+.field select,
+.theme-picker select,
+.inline-select {
+  appearance: none;
+  padding-right: 34px;
+  background-image: var(--select-chevron);
+  background-position: right 12px center;
+  background-size: 10px 6px;
+  background-repeat: no-repeat;
+}
+
+.field select:disabled {
+  opacity: 0.6;
 }
 
 .field input[aria-invalid='true'],
@@ -834,8 +851,36 @@
   gap: 10px;
 }
 
-.links-block > .toolbar {
-  margin-top: 4px;
+.links-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.links-head h3 {
+  margin: 0;
+}
+
+.panel-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.inline-select {
+  min-width: 160px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background-color: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-small);
 }
 
 .panel-block h3 {

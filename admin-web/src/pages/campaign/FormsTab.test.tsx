@@ -103,9 +103,12 @@ describe('폼 탭', () => {
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['대상', '인스타그램', 'X', '유튜브', '스레드'])
     const rows = within(table).getAllByRole('row').slice(1)
     expect(within(rows[0]).getByRole('rowheader')).toHaveTextContent(/^기본/)
-    const code = within(rows[0]).getByText('Ab12Cd34')
-    expect(code).toHaveAttribute('data-url', 'https://go.example.com/l/Ab12Cd34')
-    expect(code.getAttribute('title')).toContain('instagram / social / fall-seminar')
+    // 칸에는 무작위 코드 대신 링크 복사 버튼만 있다. 버튼은 전체 주소를 복사하고, 주소·UTM은 툴팁으로 본다
+    expect(within(rows[0]).queryByText('Ab12Cd34')).not.toBeInTheDocument()
+    const copy = within(rows[0]).getByRole('button', { name: '링크 복사: https://go.example.com/l/Ab12Cd34' })
+    const cell = copy.closest('[data-url]')!
+    expect(cell).toHaveAttribute('data-url', 'https://go.example.com/l/Ab12Cd34')
+    expect(cell.getAttribute('title')).toContain('instagram / social / fall-seminar')
     expect(within(rows[0]).getByRole('button', { name: '기본 X 링크 만들기' })).toBeEnabled()
   })
 
@@ -116,7 +119,7 @@ describe('폼 탭', () => {
 
     fireEvent.click(await within(table).findByRole('button', { name: '기본 X 링크 만들기' }))
 
-    expect(await within(table).findByText('Zz99')).toBeInTheDocument()
+    expect(await within(table).findByRole('button', { name: '링크 복사: https://go.example.com/l/Zz99' })).toBeInTheDocument()
     const post = fetchMock.mock.calls.find(
       (c) => String(c[0]) === '/api/admin/forms/11/links' && (c[1] as RequestInit | undefined)?.method === 'POST',
     )!
@@ -126,7 +129,7 @@ describe('폼 탭', () => {
   it('게시된 폼의 마감은 확인 다이얼로그를 거쳐 PATCH status=closed를 보낸다', async () => {
     const fetchMock = backend()
     renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
-    fireEvent.click(await screen.findByRole('button', { name: '마감' }))
+    fireEvent.click(await screen.findByRole('button', { name: '신청 마감하기' }))
     const dialog = await screen.findByRole('dialog', { name: '폼 마감' })
     expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'PATCH')).toBe(false)
 
@@ -147,6 +150,33 @@ function postBodies(fetchMock: ReturnType<typeof mockBackend>) {
     .map((c) => JSON.parse(String((c[1] as RequestInit).body)))
 }
 
+describe('폼 패널 배치', () => {
+  it('게시일 머리글은 날짜 값과 같이 오른쪽 정렬이다', async () => {
+    backend()
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms')
+    const header = await screen.findByRole('columnheader', { name: '게시일' })
+    expect(header).toHaveClass('num')
+  })
+
+  it('상태를 바꾸는 행동은 동사로 쓰고 상태 배지와 따로 둔다', async () => {
+    backend()
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    const status = await screen.findByRole('region', { name: '상태' })
+    expect(await within(status).findByText('공개 URL에서 신청을 받는 중입니다.')).toBeInTheDocument()
+    expect(within(status).getByRole('button', { name: '신청 마감하기' })).toBeEnabled()
+    expect(within(status).queryByRole('button', { name: '마감' })).not.toBeInTheDocument()
+  })
+
+  it('크리에이터 추가는 배포 링크 표 위, 제목 옆에 있다', async () => {
+    backend()
+    renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
+    const select = await screen.findByRole('combobox', { name: '크리에이터' })
+    const table = screen.getByRole('table', { name: '배포 링크' })
+    // 문서 순서상 선택 상자가 표보다 먼저 온다
+    expect(select.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
 describe('크리에이터 링크(같은 표의 행)', () => {
   it('기본 링크는 첫 행, 크리에이터 링크는 그 크리에이터 행에 나온다', async () => {
     backend([igLink, skyIgLink])
@@ -157,10 +187,10 @@ describe('크리에이터 링크(같은 표의 행)', () => {
     const names = within(table).getAllByRole('rowheader').map((h) => h.textContent)
     expect(names[0]).toMatch(/^기본/)
     expect(names[1]).toMatch(/^김하늘/)
-    expect(within(rows[0]).getByText('Ab12Cd34')).toBeInTheDocument()
-    expect(within(rows[0]).queryByText('Sky00001')).not.toBeInTheDocument()
+    expect(within(rows[0]).getByRole('button', { name: /Ab12Cd34$/ })).toBeInTheDocument()
+    expect(within(rows[0]).queryByRole('button', { name: /Sky00001$/ })).not.toBeInTheDocument()
     const skyRow = within(table).getByText('김하늘').closest('tr')!
-    expect(within(skyRow).getByText('Sky00001')).toBeInTheDocument()
+    expect(within(skyRow).getByRole('button', { name: /Sky00001$/ })).toBeInTheDocument()
     expect(within(skyRow).getByRole('button', { name: '김하늘 X 링크 만들기' })).toBeEnabled()
   })
 
@@ -171,13 +201,13 @@ describe('크리에이터 링크(같은 표의 행)', () => {
     // 보관된 크리에이터는 고를 수 없다
     expect(within(select).queryByRole('option', { name: '박바다' })).not.toBeInTheDocument()
     fireEvent.change(select, { target: { value: '3' } })
-    fireEvent.click(screen.getByRole('button', { name: '행 추가' }))
+    fireEvent.click(screen.getByRole('button', { name: '크리에이터 추가' }))
 
     const table = await screen.findByRole('table', { name: '배포 링크' })
     fireEvent.click(within(table).getByRole('button', { name: '김하늘 유튜브 링크 만들기' }))
 
     await waitFor(() => expect(postBodies(fetchMock)).toEqual([{ channel: 'youtube', creatorId: 3 }]))
-    expect(await within(table).findByText('Zz99')).toBeInTheDocument()
+    expect(await within(table).findByRole('button', { name: /Zz99$/ })).toBeInTheDocument()
   })
 
   it('보관된 크리에이터의 행은 이미 만든 링크만 보여주고 새로 만들 수 없다', async () => {
@@ -206,7 +236,7 @@ describe('크리에이터 링크(같은 표의 행)', () => {
     })
     renderPage('/campaigns/:id', <CampaignDetailPage />, '/campaigns/7?tab=forms&open=11')
     const table = await screen.findByRole('table', { name: '배포 링크' })
-    expect(await within(table).findByText('Ab12Cd34')).toBeInTheDocument()
+    expect(await within(table).findByRole('button', { name: /Ab12Cd34$/ })).toBeInTheDocument()
     const loading = await screen.findByText('크리에이터 목록을 불러오는 중')
     expect(loading.closest('[aria-busy="true"]')!.querySelector('.skeleton')).not.toBeNull()
     expect(screen.queryByRole('combobox', { name: '크리에이터' })).not.toBeInTheDocument()
