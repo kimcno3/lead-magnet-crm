@@ -121,6 +121,28 @@ describe('대시보드', () => {
     expect(within(creators).getByText('직접·자체 링크')).toBeInTheDocument()
   })
 
+  it('추이 그래프는 표시 폭과 같은 좌표(1단위=1px)로 그려 넓은 화면에서도 글자가 커지지 않는다', async () => {
+    const width = 1600
+    class FakeResizeObserver {
+      private cb: () => void
+      constructor(cb: () => void) {
+        this.cb = cb
+      }
+      observe() {
+        this.cb()
+      }
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver)
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width } as DOMRect)
+    backend()
+    renderPage('/dashboard', <DashboardPage />)
+    const chart = await screen.findByRole('img', { name: '일별 방문과 신청 추이 그래프' })
+    expect(chart).toHaveAttribute('width', String(width))
+    expect(chart.getAttribute('viewBox')).toBe(`0 0 ${width} 240`)
+    rect.mockRestore()
+  })
+
   it('열 머리글을 누르면 정렬하고 aria-sort를 바꾼다', async () => {
     backend()
     renderPage('/dashboard', <DashboardPage />)

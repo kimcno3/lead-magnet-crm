@@ -1398,7 +1398,7 @@
 }
 
 .trend {
-  margin: 0;
+  margin: 0 0 24px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -1437,10 +1437,15 @@
   background: var(--text);
 }
 
+.trend-frame {
+  width: 100%;
+  min-width: 0;
+}
+
+/* 폭은 컴포넌트가 잰 실제 픽셀이라 글자(11px)·점·선 굵기가 화면 폭과 상관없이 같다 */
 .trend-chart {
   display: block;
-  width: 100%;
-  height: auto;
+  max-width: 100%;
 }
 
 .trend-grid {
