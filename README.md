@@ -14,8 +14,6 @@ AI로 만든 신청 폼 HTML을 올려 캠페인과 SNS 배포 링크를 만들�
 🧱 [결정 기록(ADR)](docs/adr/README.md) &nbsp;·&nbsp;
 🗂️ [문서 목록](docs/README.md)
 
-<sub>글로우업리즈 개발자 채용 과제 제출물</sub>
-
 </div>
 
 ---
