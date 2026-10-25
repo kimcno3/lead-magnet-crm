@@ -1,11 +1,12 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { DashboardDay } from '../../api/types'
 import { formatNumber } from '../../format'
 import { useI18n } from '../../i18n/context'
 
-const WIDTH = 720
-const HEIGHT = 220
+/** 폭을 재기 전(테스트·첫 렌더)의 기본 폭. 실제 폭을 재면 그 값으로 다시 그린다. */
+const DEFAULT_WIDTH = 720
+const HEIGHT = 240
 const PAD = { top: 12, right: 44, bottom: 28, left: 44 }
-const PLOT_W = WIDTH - PAD.left - PAD.right
 const PLOT_H = HEIGHT - PAD.top - PAD.bottom
 /** x축 날짜 라벨은 이 개수 안팎으로만 그린다(겹치지 않게). */
 const X_LABELS = 7
@@ -27,6 +28,22 @@ function niceMax(value: number): number {
  */
 export function TrendChart({ days }: { days: DashboardDay[] }) {
   const { t } = useI18n()
+  // viewBox를 실제 표시 폭과 같게 둬서 1 단위 = 1px이 되게 한다. 고정 viewBox를 늘려 그리면 넓은 화면에서 글자·점이 함께 커진다.
+  const frame = useRef<HTMLDivElement>(null)
+  const [WIDTH, setWidth] = useState(DEFAULT_WIDTH)
+  useLayoutEffect(() => {
+    const el = frame.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const update = () => {
+      const w = Math.round(el.getBoundingClientRect().width)
+      if (w > 0) setWidth(w)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const PLOT_W = WIDTH - PAD.left - PAD.right
   const maxVisits = niceMax(Math.max(0, ...days.map((d) => d.visits)))
   const maxLeads = niceMax(Math.max(0, ...days.map((d) => d.leads)))
   const slot = days.length > 0 ? PLOT_W / days.length : PLOT_W
@@ -34,7 +51,7 @@ export function TrendChart({ days }: { days: DashboardDay[] }) {
   const x = (i: number) => PAD.left + slot * i + slot / 2
   const yVisits = (v: number) => PAD.top + PLOT_H - (v / maxVisits) * PLOT_H
   const yLeads = (v: number) => PAD.top + PLOT_H - (v / maxLeads) * PLOT_H
-  const every = Math.max(1, Math.ceil(days.length / X_LABELS))
+  const every = Math.max(1, Math.ceil(days.length / Math.max(2, Math.min(X_LABELS * 2, Math.floor(PLOT_W / 90)))))
   const line = days.map((d, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${yLeads(d.leads).toFixed(1)}`).join(' ')
   const ticks = [0, 0.5, 1]
 
@@ -50,7 +67,15 @@ export function TrendChart({ days }: { days: DashboardDay[] }) {
           {t('dashboard.legendLeads')}
         </li>
       </ul>
-      <svg className="trend-chart" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={t('dashboard.trendChart')}>
+      <div ref={frame} className="trend-frame">
+      <svg
+        className="trend-chart"
+        width={WIDTH}
+        height={HEIGHT}
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        role="img"
+        aria-label={t('dashboard.trendChart')}
+      >
         {ticks.map((f) => {
           const y = PAD.top + PLOT_H - f * PLOT_H
           return (
@@ -93,6 +118,7 @@ export function TrendChart({ days }: { days: DashboardDay[] }) {
           </rect>
         ))}
       </svg>
+      </div>
       <div className="visually-hidden">
         <table>
           <caption>{t('dashboard.trendTable')}</caption>
