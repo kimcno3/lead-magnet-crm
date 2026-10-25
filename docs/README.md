@@ -12,14 +12,14 @@
 | [RELEASE_NOTES_v0.3.0.md](RELEASE_NOTES_v0.3.0.md) | v0.3.0 릴리스 노트: 기능, v0.2.0에서 올리는 방법(네트워크 재생성·루프백 포트·TRUSTED_PROXIES) |
 | [RELEASE_NOTES_v0.2.0.md](RELEASE_NOTES_v0.2.0.md) | v0.2.0 릴리스 노트: 기능, v0.1.0에서 올리는 방법, 필수 키 |
 | [OVERVIEW.md](OVERVIEW.md) | 설계 개요: 아키텍처, 보안 설계, 테스트 전략 |
-| [PLAN.md](PLAN.md) | 과제 해석과 초기 계획 |
+| [PLAN.md](PLAN.md) | 요구사항 해석과 초기 계획 |
 | [adr/](adr/README.md) | 결정 기록(ADR) |
 | [api/openapi.yaml](api/openapi.yaml) | API 명세 |
 | [e2e/](e2e/results.json) | 브라우저 E2E 결과와 스크린샷 |
 
 ## 설계와 결정 (핵심 ADR)
 
-과제에서 가장 중요하게 본 요구는 "등록한 HTML은 관리자 인증 정보와 관리자 API에 접근할 수 없어야 한다"와 "인증한 운영자만 신청자 데이터에 접근한다"입니다. 핵심 결정은 다음과 같습니다. 전체 23건은 [ADR 목록](adr/README.md), 한 줄 요약은 [위키의 결정 기록 요약](https://github.com/kimcno3/lead-magnet-crm/wiki/결정-기록-요약)에 있습니다.
+가장 중요하게 본 요구는 "등록한 HTML은 관리자 인증 정보와 관리자 API에 접근할 수 없어야 한다"와 "인증한 운영자만 신청자 데이터에 접근한다"입니다. 핵심 결정은 다음과 같습니다. 전체 23건은 [ADR 목록](adr/README.md), 한 줄 요약은 [위키의 결정 기록 요약](https://github.com/kimcno3/lead-magnet-crm/wiki/결정-기록-요약)에 있습니다.
 
 | 결정 | 이유 | ADR |
 |---|---|---|

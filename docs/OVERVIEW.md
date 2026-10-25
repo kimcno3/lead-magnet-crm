@@ -1,6 +1,6 @@
 # 리드마그넷 CRM 운영 시스템 개요
 
-제출물을 읽는 사람을 위한 문서다. 실행·테스트 방법은 [README](../README.md), 계획과 결정 이유는 [PLAN](PLAN.md)과 [ADR](adr/README.md), API는 [docs/api/openapi.yaml](api/openapi.yaml)에 있다.
+이 시스템을 처음 읽는 사람을 위한 문서다. 실행·테스트 방법은 [README](../README.md), 계획과 결정 이유는 [PLAN](PLAN.md)과 [ADR](adr/README.md), API는 [docs/api/openapi.yaml](api/openapi.yaml)에 있다.
 
 ## 1. 무엇을 만들었나
 

@@ -48,7 +48,7 @@ X-Frame-Options: DENY
 | 업로드 HTML을 공개 페이지에 직접 렌더링 | 단순, 높이 조절 불필요 | 업로드 스크립트가 래퍼와 같은 출처에서 돈다 | 격리가 없다 |
 | sandbox에 `allow-same-origin` 추가 | iframe 높이·DOM 접근이 쉽다 | `allow-scripts`와 함께면 iframe이 sandbox를 스스로 풀 수 있다 | 격리가 무의미해진다 |
 | 스크립트 제거·HTML 소독(jsoup Safelist 등) | CSP를 엄격하게(`'unsafe-inline'` 없이) 둘 수 있다 | 우회 위험, 스크립트에 기대는 폼이 깨진다 | 브라우저 경계가 더 확실하고 폼 동작을 보존한다 |
-| 업로드 HTML을 별도 도메인에서 제공 | 출처 분리가 가장 강하다 | 로컬 `docker compose` 하나로 재현하기 어렵다 | 과제 범위에서는 sandbox 불투명 출처로 충분하다. 운영 시 공개 출처를 별도 호스트로 두는 것은 ADR 0010 |
+| 업로드 HTML을 별도 도메인에서 제공 | 출처 분리가 가장 강하다 | 로컬 `docker compose` 하나로 재현하기 어렵다 | 이번 범위에서는 sandbox 불투명 출처로 충분하다. 운영 시 공개 출처를 별도 호스트로 두는 것은 ADR 0010 |
 | CSP nonce·hash로 인라인 허용 | `'unsafe-inline'` 없이 셸 보호 | srcdoc이 CSP를 상속해 업로드 HTML의 인라인 코드가 막힌다 | 업로드 HTML마다 hash를 계산해도 이벤트 핸들러 속성은 막힌다 |
 
 ## 결과
