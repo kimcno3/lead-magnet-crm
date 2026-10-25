@@ -81,9 +81,9 @@ cd e2e && npm ci && npx playwright install chromium && npm test   # 결과: docs
   - 파일 다운로드(명단 CSV)는 토큰을 링크에 실을 수 없어 `client.ts`의 `apiDownload`(401 refresh 포함) → `saveDownload`(Blob, object URL)로 받는다.
   - 화면 테스트는 `src/test/http.ts`의 `mockBackend`(경로별 가짜 fetch, refresh·me 기본 응답 포함)와 `src/test/render.tsx`의 `renderPage`로 쓴다.
 - `docker-compose.yml`: postgres → backend → admin-web 순서로 헬스체크를 기다린다. 값은 루트 `.env`에서 읽는다.
-- `docs/`: `PLAN.md`(과제 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `OVERVIEW.md`(제출 개요), `api/openapi.yaml`, `ROADMAP.md`(범위 밖), `adr/`.
+- `docs/`: `PLAN.md`(요구사항 해석, 데이터 모델, 지표 정의, API, 이슈 순서 6.1·6.2절), `OVERVIEW.md`(설계 개요), `api/openapi.yaml`, `ROADMAP.md`(범위 밖), `adr/`.
 - `scripts/bootstrap-github.sh`: 라벨·마일스톤·이슈를 gh api로 만든다. 여러 번 실행해도 안전하다.
-- `scripts/local-up.sh`: 로컬 실행 한 줄(.env 없으면 키 생성, `docker compose up --build -d`, 헬스 대기, 주소 안내, `--fresh`는 볼륨 삭제). GitHub 위키는 제출물을 처음 보는 사람용 요약 안내서다(손으로 쓴다, 근거는 `docs/` 링크). 기능·숫자가 크게 바뀌면 위키의 해당 페이지도 맞춘다.
+- `scripts/local-up.sh`: 로컬 실행 한 줄(.env 없으면 키 생성, `docker compose up --build -d`, 헬스 대기, 주소 안내, `--fresh`는 볼륨 삭제). GitHub 위키는 처음 보는 사람용 요약 안내서다(손으로 쓴다, 근거는 `docs/` 링크). 기능·숫자가 크게 바뀌면 위키의 해당 페이지도 맞춘다.
 
 ## 보안 불변식 (위반 금지)
 
@@ -109,7 +109,7 @@ cd e2e && npm ci && npx playwright install chromium && npm test   # 결과: docs
 - PR 템플릿 체크리스트(마이그레이션 하위 호환, 보안 영향, ADR, OpenAPI, .env.example)를 채운다.
 - Flyway: 이미 적용된 파일은 수정하지 않는다. PR당 마이그레이션은 최대 하나. 파괴적 변경은 expand → contract.
 - 각 PR에는 해당 기능의 성공·실패 테스트와 관련 ADR을 함께 넣는다. 모호한 요구는 가정을 세워 ADR에 기록한다.
-- README에는 실행·테스트 방법만 둔다(과제 요구). 맨 위 문서 링크 한 줄(위키·사용 가이드·ADR·문서 목록)만 예외이고, 핵심 ADR 표와 전체 문서 목록은 `docs/README.md`에 둔다. 사용 가이드(`docs/GUIDE.md`), 문제 해결(`docs/TROUBLESHOOTING.md`), 진행 현황(`docs/WORKPLAN.md`)은 기능을 바꿀 때 함께 갱신한다.
+- README에는 실행·테스트 방법만 둔다(요구사항). 맨 위 문서 링크 한 줄(위키·사용 가이드·ADR·문서 목록)만 예외이고, 핵심 ADR 표와 전체 문서 목록은 `docs/README.md`에 둔다. 사용 가이드(`docs/GUIDE.md`), 문제 해결(`docs/TROUBLESHOOTING.md`), 진행 현황(`docs/WORKPLAN.md`)은 기능을 바꿀 때 함께 갱신한다.
 - 범위 밖: 실제 AI 연동, 외부 CRM·문자·알림톡·광고 연동, 범용 폼 빌더, 결제. 배포는 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## 코드 규칙
